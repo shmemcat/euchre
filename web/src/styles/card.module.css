@@ -118,7 +118,7 @@
    display: flex;
    flex-direction: column;
    align-items: center;
-   gap: 4px;
+   gap: 8px;
    line-height: 1;
    letter-spacing: 0;
    /* Balance the visible letters rather than the font's line box. */
