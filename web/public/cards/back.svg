@@ -1,0 +1,95 @@
+<svg width="1000" height="1400" viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg">
+<title>Celestial card back — curved white crescents</title><desc>Two-way rotationally symmetric navy, dusty peach, and cream card back. Rounded white crescents sit inside double rings with a clear gap. Each end pairs two stars with a centered five-point constellation, mirrored by a half-turn. A filled peach north star with a cream center sits within the central orbit rings and radial rays. Star accents adapted from Phosphor Icons and the central north star adapted from Tabler Icons, under their MIT licenses.</desc><metadata>MIT License
+
+Copyright (c) 2023 Phosphor Icons
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+MIT License
+
+Copyright (c) 2020-2026 Paweł Kuna
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</metadata>
+<rect x="1.5" y="1.5" width="247" height="347" rx="14" fill="#EFEBE6" stroke="#D4CAC0" stroke-width="1.5"/>
+<rect x="9" y="9" width="232" height="332" rx="10" fill="#1C283B"/>
+<rect x="15" y="15" width="220" height="320" rx="7" fill="none" stroke="#CE9496" stroke-width="1.3"/>
+<rect x="20" y="20" width="210" height="310" rx="4" fill="none" stroke="#EFEBE6" stroke-width=".45"/>
+<g stroke="#CE9496" stroke-width=".95" stroke-linecap="round" stroke-linejoin="round" fill="none">
+
+  <path d="M35 120 V52 Q35 32 55 32 H93 M157 32 H195 Q215 32 215 52 V120"/>
+  <path d="M41 104 V55 Q41 39 57 39 H83 M167 39 H193 Q209 39 209 55 V104" stroke-width=".45"/>
+
+
+  <svg x="180.5" y="73.5" width="17" height="17" viewBox="16 48 192 192" fill="#EFEBE6" stroke="none"><path d="M196.2,132.81l-53.36-19.65L123.19,59.8a11.93,11.93,0,0,0-22.38,0L81.16,113.16,27.8,132.81a11.93,11.93,0,0,0,0,22.38l53.36,19.65,19.65,53.36a11.93,11.93,0,0,0,22.38,0l19.65-53.36,53.36-19.65a11.93,11.93,0,0,0,0-22.38Z"/></svg>
+  <circle cx="125" cy="76" r="27" stroke-width=".55"/>
+  <circle cx="125" cy="76" r="22" stroke="#EFEBE6" stroke-width=".55"/>
+  <path d="M114.75 58.246 A20.5 20.5 0 1 0 142.754 86.25 A20.5 20.5 0 0 1 114.75 58.246Z" fill="#FFFFFF" stroke="none"/>
+  <path d="M125 32 V40 M121 36 H129" stroke-width=".7"/>
+  <path d="M75 59 L86 72 L79 86 L63 81 L60 97" stroke-width=".6" stroke-dasharray="1 3"/>
+  <circle cx="75" cy="59" r="1.6" fill="#EFEBE6" stroke="none"/>
+  <circle cx="86" cy="72" r="1.3" fill="#CE9496" stroke="none"/>
+  <circle cx="79" cy="86" r="1.5" fill="#EFEBE6" stroke="none"/><circle cx="63" cy="81" r="1.3" fill="#CE9496" stroke="none"/><circle cx="60" cy="97" r="1.6" fill="#EFEBE6" stroke="none"/>
+  <path transform="translate(172 64)" d="M0 -6 Q0.8400000000000001 -0.8400000000000001 6 0 Q0.8400000000000001 0.8400000000000001 0 6 Q-0.8400000000000001 0.8400000000000001 -6 0 Q-0.8400000000000001 -0.8400000000000001 0 -6Z" fill="#CE9496"/>
+  <circle cx="104" cy="116" r="1" fill="#CE9496" stroke="none"/>
+  <circle cx="151" cy="107" r="1.2" fill="#EFEBE6" stroke="none"/>
+<g transform="rotate(180 125 175)">
+  <path d="M35 120 V52 Q35 32 55 32 H93 M157 32 H195 Q215 32 215 52 V120"/>
+  <path d="M41 104 V55 Q41 39 57 39 H83 M167 39 H193 Q209 39 209 55 V104" stroke-width=".45"/>
+
+
+  <svg x="180.5" y="73.5" width="17" height="17" viewBox="16 48 192 192" fill="#EFEBE6" stroke="none"><path d="M196.2,132.81l-53.36-19.65L123.19,59.8a11.93,11.93,0,0,0-22.38,0L81.16,113.16,27.8,132.81a11.93,11.93,0,0,0,0,22.38l53.36,19.65,19.65,53.36a11.93,11.93,0,0,0,22.38,0l19.65-53.36,53.36-19.65a11.93,11.93,0,0,0,0-22.38Z"/></svg>
+  <circle cx="125" cy="76" r="27" stroke-width=".55"/>
+  <circle cx="125" cy="76" r="22" stroke="#EFEBE6" stroke-width=".55"/>
+  <path d="M114.75 58.246 A20.5 20.5 0 1 0 142.754 86.25 A20.5 20.5 0 0 1 114.75 58.246Z" fill="#FFFFFF" stroke="none"/>
+  <path d="M125 32 V40 M121 36 H129" stroke-width=".7"/>
+  <path d="M75 59 L86 72 L79 86 L63 81 L60 97" stroke-width=".6" stroke-dasharray="1 3"/>
+  <circle cx="75" cy="59" r="1.6" fill="#EFEBE6" stroke="none"/>
+  <circle cx="86" cy="72" r="1.3" fill="#CE9496" stroke="none"/>
+  <circle cx="79" cy="86" r="1.5" fill="#EFEBE6" stroke="none"/><circle cx="63" cy="81" r="1.3" fill="#CE9496" stroke="none"/><circle cx="60" cy="97" r="1.6" fill="#EFEBE6" stroke="none"/>
+  <path transform="translate(172 64)" d="M0 -6 Q0.8400000000000001 -0.8400000000000001 6 0 Q0.8400000000000001 0.8400000000000001 0 6 Q-0.8400000000000001 0.8400000000000001 -6 0 Q-0.8400000000000001 -0.8400000000000001 0 -6Z" fill="#CE9496"/>
+  <circle cx="104" cy="116" r="1" fill="#CE9496" stroke="none"/>
+  <circle cx="151" cy="107" r="1.2" fill="#EFEBE6" stroke="none"/>
+</g>
+<ellipse cx="125" cy="175" rx="80" ry="52" stroke-width=".6"/><ellipse cx="125" cy="175" rx="52" ry="69" stroke-width=".6"/>
+<circle cx="125" cy="175" r="55" fill="#1C283B" stroke-width="1.1"/>
+<circle cx="125" cy="175" r="51" stroke="#EFEBE6" stroke-width=".45"/>
+<g stroke="#EFEBE6" stroke-width=".9"><path d="M125 139 V128" transform="rotate(0 125 175)"/><path d="M125 142 V134" transform="rotate(15 125 175)"/><path d="M125 142 V134" transform="rotate(30 125 175)"/><path d="M125 139 V128" transform="rotate(45 125 175)"/><path d="M125 142 V134" transform="rotate(60 125 175)"/><path d="M125 142 V134" transform="rotate(75 125 175)"/><path d="M125 139 V128" transform="rotate(90 125 175)"/><path d="M125 142 V134" transform="rotate(105 125 175)"/><path d="M125 142 V134" transform="rotate(120 125 175)"/><path d="M125 139 V128" transform="rotate(135 125 175)"/><path d="M125 142 V134" transform="rotate(150 125 175)"/><path d="M125 142 V134" transform="rotate(165 125 175)"/><path d="M125 139 V128" transform="rotate(180 125 175)"/><path d="M125 142 V134" transform="rotate(195 125 175)"/><path d="M125 142 V134" transform="rotate(210 125 175)"/><path d="M125 139 V128" transform="rotate(225 125 175)"/><path d="M125 142 V134" transform="rotate(240 125 175)"/><path d="M125 142 V134" transform="rotate(255 125 175)"/><path d="M125 139 V128" transform="rotate(270 125 175)"/><path d="M125 142 V134" transform="rotate(285 125 175)"/><path d="M125 142 V134" transform="rotate(300 125 175)"/><path d="M125 139 V128" transform="rotate(315 125 175)"/><path d="M125 142 V134" transform="rotate(330 125 175)"/><path d="M125 142 V134" transform="rotate(345 125 175)"/></g>
+<circle cx="125" cy="175" r="25" stroke-width=".65"/><circle cx="125" cy="175" r="20" stroke-width=".4"/>
+<path d="M125 153 C127 166 129 171 147 175 C129 179 127 184 125 197 C123 184 121 179 103 175 C121 171 123 166 125 153Z" fill="#CE9496" stroke="none"/><circle cx="125" cy="175" r="4" fill="#EFEBE6" stroke="none"/>
+<circle cx="44" cy="175" r="7" fill="#EFEBE6" stroke="none"/><circle cx="206" cy="175" r="7" fill="#EFEBE6" stroke="none"/>
+<circle cx="44" cy="175" r="11" stroke-width=".5"/><circle cx="206" cy="175" r="11" stroke-width=".5"/>
+</g></svg>

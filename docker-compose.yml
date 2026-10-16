@@ -1,0 +1,26 @@
+name: euchre
+
+services:
+  web:
+    image: euchre-web:local
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+        VITE_ACCOUNT_API_URL: ${VITE_ACCOUNT_API_URL:-}
+      secrets:
+        - fontawesome_token
+    ports:
+      - "127.0.0.1:3002:3002"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3002/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+secrets:
+  fontawesome_token:
+    environment: FONTAWESOME_PACKAGE_TOKEN

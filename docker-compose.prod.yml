@@ -1,0 +1,6 @@
+# A local production-build preview; no publishing or domain changes.
+# npm run up-prod
+services:
+  web:
+    image: euchre-web:local
+    restart: unless-stopped

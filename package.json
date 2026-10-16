@@ -1,0 +1,16 @@
+{
+  "name": "euchre-site",
+  "private": true,
+  "scripts": {
+    "up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d",
+    "up:build": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build",
+    "down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "up-prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build",
+    "down-prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml down",
+    "web:install": "node --env-file=.env scripts/install-web.mjs",
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "test": "npm --prefix web run test:run",
+    "preview": "npm --prefix web run preview"
+  }
+}

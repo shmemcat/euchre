@@ -1,0 +1,185 @@
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faUser } from "@fortawesome/pro-regular-svg-icons";
+import {
+   faMoon,
+   faSunBright,
+   faVolume,
+   faVolumeSlash,
+   faGear,
+   faMusicNote,
+   faMusicNoteSlash,
+} from "@fortawesome/pro-solid-svg-icons";
+import { useTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
+import { useSound } from "@/context/SoundContext";
+import { EuchreLogo } from "./EuchreLogo";
+import styles from "@/styles/buttons.module.css";
+export function Navbar() {
+   const { pathname } = useLocation();
+   const { user } = useAuth();
+   const { resolvedTheme, toggle } = useTheme();
+   const sound = useSound();
+   const [open, setOpen] = useState(false);
+   const wrap = useRef<HTMLDivElement>(null);
+   const toggleSound = () => {
+      if (sound.muted && sound.volume === 0) sound.setVolume(0.15);
+      sound.setMuted(!sound.muted);
+   };
+   const toggleMusic = () => {
+      if (!sound.music && sound.musicVolume === 0) sound.setMusicVolume(0.15);
+      sound.setMusic(!sound.music);
+   };
+   const changeSoundVolume = (value: number) => {
+      sound.setVolume(value);
+      if ((value === 0) !== sound.muted) sound.setMuted(value === 0);
+   };
+   const changeMusicVolume = (value: number) => {
+      sound.setMusicVolume(value);
+      if (value > 0 !== sound.music) sound.setMusic(value > 0);
+   };
+   useEffect(() => {
+      if (!open) return;
+      const close = (event: PointerEvent) => {
+         if (wrap.current && !wrap.current.contains(event.target as Node))
+            setOpen(false);
+      };
+      const escape = (event: KeyboardEvent) => {
+         if (event.key === "Escape") {
+            setOpen(false);
+            wrap.current?.querySelector("button")?.focus();
+         }
+      };
+      document.addEventListener("pointerdown", close);
+      document.addEventListener("keydown", escape);
+      return () => {
+         document.removeEventListener("pointerdown", close);
+         document.removeEventListener("keydown", escape);
+      };
+   }, [open]);
+   return (
+      <nav aria-label="Main navigation" className="site-nav">
+         {pathname === "/" ? (
+            <span />
+         ) : (
+            <Link to="/" className="nav-home" aria-label="Euchre home">
+               <EuchreLogo size={23} />
+               <span className="navhearts">EUCHRE</span>
+            </Link>
+         )}
+         <div className="nav-actions">
+            <div
+               ref={wrap}
+               className={styles.soundButtonWrap}
+               data-modal-open={open}
+            >
+               <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Sound and music settings"
+                  aria-expanded={open}
+                  aria-controls="sound-settings"
+                  onClick={() => setOpen(!open)}
+               >
+                  <FontAwesomeIcon
+                     icon={
+                        sound.muted && !sound.music
+                           ? faMusicNoteSlash
+                           : faMusicNote
+                     }
+                  />
+               </button>
+               {open && (
+                  <div
+                     id="sound-settings"
+                     className={styles.volumeModalDrop}
+                     role="group"
+                     aria-label="Sound and music"
+                  >
+                     <div className={styles.volumeModalInner}>
+                        <div className={styles.volumeRow}>
+                           <button
+                              type="button"
+                              className={styles.volumeRowIcon}
+                              aria-label="Toggle sound effects"
+                              aria-pressed={!sound.muted}
+                              onClick={toggleSound}
+                           >
+                              <FontAwesomeIcon
+                                 icon={sound.muted ? faVolumeSlash : faVolume}
+                              />
+                           </button>
+                           <input
+                              aria-label="Sound effects volume"
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={sound.volume}
+                              className={styles.volumeSlider}
+                              onChange={(e) =>
+                                 changeSoundVolume(Number(e.target.value))
+                              }
+                           />
+                        </div>
+                        <div className={styles.volumeRow}>
+                           <button
+                              type="button"
+                              className={styles.volumeRowIcon}
+                              aria-label="Toggle music"
+                              aria-pressed={sound.music}
+                              onClick={toggleMusic}
+                           >
+                              <FontAwesomeIcon
+                                 icon={
+                                    sound.music ? faMusicNote : faMusicNoteSlash
+                                 }
+                              />
+                           </button>
+                           <input
+                              aria-label="Music volume"
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={sound.musicVolume}
+                              className={styles.volumeSlider}
+                              onChange={(e) =>
+                                 changeMusicVolume(Number(e.target.value))
+                              }
+                           />
+                        </div>
+                     </div>
+                  </div>
+               )}
+            </div>
+            <button
+               type="button"
+               className="icon-button"
+               aria-label={
+                  resolvedTheme === "dark"
+                     ? "Use light theme"
+                     : "Use dark theme"
+               }
+               onClick={toggle}
+            >
+               <FontAwesomeIcon
+                  icon={resolvedTheme === "dark" ? faMoon : faSunBright}
+               />
+            </button>
+            <Link to="/options" className="icon-button" aria-label="Options">
+               <FontAwesomeIcon icon={faGear} />
+            </Link>
+            <Link
+               to="/user"
+               className="nav-user"
+               aria-label={user ? "Your account" : "Guest account"}
+            >
+               <FontAwesomeIcon icon={faUser} />
+               <span>{user?.name ?? "Guest"}</span>
+            </Link>
+         </div>
+      </nav>
+   );
+}
