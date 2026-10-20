@@ -1,18 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-   faUser,
-   faRobot,
-   faCrown,
-   faCircleInfo,
-} from "@fortawesome/pro-solid-svg-icons";
+import { faCrown, faUser, faRobot } from "@fortawesome/pro-solid-svg-icons";
 import { Navbar } from "@/components/Navbar";
 import { Button, MenuLink } from "@/components/Buttons";
-import { Card, SuitIcon } from "@/components/Card";
+import { Card, CardPlaceholder, SuitIcon } from "@/components/Card";
 import { EuchreLogo } from "@/components/EuchreLogo";
 import { Modal } from "@/components/Modal";
+import { MatchInfo } from "@/components/MatchInfo";
+import { TeamScoreboard } from "@/components/TeamScoreboard";
 import { useGame } from "@/context/GameContext";
 import { useSound } from "@/context/SoundContext";
 import { mediumAction } from "@/game/ai";
@@ -27,24 +23,30 @@ import {
    suitOf,
    team,
    type Action,
+   type Game,
    type Seat,
    type Suit,
 } from "@/game/engine";
 import { asset } from "@/lib/assets";
+import { cardFanStyle } from "@/lib/cardFan";
 import containers from "@/styles/containers.module.css";
 
-function hint(
-   phase: string,
-   human: boolean,
-   sittingOut: boolean
-): string | null {
-   if (["round_complete", "game_over"].includes(phase)) return null;
-   if (sittingOut) return "Your partner is playing alone.";
-   if (!human) return null;
-   if (phase === "bidding1") return "Order up or pass.";
-   if (phase === "bidding2") return "Choose trump or pass.";
-   if (phase === "discard") return "Choose a card to discard.";
-   return phase === "playing" ? "Your turn." : null;
+function hint(game: Game): string {
+   if (["trick_complete", "round_complete", "game_over"].includes(game.phase))
+      return game.message;
+   if (game.sittingOut === 0) return "Your partner is playing alone.";
+   if (game.phase === "discard")
+      return game.turn === 0
+         ? "Choose a card to discard."
+         : `${seatName(game, game.turn)} is discarding…`;
+   if (game.phase === "bidding1" || game.phase === "bidding2")
+      return `${seatName(game, game.turn)} is choosing trump…`;
+   if (game.turn !== 0) return `${seatName(game, game.turn)} is playing…`;
+   if (!game.trick.length) return "Your turn · Lead a card.";
+   const led = effectiveSuit(game.trick[0].card, game.trump);
+   return game.hands[0].some((card) => effectiveSuit(card, game.trump) === led)
+      ? `Your turn · Follow ${SUIT_NAMES[led]}.`
+      : "Your turn · Play any card.";
 }
 
 export default function GamePage() {
@@ -157,41 +159,67 @@ export default function GamePage() {
    const call = (suit: Suit) => act({ type: "call", suit, alone });
    const over = game.phase === "game_over";
    const summary = over || game.phase === "round_complete";
-   const phaseHint = hint(game.phase, humanTurn, game.sittingOut === 0);
+   const phaseHint = hint(game);
+   const hand = sortHand(game.hands[0], game.trump);
    const last = game.results[game.results.length - 1];
    const won = !game.conceded && game.scores[0] >= 10;
    const seat = (s: Seat) => (
       <div
          className={`table-seat seat-${s} ${
+            team(s) === 0 ? "seat-teammate" : ""
+         } ${
             game.turn === s && !summary && game.phase !== "trick_complete"
                ? "seat-turn"
                : ""
          } ${game.sittingOut === s ? "seat-sitting-out" : ""}`}
       >
-         <span className="seat-name">
-            <FontAwesomeIcon icon={s === 0 ? faUser : faRobot} />{" "}
-            {seatName(game, s)}{" "}
-            {s === game.dealer && (
-               <span className="dealer-badge" title="Dealer">
-                  D
+         <div className="seat-marker">
+            <div
+               className="player-seat-card"
+               role="group"
+               aria-label={`${seatName(game, s)}${
+                  game.turn === s && !summary && game.phase !== "trick_complete"
+                     ? " · Current turn"
+                     : ""
+               }`}
+               aria-current={
+                  game.turn === s && !summary && game.phase !== "trick_complete"
+                     ? "true"
+                     : undefined
+               }
+            >
+               <span className="seat-name">
+                  <FontAwesomeIcon
+                     icon={s === 0 ? faUser : faRobot}
+                     className="seat-icon"
+                  />
+                  {seatName(game, s)}{" "}
+                  {s === game.dealer && (
+                     <span
+                        className="dealer-badge"
+                        title="Dealer"
+                        aria-label="Dealer"
+                     >
+                        <span>D</span>
+                     </span>
+                  )}
                </span>
-            )}
-         </span>
-         <span className="seat-detail">
-            {game.sittingOut === s ? (
-               "Sitting out"
-            ) : s === game.maker ? (
-               <>
-                  <FontAwesomeIcon icon={faCrown} />{" "}
-                  {game.alone ? "Going alone" : "Maker"}
-               </>
-            ) : team(s) === 0 ? (
-               "Your team"
-            ) : (
-               "Opponents"
-            )}
-         </span>
-         {s !== 0 && (
+               {game.sittingOut === s ? (
+                  <span className="seat-detail">Sitting out</span>
+               ) : s === game.maker ? (
+                  <span className="seat-detail">
+                     <FontAwesomeIcon icon={faCrown} />{" "}
+                     {game.alone ? "Going alone" : "Maker"}
+                  </span>
+               ) : (
+                  <span className="seat-detail">
+                     {team(s) === 0 ? "Your team" : "Opponents"}
+                  </span>
+               )}
+            </div>
+            {s === 3 && <TeamScoreboard game={game} side={1} />}
+         </div>
+         {s !== 0 && game.sittingOut !== s && (
             <div
                className="hidden-hand"
                aria-label={`${game.hands[s].length} cards remaining`}
@@ -223,166 +251,242 @@ export default function GamePage() {
          <main
             className={`${containers["content-border-container"]} game-container`}
          >
-            <Navbar />
+            <div className="game-header">
+               <Navbar />
+            </div>
             <div id="page-content" tabIndex={-1} className="game-content">
-               <div className="game-info">
-                  <span>Hand {game.handNumber}</span>
-                  <span className="score-pill">
-                     <strong>Us {game.scores[0]}</strong>
-                     <span> / </span>
-                     <strong>Them {game.scores[1]}</strong>
-                  </span>
-                  <span className="game-difficulty">{game.difficulty}</span>
-               </div>
-               <div className="trump-line">
-                  {game.trump ? (
-                     <span>
-                        Trump <SuitIcon suit={game.trump} />{" "}
-                        <span className="capitalize">
-                           {SUIT_NAMES[game.trump]}
-                        </span>
-                     </span>
-                  ) : (
-                     <span>
-                        Making trump · Round{" "}
-                        {game.phase === "bidding2" ? "2" : "1"}
-                     </span>
-                  )}
-                  <button
-                     type="button"
-                     className="icon-button"
-                     aria-label="Game details"
-                     onClick={() => setInfo(true)}
-                  >
-                     <FontAwesomeIcon icon={faCircleInfo} />
-                  </button>
+               <div className="game-top-row">
+                  {seat(2)}
+                  <MatchInfo
+                     game={game}
+                     open={info}
+                     onOpenChange={setInfo}
+                     onConcede={() => {
+                        setInfo(false);
+                        setConcedeOpen(true);
+                     }}
+                  />
                </div>
                <div className="game-table">
-                  {seat(2)}
                   {seat(1)}
                   {seat(3)}
-                  {seat(0)}
                   <div className="table-center">
                      {bidding || game.phase === "discard" ? (
                         <div className="kitty-display">
-                           <img
-                              className="kitty-back"
-                              src={asset("cards/back.svg")}
-                              alt="Undealt cards"
-                           />
-                           {game.phase === "bidding1" ||
-                           game.phase === "discard" ? (
-                              <Card code={game.upCard} />
-                           ) : (
-                              <div className="turned-down-card">
-                                 <Card code={game.upCard} />
-                                 <span>Turned down</span>
-                              </div>
-                           )}
+                           <div className="upcard-stack">
+                              <img
+                                 className="kitty-back"
+                                 src={asset("cards/back.svg")}
+                                 alt="Face-down cards beneath the upcard"
+                                 draggable={false}
+                              />
+                              <Card code={game.upCard} trump={game.trump} />
+                           </div>
+                           <span className="upcard-label">
+                              {game.phase === "bidding2"
+                                 ? "Turned down"
+                                 : game.phase === "discard"
+                                 ? "Picked up"
+                                 : "Upcard"}
+                           </span>
                         </div>
                      ) : (
-                        <div className="trick-table" aria-label="Current trick">
-                           {game.trick.map((play) => (
-                              <div
-                                 className={`trick-card trick-card-${play.seat}`}
-                                 key={play.seat}
+                        <div
+                           className="trick-table"
+                           role="group"
+                           aria-label="Current trick"
+                        >
+                           {game.trump && (
+                              <span
+                                 className="table-trump"
+                                 role="img"
+                                 aria-label={`${SUIT_NAMES[game.trump]} trump`}
+                                 title={`${SUIT_NAMES[game.trump]} trump`}
                               >
-                                 <Card code={play.card} />
-                                 <span>{seatName(game, play.seat)}</span>
-                              </div>
-                           ))}
-                           {!game.trick.length && <EuchreLogo size={80} />}
+                                 <SuitIcon suit={game.trump} />
+                              </span>
+                           )}
+                           {([0, 1, 2, 3] as Seat[])
+                              .filter((s) => s !== game.sittingOut)
+                              .map((s) => {
+                                 const play = game.trick.find(
+                                    (p) => p.seat === s
+                                 );
+                                 return (
+                                    <div
+                                       className={`trick-slot trick-slot-${s}`}
+                                       key={s}
+                                       role="group"
+                                       aria-label={`${seatName(game, s)} ${
+                                          play ? "played" : "card slot"
+                                       }`}
+                                    >
+                                       <CardPlaceholder />
+                                       {play && (
+                                          <div
+                                             className="trick-card"
+                                             key={play.card}
+                                          >
+                                             <Card
+                                                code={play.card}
+                                                trump={game.trump}
+                                             />
+                                          </div>
+                                       )}
+                                    </div>
+                                 );
+                              })}
                         </div>
                      )}
                   </div>
                </div>
-               <div className="tricks-line">
-                  Tricks this hand <strong>Us {game.tricks[0]}</strong>
-                  <span>·</span>
-                  <strong>Them {game.tricks[1]}</strong>
-               </div>
-               <p className="game-message" role="status" aria-live="polite">
-                  {game.message}
-               </p>
-               <p
-                  className={`phase-hint ${humanTurn ? "your-turn-hint" : ""}`}
-                  style={phaseHint ? undefined : { visibility: "hidden" }}
-                  aria-hidden={!phaseHint}
-               >
-                  {phaseHint ?? "\u00a0"}
-               </p>
-               {bidding && humanTurn && (
-                  <div className="bid-controls">
-                     <label className="alone-label">
-                        <input
-                           type="checkbox"
-                           checked={alone}
-                           onChange={(e) => setAlone(e.target.checked)}
-                        />{" "}
-                        Go alone
-                     </label>
-                     <div className="bid-buttons">
-                        {(game.phase === "bidding1"
-                           ? [suitOf(game.upCard)]
-                           : SUITS.filter((s) => s !== suitOf(game.upCard))
-                        ).map((suit) => (
-                           <button
-                              key={suit}
-                              type="button"
-                              className="suit-button"
-                              onClick={() => call(suit)}
-                           >
-                              <SuitIcon suit={suit} />{" "}
-                              {game.phase === "bidding1" ? (
-                                 game.dealer === 0 ? (
-                                    "Pick up"
-                                 ) : (
-                                    "Order up"
-                                 )
-                              ) : (
-                                 <span className="capitalize">
-                                    {SUIT_NAMES[suit]}
-                                 </span>
-                              )}
-                           </button>
-                        ))}
-                        <button
-                           className="suit-button pass-button"
-                           type="button"
-                           onClick={() => act({ type: "pass" })}
+               <div className="player-area">
+                  <TeamScoreboard game={game} side={0} />
+                  <div className="player-position">{seat(0)}</div>
+                  <div
+                     className="phase-area"
+                     role="group"
+                     aria-label="Game status and actions"
+                  >
+                     <span
+                        className="sr-only"
+                        role="status"
+                        aria-live="polite"
+                        aria-atomic="true"
+                     >
+                        {bidding && humanTurn
+                           ? game.phase === "bidding1"
+                              ? "Your bid · Order up or pass."
+                              : "Your bid · Choose trump or pass."
+                           : phaseHint}
+                     </span>
+                     {bidding && humanTurn ? (
+                        <div
+                           className={`bid-controls ${
+                              game.phase === "bidding2" ? "bid-round-two" : ""
+                           }`}
                         >
-                           Pass
-                        </button>
-                     </div>
-                  </div>
-               )}
-               <div
-                  className={`player-hand ${activeHand ? "hand-active" : ""}`}
-                  aria-label="Your hand"
-               >
-                  {sortHand(game.hands[0], game.trump).map((card) => (
-                     <div className="hand-card" key={card}>
-                        <Card
-                           code={card}
-                           disabled={!activeHand || !legal.includes(card)}
-                           onClick={() =>
-                              act({
-                                 type:
-                                    game.phase === "discard"
-                                       ? "discard"
-                                       : "play",
-                                 card,
-                              })
-                           }
-                        />
-                        {game.trump &&
-                           effectiveSuit(card, game.trump) === game.trump &&
-                           suitOf(card) !== game.trump && (
-                              <span className="bower-tag">Left bower</span>
+                           <span className="sr-only">
+                              {game.phase === "bidding1"
+                                 ? "Order up or pass"
+                                 : "Choose trump or pass"}
+                           </span>
+                           {game.phase === "bidding2" && (
+                              <span className="bid-prompt">Choose trump</span>
                            )}
-                     </div>
-                  ))}
+                           <label className="alone-label">
+                              <input
+                                 type="checkbox"
+                                 checked={alone}
+                                 onChange={(e) => setAlone(e.target.checked)}
+                              />{" "}
+                              Go alone
+                           </label>
+                           <div className="bid-buttons">
+                              {(game.phase === "bidding1"
+                                 ? [suitOf(game.upCard)]
+                                 : SUITS.filter(
+                                      (s) => s !== suitOf(game.upCard)
+                                   )
+                              ).map((suit) => (
+                                 <Button
+                                    key={suit}
+                                    name={
+                                       game.phase === "bidding1"
+                                          ? game.dealer === 0
+                                             ? "Pick up"
+                                             : "Order up"
+                                          : SUIT_NAMES[suit]
+                                    }
+                                    size="compact"
+                                    type="button"
+                                    className="bid-action"
+                                    aria-label={
+                                       game.phase === "bidding1"
+                                          ? `${
+                                               game.dealer === 0
+                                                  ? "Pick up"
+                                                  : "Order up"
+                                            } ${SUIT_NAMES[suit]}`
+                                          : SUIT_NAMES[suit]
+                                    }
+                                    onClick={() => call(suit)}
+                                 >
+                                    {game.phase === "bidding1" ? (
+                                       game.dealer === 0 ? (
+                                          "Pick up"
+                                       ) : (
+                                          "Order up"
+                                       )
+                                    ) : (
+                                       <span className="capitalize suit-name">
+                                          {SUIT_NAMES[suit]}
+                                       </span>
+                                    )}
+                                    <SuitIcon suit={suit} />
+                                 </Button>
+                              ))}
+                              <Button
+                                 name="Pass"
+                                 size="compact"
+                                 variant="secondary"
+                                 className="bid-action pass-button"
+                                 type="button"
+                                 onClick={() => act({ type: "pass" })}
+                              >
+                                 Pass
+                              </Button>
+                           </div>
+                        </div>
+                     ) : (
+                        <p
+                           className={`phase-hint ${
+                              humanTurn && activeHand ? "your-turn-hint" : ""
+                           }`}
+                           aria-hidden="true"
+                        >
+                           {phaseHint}
+                        </p>
+                     )}
+                  </div>
                </div>
+               <section className="hand-region" aria-label="Your hand">
+                  <div
+                     className={`player-hand ${
+                        activeHand ? "hand-active" : ""
+                     }`}
+                     data-card-count={hand.length}
+                  >
+                     {hand.length === 0 && (
+                        <CardPlaceholder className="hand-placeholder" />
+                     )}
+                     {hand.map((card, index) => (
+                        <div
+                           className="hand-card"
+                           key={card}
+                           style={cardFanStyle(index, hand.length)}
+                        >
+                           <Card
+                              code={card}
+                              trump={game.trump}
+                              disabled={activeHand && !legal.includes(card)}
+                              onClick={
+                                 activeHand
+                                    ? () =>
+                                         act({
+                                            type:
+                                               game.phase === "discard"
+                                                  ? "discard"
+                                                  : "play",
+                                            card,
+                                         })
+                                    : undefined
+                              }
+                           />
+                        </div>
+                     ))}
+                  </div>
+               </section>
                {(error || botError) && (
                   <p role="alert" className="inline-error">
                      {error || botError}
@@ -394,21 +498,9 @@ export default function GamePage() {
                      continue.
                   </p>
                )}
-               <div className="game-footer">
-                  <Link to="/">Home</Link>
-                  <Link to="/rules">Rules</Link>
-                  <Link to="/options">Options</Link>
-                  <button
-                     type="button"
-                     onClick={() => setConcedeOpen(true)}
-                     disabled={over}
-                  >
-                     Concede
-                  </button>
-               </div>
             </div>
          </main>
-         {summary && !info && (
+         {summary && !info && !concedeOpen && (
             <Modal
                title={
                   over
@@ -486,17 +578,6 @@ export default function GamePage() {
                      }}
                   />
                </div>
-            </Modal>
-         )}
-         {info && (
-            <Modal title="Game Details" onClose={() => setInfo(false)}>
-               <p>
-                  Dealer: {seatName(game, game.dealer)}
-                  <br />
-                  Difficulty:{" "}
-                  <span className="capitalize">{game.difficulty}</span>
-               </p>
-               <Button name="Back to Game" onClick={() => setInfo(false)} />
             </Modal>
          )}
       </>

@@ -1,8 +1,9 @@
 /* H (Blue velvet). Card ink #1c283b is the RGB midpoint between the
    outer background #111a27 and the main panel navy #26364f. */
 html {
-   --button-label-size: 14px;
+   --button-label-size: 16px;
    --button-label-weight: 800;
+   --button-label-spacing: 1px;
    --background: #e3dcd4;
    --contentbox: #efebe6;
    --mediumpink: #e5ded8;
@@ -23,6 +24,8 @@ html {
    --buttontextdisabled: #77747a;
    --white: #ffffff;
    --buttonshine: #ecc5c7;
+   --button-secondary-shine: #ffffff99;
+   --dealer-badge-fill: #c8bcad;
    --buttonshinehover: #e2b3b7;
    --buttonshinedisabled: #dcc4c6;
    --buttonboxshadow: #ad747d4d;
@@ -38,16 +41,16 @@ html {
    --warningicon: #8b5761;
    --tooltipbackground: #e5ded8;
    --tooltiptext: #1c283b;
-   --cardborder: #d4cac0;
-   --cardborderdisabled: #c4bcb4;
+   --cardface: #efebe6;
+   --cardwatermark: #b78185;
    --cardblacksuit: #1c283b;
-   --cardblacksuitdisabled: #8791a4;
+   --cardblacksuitdisabled: #667184;
    --cardredsuit: #8b5761;
-   --cardredsuitdisabled: #bba0a7;
+   --cardredsuitdisabled: #a0737c;
    --cardhighlight: #8b5761;
    --trickslotempty: #1c283b26;
-   --yourturnborder: #bb858b;
-   --yourturnbackground: #e4dbd7;
+   --yourturnborder: transparent;
+   --yourturnbackground: #d9d0c4;
    --roundsummarybackground: #e5ded8;
    --roundsummarydividers: #d4cac0;
    --infopillbg: #e5ded8;
@@ -71,6 +74,7 @@ html {
    color-scheme: light;
 }
 html[data-theme="dark"] {
+   --cardwatermark: #ce9496;
    --background: #111a27;
    --contentbox: #26364f;
    --mediumpink: #3c4d68;
@@ -86,6 +90,8 @@ html[data-theme="dark"] {
    --tan: #e1aeb0;
    --buttontextdisabled: #a0b2c8;
    --buttonshine: #ecc5c7;
+   --button-secondary-shine: #d9d0c480;
+   --dealer-badge-fill: #4b6078;
    --buttonshinehover: #f3d5d7;
    --buttonboxshadow: #7e525a59;
    --buttonboxshadowhover: #7e525a66;
@@ -97,12 +103,10 @@ html[data-theme="dark"] {
    --radiobutton: #e1aeb0;
    --tooltipbackground: #111a27;
    --tooltiptext: #efebe6;
-   --cardborder: #d4cac0;
-   --cardborderdisabled: #5a738b;
-   --cardblacksuit: #dcd3c9;
-   --cardblacksuitdisabled: #a0b2c8;
-   --cardredsuit: #e1aeb0;
-   --cardredsuitdisabled: #a78694;
+   --cardblacksuit: #1c283b;
+   --cardblacksuitdisabled: #667184;
+   --cardredsuit: #8b5761;
+   --cardredsuitdisabled: #a0737c;
    --cardhighlight: #e1aeb0;
    --trickslotempty: #efebe626;
    --yourturnborder: #ce9496;
@@ -126,6 +130,12 @@ html[data-theme="dark"] {
    --stats-header: #efebe6;
    color-scheme: dark;
 }
+/* Light card faces share the same edge in both themes. */
+html,
+html[data-theme="dark"] {
+   --cardborder: #b7a99a;
+   --cardborderdisabled: var(--cardborder);
+}
 body {
    font-size: 18px;
    letter-spacing: 0.8px;
@@ -148,8 +158,16 @@ input:focus-visible,
    outline: 2px solid var(--header);
    outline-offset: 5px;
 }
+button,
+.menu-link,
+.match-menu a {
+   font-variant-caps: small-caps;
+}
 button {
    cursor: pointer;
+   font-weight: var(--button-label-weight);
+   letter-spacing: var(--button-label-spacing);
+   text-transform: capitalize;
 }
 button:disabled {
    cursor: default;
@@ -203,6 +221,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 }
 .nav-home .euchre-logo {
    color: var(--lightpink);
+}
+.nav-home .navhearts {
+   line-height: 1;
+   /* Optically center EB Garamond's capitals with the moon. */
+   transform: translateY(-0.05em);
 }
 .nav-actions {
    display: flex;
@@ -331,6 +354,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 .stats-tabs button {
    background: transparent;
    color: var(--text);
+   font-size: calc(var(--button-label-size) + 4px);
    border: 0;
    border-bottom: 2px solid transparent;
    padding: 8px 16px;
@@ -339,7 +363,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 .stats-tabs button[aria-pressed="true"] {
    border-bottom-color: var(--rulesbuttonselected);
    color: var(--rulesbuttonselected);
-   font-weight: 700;
 }
 .stats-tabs {
    margin-top: 0;
@@ -461,351 +484,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    gap: 24px;
    padding: 80px 0;
 }
-.game-container {
-   min-height: 0;
-   padding-bottom: 28px;
-}
-.game-content {
-   margin: 30px auto 0;
-   width: 100%;
-}
-.game-info {
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   gap: 12px;
-   max-width: 720px;
-   margin: 0 auto;
-   font-size: 16px;
-}
-.score-pill {
-   display: flex;
-   align-items: center;
-   gap: 12px;
-   padding: 6px 20px;
-   border: 1px solid var(--infopillborder);
-   border-radius: 20px;
-   background: var(--infopillbg);
-   font-size: 18px;
-}
-.game-difficulty {
-   text-transform: capitalize;
-}
-.trump-line {
-   display: flex;
-   justify-content: center;
-   align-items: center;
-   gap: 8px;
-   height: 40px;
-   margin: 10px 0 0;
-   font-size: 16px;
-}
-.trump-line > span {
-   display: flex;
-   gap: 8px;
-   align-items: center;
-}
-.game-table {
-   display: grid;
-   grid-template-columns: minmax(90px, 1fr) 230px minmax(90px, 1fr);
-   grid-template-rows: 90px 165px 65px;
-   grid-template-areas: ". top ." "left center right" ". bottom .";
-   align-items: center;
-   justify-items: center;
-   max-width: 740px;
-   margin: 0 auto 6px;
-   column-gap: 8px;
-}
-.table-seat {
-   display: flex;
-   flex-direction: column;
-   align-items: center;
-   gap: 3px;
-   padding: 6px 12px;
-   border-radius: 12px;
-   min-width: 100px;
-   position: relative;
-   max-width: 170px;
-}
-.seat-0 {
-   grid-area: bottom;
-}
-.seat-1 {
-   grid-area: left;
-}
-.seat-2 {
-   grid-area: top;
-}
-.seat-3 {
-   grid-area: right;
-}
-.seat-turn {
-   outline: 2px solid var(--yourturnborder);
-   outline-offset: 3px;
-   background: var(--yourturnbackground);
-}
-.seat-sitting-out {
-   opacity: 0.45;
-}
-.seat-name {
-   font-weight: 600;
-   display: flex;
-   gap: 6px;
-   align-items: center;
-   font-size: 17px;
-   max-width: 100%;
-   overflow-wrap: anywhere;
-}
-.seat-name > svg {
-   font-size: 13px;
-   opacity: 0.7;
-   flex-shrink: 0;
-}
-.seat-detail {
-   font-size: 13px;
-   opacity: 0.75;
-   white-space: nowrap;
-}
-.dealer-badge {
-   display: inline-flex;
-   align-items: center;
-   justify-content: center;
-   font-family: "appFont";
-   font-size: 11px;
-   font-weight: 700;
-   width: 17px;
-   height: 17px;
-   border-radius: 50%;
-   background: var(--lightpink);
-   color: var(--buttontext);
-   flex-shrink: 0;
-}
-.hidden-hand {
-   display: flex;
-   justify-content: center;
-   margin-top: 7px;
-   height: 40px;
-   padding-right: 2px;
-}
-.hidden-hand img {
-   width: 27px;
-   height: 38px;
-   border-radius: 3px;
-}
-.hidden-hand img + img {
-   margin-left: -15px;
-}
-.table-center {
-   grid-area: center;
-   position: relative;
-   width: 230px;
-   height: 165px;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-}
-.kitty-display {
-   display: flex;
-   position: relative;
-   align-items: center;
-   justify-content: center;
-   padding-left: 16px;
-}
-.kitty-back {
-   width: 72px;
-   height: 100px;
-   transform: rotate(-9deg);
-   margin-right: -35px;
-}
-.turned-down-card {
-   position: relative;
-   opacity: 0.65;
-}
-.turned-down-card > span {
-   position: absolute;
-   left: 50%;
-   bottom: -28px;
-   transform: translateX(-50%);
-   font-size: 13px;
-   white-space: nowrap;
-}
-.trick-table {
-   width: 100%;
-   height: 100%;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-}
-.trick-card {
-   position: absolute;
-   display: flex;
-   flex-direction: column;
-   align-items: center;
-   animation: card-arrive 0.18s ease-out;
-}
-.trick-card > span {
-   font-size: 12px;
-   line-height: 1.3;
-   margin-top: 2px;
-   background: var(--contentbox);
-   padding: 0 3px;
-   border-radius: 3px;
-   max-width: 80px;
-   overflow: hidden;
-   text-overflow: ellipsis;
-   white-space: nowrap;
-}
-.trick-card-0 {
-   bottom: -22px;
-   left: 80px;
-   z-index: 3;
-}
-.trick-card-1 {
-   left: 0;
-   top: 28px;
-   z-index: 2;
-}
-.trick-card-2 {
-   top: -26px;
-   left: 80px;
-   z-index: 1;
-}
-.trick-card-3 {
-   right: 0;
-   top: 28px;
-   z-index: 2;
-}
-.tricks-line {
-   display: flex;
-   justify-content: center;
-   align-items: center;
-   gap: 14px;
-   font-size: 15px;
-   margin-top: 6px;
-}
-.tricks-line > strong {
-   font-weight: 600;
-}
-.game-message {
-   text-align: center;
-   font-size: 16px;
-   min-height: 24px;
-   margin: 12px 0 4px;
-}
-.phase-hint {
-   text-align: center;
-   font-size: 15px;
-   margin: 0 0 14px;
-   min-height: 24px;
-   opacity: 0.8;
-}
-.your-turn-hint {
-   color: var(--rulesbuttonselected);
-   opacity: 1;
-   font-weight: 600;
-}
-.bid-controls {
-   margin: 12px auto 20px;
-   display: flex;
-   flex-direction: column;
-   align-items: center;
-   gap: 14px;
-}
-.alone-label {
-   display: flex;
-   align-items: center;
-   gap: 7px;
-   font-size: 16px;
-}
-.bid-buttons {
-   display: flex;
-   justify-content: center;
-   flex-wrap: wrap;
-   gap: 10px;
-}
-.suit-button {
-   display: inline-flex;
-   align-items: center;
-   justify-content: center;
-   gap: 8px;
-   padding: 9px 18px;
-   min-height: 43px;
-   border-radius: 8px;
-   border: 1px solid var(--inputboxborder);
-   background: var(--mediumpink);
-   color: var(--text);
-   font-weight: 600;
-   font-size: 17px;
-}
-.suit-button:hover {
-   border-color: var(--cardhighlight);
-   background: var(--yourturnbackground);
-}
-.suit-button small {
-   font-size: 12px;
-   font-weight: 400;
-}
-.pass-button {
-   background: transparent;
-}
-.player-hand {
-   display: flex;
-   justify-content: center;
-   min-height: 128px;
-   padding: 10px 0 18px;
-   margin: 0 auto;
-   gap: 10px;
-   align-items: flex-start;
-}
-.hand-card {
-   position: relative;
-   flex-shrink: 0;
-   animation: card-arrive 0.25s ease-out;
-}
 .euchre-card {
-   border-width: 1px;
    font-size: 25px;
 }
 .euchre-card:not(button) {
    cursor: default;
 }
-.euchre-card:disabled {
-   opacity: 0.65;
-}
-.hand-active .euchre-card:not(:disabled) {
-   border-color: var(--cardhighlight);
-}
 .euchre-card > span > svg {
    font-size: 21px;
-}
-.bower-tag {
-   position: absolute;
-   top: calc(100% + 3px);
-   left: 50%;
-   transform: translateX(-50%);
-   font-size: 11px;
-   white-space: nowrap;
-   color: var(--rulesbuttonselected);
-}
-.game-footer {
-   display: flex;
-   justify-content: center;
-   align-items: center;
-   gap: 24px;
-   margin-top: 4px;
-   font-size: 14px;
-}
-.game-footer a,
-.game-footer button {
-   color: var(--text);
-   background: transparent;
-   border: 0;
-   padding: 6px 0;
-   text-decoration: none;
-}
-.game-footer a:hover,
-.game-footer button:hover {
-   color: var(--rulesbuttonselected);
 }
 .modal-backdrop {
    position: fixed;
@@ -959,7 +645,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
       height: auto;
       min-height: 28px;
       font-size: var(--button-label-size);
-      letter-spacing: 1.5px;
+      letter-spacing: var(--button-label-spacing);
       text-align: center;
       padding: 4px;
    }
@@ -997,141 +683,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
       gap: 20px 12px;
       padding: 20px;
    }
-   .game-container {
-      padding: 18px 12px 24px;
-   }
-   .game-content {
-      margin-top: 24px;
-   }
-   .game-info {
-      font-size: 13px;
-      gap: 4px;
-   }
-   .score-pill {
-      font-size: 17px;
-      gap: 8px;
-      padding: 5px 14px;
-   }
-   .trump-line {
-      font-size: 15px;
-      margin-top: 12px;
-   }
-   .game-table {
-      grid-template-columns: minmax(65px, 1fr) 178px minmax(65px, 1fr);
-      grid-template-rows: 84px 140px 55px;
-      gap: 8px 0;
-   }
-   .table-seat {
-      min-width: 0;
-      padding: 5px;
-      max-width: 100%;
-   }
-   .seat-name {
-      font-size: 15px;
-      gap: 4px;
-   }
-   .seat-name > svg {
-      display: none;
-   }
-   .seat-detail {
-      font-size: 11px;
-   }
-   .seat-turn {
-      outline-offset: 0;
-   }
-   .hidden-hand {
-      height: 31px;
-      margin-top: 5px;
-   }
-   .hidden-hand img {
-      width: 22px;
-      height: 31px;
-   }
-   .hidden-hand img + img {
-      margin-left: -15px;
-   }
-   .table-center {
-      width: 178px;
-      height: 140px;
-   }
-   .trick-card .euchre-card {
-      width: 56px;
-      min-width: 56px;
-      height: 78px;
-   }
-   .trick-card-0 {
-      bottom: -15px;
-      left: 60px;
-   }
-   .trick-card-1 {
-      left: 0;
-      top: 28px;
-   }
-   .trick-card-2 {
-      top: -15px;
-      left: 60px;
-   }
-   .trick-card-3 {
-      right: 0;
-      top: 28px;
-   }
-   .trick-card > span {
-      font-size: 10px;
-      max-width: 60px;
-   }
-   .tricks-line {
-      font-size: 13px;
-      gap: 10px;
-   }
-   .game-message {
-      font-size: 15px;
-      padding: 0 8px;
-      min-height: 24px;
-   }
-   .phase-hint {
-      font-size: 14px;
-      min-height: 42px;
-      padding: 0 8px;
-   }
-   .player-hand {
-      gap: 4px;
-      min-height: 108px;
-   }
-   .player-hand .euchre-card {
-      width: 58px;
-      min-width: 58px;
-      height: 81px;
-   }
-   .player-hand:has(> :nth-child(6)) {
-      gap: 0;
-   }
-   .player-hand:has(> :nth-child(6)) > div + div {
-      margin-left: -4px;
-   }
-   .euchre-card:disabled {
-      opacity: 0.65;
-   }
-   .suit-button {
-      padding: 8px 12px;
-      font-size: 16px;
-   }
-   .bid-buttons {
-      gap: 8px;
-   }
-   .bid-controls {
-      margin-top: 2px;
-      margin-bottom: 14px;
-   }
-   .alone-label {
-      font-size: 15px;
-   }
-   .alone-label span {
-      font-size: 12px;
-   }
-   .game-footer {
-      gap: 20px;
-      font-size: 14px;
-   }
    .scoring-rules > div {
       gap: 16px;
       font-size: 16px;
@@ -1150,39 +701,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
    .nav-user {
       max-width: 105px;
-   }
-   .game-container {
-      padding-left: 8px;
-      padding-right: 8px;
-   }
-   .game-table {
-      grid-template-columns: minmax(54px, 1fr) 166px minmax(54px, 1fr);
-   }
-   .table-center {
-      width: 166px;
-   }
-   .trick-card-0,
-   .trick-card-2 {
-      left: 55px;
-   }
-   .player-hand .euchre-card {
-      width: 54px;
-      min-width: 54px;
-      height: 76px;
-   }
-   .player-hand:has(> :nth-child(6)) > div + div {
-      margin-left: -6px;
-   }
-   .seat-name {
-      font-size: 13px;
-   }
-   .dealer-badge {
-      width: 14px;
-      height: 14px;
-   }
-   .game-difficulty {
-      max-width: 50px;
-      overflow: hidden;
    }
 }
 @media (prefers-reduced-motion: reduce) {

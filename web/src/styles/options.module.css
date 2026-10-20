@@ -47,8 +47,8 @@
 .styleLabel {
    font-size: var(--button-label-size);
    font-weight: var(--button-label-weight);
-   letter-spacing: 5px;
-   text-transform: uppercase;
+   letter-spacing: var(--button-label-spacing);
+   text-transform: capitalize;
    color: var(--header);
    text-align: center;
 }
@@ -108,8 +108,8 @@
 .hardLevelLabel {
    font-size: var(--button-label-size);
    font-weight: var(--button-label-weight);
-   letter-spacing: 4px;
-   text-transform: uppercase;
+   letter-spacing: var(--button-label-spacing);
+   text-transform: capitalize;
    color: var(--header);
    text-align: center;
 }

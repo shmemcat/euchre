@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { MenuLink, RulesButton } from "@/components/Buttons";
 import { Card } from "@/components/Card";
+import { cardFanStyle } from "@/lib/cardFan";
 import type { Card as CardCode } from "@/game/engine";
 import containers from "@/styles/containers.module.css";
 const SECTIONS = ["Overview", "Deal & Trump", "Play", "Scoring"] as const;
@@ -202,22 +203,14 @@ export default function Rules() {
                            className="rules-card-fan"
                            aria-label="Example cards"
                         >
-                           {cards.map((code, i) => {
-                              const distance = i - (cards.length - 1) / 2;
-                              const rotation = distance * 5;
-                              const translateY = distance ** 2 * 2.5;
-                              return (
-                                 <div
-                                    key={code}
-                                    style={{
-                                       transform: `translateY(${translateY}px) rotate(${rotation}deg)`,
-                                       transformOrigin: "center bottom",
-                                    }}
-                                 >
-                                    <Card code={code} />
-                                 </div>
-                              );
-                           })}
+                           {cards.map((code, i) => (
+                              <div
+                                 key={code}
+                                 style={cardFanStyle(i, cards.length)}
+                              >
+                                 <Card code={code} />
+                              </div>
+                           ))}
                         </div>
                         {section === "Deal & Trump" && (
                            <figcaption>

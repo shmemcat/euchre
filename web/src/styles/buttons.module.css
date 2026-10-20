@@ -7,10 +7,10 @@
    font-family: "appFont";
    font-weight: var(--button-label-weight);
    font-size: var(--button-label-size);
-   letter-spacing: 5px;
-   text-indent: 0.5em;
+   letter-spacing: var(--button-label-spacing);
+   text-indent: 0;
    text-align: center;
-   text-transform: uppercase;
+   text-transform: capitalize;
    border-radius: 8px;
    width: 225px;
    height: 35px;
@@ -59,6 +59,59 @@ button:not(:disabled):hover:active .button-shine {
    background-color: var(--transparent);
 }
 
+/* Size and appearance variants extend the existing button and its shine. */
+.button-compact {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   width: auto;
+   height: auto;
+   min-width: 68px;
+   min-height: 44px;
+   padding: 10px 18px;
+   box-sizing: border-box;
+   font-size: calc(var(--button-label-size) + 2px);
+   line-height: 1.2;
+   white-space: nowrap;
+}
+.button-compact .button-shine {
+   top: 4px;
+   left: 5px;
+   width: 11px;
+   height: 5px;
+   pointer-events: none;
+}
+.menu-button.button-secondary {
+   --button-secondary-border: var(--infopillborder);
+   --button-secondary-shadow: color-mix(
+      in srgb,
+      var(--button-secondary-border) 25%,
+      transparent
+   );
+   background-color: var(--contentbox);
+   color: var(--text);
+   border: 1px solid var(--button-secondary-border);
+   box-shadow: inset -3px -3px 0 var(--button-secondary-shadow);
+}
+.menu-button.button-secondary:not(:disabled):hover {
+   --button-secondary-border: var(--heartslogo);
+   background-color: var(--contentbox);
+   border-color: var(--button-secondary-border);
+   box-shadow: inset -3px -3px 0 var(--button-secondary-shadow);
+}
+.menu-button.button-secondary:not(:disabled):active {
+   background-color: var(--contentbox);
+   box-shadow: inset 2px 2px 0 var(--button-secondary-shadow);
+}
+.menu-button.button-secondary:disabled {
+   color: var(--buttontextdisabled);
+}
+.button-secondary .button-shine,
+.button-secondary:not(:disabled):hover .button-shine {
+   background-color: var(--button-secondary-shine);
+}
+
 /* Toggle Button Group */
 
 .toggle-group {
@@ -78,10 +131,10 @@ button:not(:disabled):hover:active .button-shine {
    font-family: "appFont";
    font-weight: var(--button-label-weight);
    font-size: var(--button-label-size);
-   letter-spacing: 4px;
-   text-indent: 0.5em;
+   letter-spacing: var(--button-label-spacing);
+   text-indent: 0;
    text-align: center;
-   text-transform: uppercase;
+   text-transform: capitalize;
    border-radius: 8px;
    padding: 0 20px;
    height: 32px;
@@ -109,10 +162,10 @@ button:not(:disabled):hover:active .button-shine {
    font-family: "appFont";
    font-weight: var(--button-label-weight);
    font-size: var(--button-label-size);
-   letter-spacing: 5px;
-   text-indent: 0.5em;
+   letter-spacing: var(--button-label-spacing);
+   text-indent: 0;
    text-align: right;
-   text-transform: uppercase;
+   text-transform: capitalize;
 }
 
 .rules-button-selected {
@@ -123,10 +176,10 @@ button:not(:disabled):hover:active .button-shine {
    font-family: "appFont";
    font-weight: var(--button-label-weight);
    font-size: var(--button-label-size);
-   letter-spacing: 5px;
-   text-indent: 0.5em;
+   letter-spacing: var(--button-label-spacing);
+   text-indent: 0;
    text-align: right;
-   text-transform: uppercase;
+   text-transform: capitalize;
 }
 
 .rules-button:hover {
@@ -406,8 +459,7 @@ button[data-selected="false"]:not(:disabled):hover .piping-bag-right {
 
 /* for mobile and mobile-sized windows */
 @media only screen and (max-width: 768px) {
-   .menu-button {
-      letter-spacing: 4px;
+   .menu-button:not(.button-compact) {
       width: 190px;
       height: 44px;
    }
@@ -441,7 +493,7 @@ button[data-selected="false"]:not(:disabled):hover .piping-bag-right {
    }
 
    .toggle-button {
-      font-size: 12px;
+      font-size: calc(var(--button-label-size) - 2px);
       height: 38px;
       width: 190px;
    }

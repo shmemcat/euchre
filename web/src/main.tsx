@@ -8,6 +8,7 @@ import "@/styles/tailwind.css";
 import "@/styles/reset_css.css";
 import "@/styles/base_style.css";
 import "@/styles/euchre.css";
+import "@/styles/game-board.css";
 
 import { config } from "@fortawesome/fontawesome-svg-core";
 import "@fortawesome/fontawesome-svg-core/styles.css";

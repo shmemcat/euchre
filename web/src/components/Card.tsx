@@ -7,7 +7,9 @@ import {
 } from "@fortawesome/pro-solid-svg-icons";
 import {
    cardName,
+   effectiveSuit,
    rankOf,
+   SUIT_NAMES,
    suitOf,
    type Card as CardCode,
    type Suit,
@@ -24,6 +26,16 @@ export function SuitIcon({ suit }: { suit: Suit }) {
       />
    );
 }
+
+export function CardPlaceholder({ className = "" }: { className?: string }) {
+   return (
+      <div
+         className={`${styles.cardSlot} card-placeholder ${className}`}
+         aria-hidden="true"
+      />
+   );
+}
+
 export function Card({
    code,
    onClick,
@@ -31,6 +43,7 @@ export function Card({
    selected = false,
    small = false,
    styleOverride,
+   trump = null,
 }: {
    code: CardCode;
    onClick?: () => void;
@@ -38,11 +51,16 @@ export function Card({
    selected?: boolean;
    small?: boolean;
    styleOverride?: "celestial" | "classic";
+   trump?: Suit | null;
 }) {
    const { preferences } = usePreferences();
    const style = styleOverride ?? preferences.cardStyle;
    const suit = suitOf(code);
    const red = suit === "d" || suit === "h";
+   const isTrump = trump !== null && effectiveSuit(code, trump) === trump;
+   const description = isTrump
+      ? `${suit !== trump ? "Left bower · " : ""}${SUIT_NAMES[trump]} trump`
+      : undefined;
    const className = [
       styles.card,
       small ? styles.cardSmall : "",
@@ -60,18 +78,29 @@ export function Card({
             draggable={false}
          />
       ) : (
-         <span className={styles.cardLabel}>
-            <span className={red ? styles.rankRed : styles.rankBlack}>
-               {rankOf(code)}
+         <>
+            {isTrump && (
+               <FontAwesomeIcon
+                  icon={SUIT_ICONS[trump]}
+                  className={styles.trumpWatermark}
+                  data-trump-suit={trump}
+                  aria-hidden="true"
+               />
+            )}
+            <span className={styles.cardLabel}>
+               <span className={red ? styles.rankRed : styles.rankBlack}>
+                  {rankOf(code)}
+               </span>
+               <SuitIcon suit={suit} />
             </span>
-            <SuitIcon suit={suit} />
-         </span>
+         </>
       );
    return onClick ? (
       <button
          className={className}
          type="button"
          aria-label={cardName(code)}
+         aria-description={description}
          disabled={disabled}
          aria-pressed={selected ? true : undefined}
          onClick={onClick}
@@ -79,7 +108,12 @@ export function Card({
          {content}
       </button>
    ) : (
-      <div className={className} role="img" aria-label={cardName(code)}>
+      <div
+         className={className}
+         role="img"
+         aria-label={cardName(code)}
+         aria-description={description}
+      >
          {content}
       </div>
    );

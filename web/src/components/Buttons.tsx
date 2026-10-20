@@ -1,28 +1,31 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ButtonHTMLAttributes } from "react";
 import { Link } from "react-router-dom";
 import styles from "@/styles/buttons.module.css";
-type ButtonProps = {
+type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "name"> & {
    name: string;
-   disabled?: boolean;
-   onClick?: () => void;
-   style?: CSSProperties;
-   type?: "button" | "submit" | "reset";
-   children?: ReactNode;
+   variant?: "primary" | "secondary";
+   size?: "menu" | "compact";
 };
 export function Button({
    name,
-   disabled,
-   onClick,
-   style,
+   variant = "primary",
+   size = "menu",
+   className = "",
    type = "button",
    children,
+   ...props
 }: ButtonProps) {
    return (
       <button
-         className={styles["menu-button"]}
-         disabled={disabled}
-         onClick={onClick}
-         style={style}
+         {...props}
+         className={[
+            styles["menu-button"],
+            variant === "secondary" ? styles["button-secondary"] : "",
+            size === "compact" ? styles["button-compact"] : "",
+            className,
+         ]
+            .filter(Boolean)
+            .join(" ")}
          type={type}
       >
          <span className={styles["button-shine"]} aria-hidden="true" />
