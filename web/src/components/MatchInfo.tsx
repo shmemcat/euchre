@@ -1,24 +1,18 @@
 import { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBars, faXmark } from "@fortawesome/pro-solid-svg-icons";
+import { faBars } from "@fortawesome/pro-solid-svg-icons";
 import { SuitIcon } from "@/components/Card";
-import { seatName, SUIT_NAMES, team, type Game } from "@/game/engine";
+import { seatName, SUIT_NAMES, type Game } from "@/game/engine";
 
 type Props = {
    game: Game;
    open: boolean;
    onOpenChange: (open: boolean) => void;
-   onConcede: () => void;
 };
 
-export function MatchInfo({ game, open, onOpenChange, onConcede }: Props) {
+export function MatchInfo({ game, open, onOpenChange }: Props) {
    const wrap = useRef<HTMLDivElement>(null);
    const trigger = useRef<HTMLButtonElement>(null);
-   const close = () => {
-      onOpenChange(false);
-      trigger.current?.focus();
-   };
 
    useEffect(() => {
       if (!open) return;
@@ -71,19 +65,8 @@ export function MatchInfo({ game, open, onOpenChange, onConcede }: Props) {
             <section
                id="match-details"
                className="match-panel"
-               aria-labelledby="match-details-title"
+               aria-label="Match details"
             >
-               <div className="match-panel-heading">
-                  <h2 id="match-details-title">Match details</h2>
-                  <button
-                     type="button"
-                     className="icon-button"
-                     aria-label="Close match details"
-                     onClick={close}
-                  >
-                     <FontAwesomeIcon icon={faXmark} />
-                  </button>
-               </div>
                <dl className="match-facts">
                   <div>
                      <dt>First to {game.target}</dt>
@@ -134,57 +117,6 @@ export function MatchInfo({ game, open, onOpenChange, onConcede }: Props) {
                      <dd className="capitalize">{game.difficulty}</dd>
                   </div>
                </dl>
-               {game.results.length > 0 && (
-                  <div className="match-history-section">
-                     <h3>Previous hands</h3>
-                     <ol className="match-history">
-                        {game.results
-                           .slice(-5)
-                           .reverse()
-                           .map((result) => (
-                              <li key={result.hand}>
-                                 <span>
-                                    <span>Hand {result.hand}</span>
-                                    <small>
-                                       <SuitIcon suit={result.trump} />{" "}
-                                       {result.tricks[team(result.maker)] < 3
-                                          ? "Euchred"
-                                          : result.tricks[
-                                               team(result.maker)
-                                            ] === 5
-                                          ? result.alone
-                                             ? "Lone-hand sweep"
-                                             : "All five tricks"
-                                          : `${seatName(
-                                               game,
-                                               result.maker
-                                            )} called`}
-                                    </small>
-                                 </span>
-                                 <strong>
-                                    {result.points[0]
-                                       ? `Us +${result.points[0]}`
-                                       : `Them +${result.points[1]}`}
-                                 </strong>
-                              </li>
-                           ))}
-                     </ol>
-                  </div>
-               )}
-               <div className="match-teams">
-                  <span>You + Partner</span>
-                  <span>West + East</span>
-               </div>
-               <div className="match-menu">
-                  <Link to="/rules">Rules</Link>
-                  <Link to="/options">Options</Link>
-                  <Link to="/stats">Statistics</Link>
-                  {game.phase !== "game_over" && (
-                     <button type="button" onClick={onConcede}>
-                        Concede
-                     </button>
-                  )}
-               </div>
             </section>
          )}
       </div>

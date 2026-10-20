@@ -9,6 +9,7 @@ html {
    --mediumpink: #e5ded8;
    --lightpink: #ce9496;
    --hoverpink: #b78185;
+   --nav-logo-hover: var(--hoverpink);
    --darkpink: #99666a;
    --heartslogo: #d9d0c4;
    --sparkle: #ce9496;
@@ -44,13 +45,11 @@ html {
    --cardface: #efebe6;
    --cardwatermark: #b78185;
    --cardblacksuit: #1c283b;
-   --cardblacksuitdisabled: #667184;
    --cardredsuit: #8b5761;
-   --cardredsuitdisabled: #a0737c;
    --cardhighlight: #8b5761;
    --trickslotempty: #1c283b26;
-   --yourturnborder: transparent;
-   --yourturnbackground: #d9d0c4;
+   --yourturnborder: var(--lightpink);
+   --yourturnbackground: #e1d9cf;
    --roundsummarybackground: #e5ded8;
    --roundsummarydividers: #d4cac0;
    --infopillbg: #e5ded8;
@@ -79,7 +78,8 @@ html[data-theme="dark"] {
    --contentbox: #26364f;
    --mediumpink: #3c4d68;
    --lightpink: #ce9496;
-   --hoverpink: #dfaaaf;
+   --hoverpink: color-mix(in srgb, var(--lightpink) 82%, #000);
+   --nav-logo-hover: #a0b2c8;
    --heartslogo: #5a738b;
    --header: #efebe6;
    --text: #efebe6;
@@ -92,7 +92,7 @@ html[data-theme="dark"] {
    --buttonshine: #ecc5c7;
    --button-secondary-shine: #d9d0c480;
    --dealer-badge-fill: #4b6078;
-   --buttonshinehover: #f3d5d7;
+   --buttonshinehover: color-mix(in srgb, var(--buttonshine) 82%, #000);
    --buttonboxshadow: #7e525a59;
    --buttonboxshadowhover: #7e525a66;
    --selectionbgcolor: #ce949680;
@@ -104,9 +104,7 @@ html[data-theme="dark"] {
    --tooltipbackground: #111a27;
    --tooltiptext: #efebe6;
    --cardblacksuit: #1c283b;
-   --cardblacksuitdisabled: #667184;
    --cardredsuit: #8b5761;
-   --cardredsuitdisabled: #a0737c;
    --cardhighlight: #e1aeb0;
    --trickslotempty: #efebe626;
    --yourturnborder: #ce9496;
@@ -130,11 +128,13 @@ html[data-theme="dark"] {
    --stats-header: #efebe6;
    color-scheme: dark;
 }
-/* Light card faces share the same edge in both themes. */
+/* Light faces and Hearts' muted inactive ink stay consistent in both themes. */
 html,
 html[data-theme="dark"] {
    --cardborder: #b7a99a;
-   --cardborderdisabled: var(--cardborder);
+   --cardborderdisabled: color-mix(in srgb, var(--cardborder) 55%, var(--cardface));
+   --cardblacksuitdisabled: #99929a;
+   --cardredsuitdisabled: #c18e98;
 }
 body {
    font-size: 18px;
@@ -159,8 +159,7 @@ input:focus-visible,
    outline-offset: 5px;
 }
 button,
-.menu-link,
-.match-menu a {
+.menu-link {
    font-variant-caps: small-caps;
 }
 button {
@@ -224,8 +223,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 }
 .nav-home .navhearts {
    line-height: 1;
-   /* Optically center EB Garamond's capitals with the moon. */
-   transform: translateY(-0.05em);
+}
+.nav-home .euchre-logo,
+.nav-home .navhearts {
+   transition: color 0.3s ease;
+}
+.nav-home:is(:hover, :focus-visible) .euchre-logo,
+.nav-home:is(:hover, :focus-visible) .navhearts {
+   color: var(--nav-logo-hover);
 }
 .nav-actions {
    display: flex;
@@ -263,8 +268,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    flex-shrink: 0;
 }
 .icon-button:hover,
-.nav-user:hover,
-.nav-home:hover {
+.nav-user:hover {
    color: var(--hoverpink);
 }
 .menu-link {

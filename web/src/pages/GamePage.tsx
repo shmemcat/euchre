@@ -50,14 +50,13 @@ function hint(game: Game): string {
 }
 
 export default function GamePage() {
-   const { game, act, saved, error, concedeGame } = useGame();
+   const { game, act, saved, error } = useGame();
    const sound = useSound();
    const [alone, setAlone] = useState(false);
-   const [concedeOpen, setConcedeOpen] = useState(false);
    const [info, setInfo] = useState(false);
    const [botError, setBotError] = useState("");
    const lastSound = useRef("");
-   const paused = concedeOpen || info;
+   const paused = info;
    const delay = 700;
    useEffect(() => {
       setAlone(false);
@@ -261,10 +260,6 @@ export default function GamePage() {
                      game={game}
                      open={info}
                      onOpenChange={setInfo}
-                     onConcede={() => {
-                        setInfo(false);
-                        setConcedeOpen(true);
-                     }}
                   />
                </div>
                <div className="game-table">
@@ -500,7 +495,7 @@ export default function GamePage() {
                )}
             </div>
          </main>
-         {summary && !info && !concedeOpen && (
+         {summary && !info && (
             <Modal
                title={
                   over
@@ -556,27 +551,6 @@ export default function GamePage() {
                   )}
                   <MenuLink to="/" name="Home" />
                   {over && <MenuLink to="/stats" name="Statistics" />}
-               </div>
-            </Modal>
-         )}
-         {concedeOpen && (
-            <Modal
-               title="Concede this game?"
-               onClose={() => setConcedeOpen(false)}
-            >
-               <p>Conceding counts as a loss.</p>
-               <div className="button-stack">
-                  <Button
-                     name="Keep Playing"
-                     onClick={() => setConcedeOpen(false)}
-                  />
-                  <Button
-                     name="Concede Game"
-                     onClick={() => {
-                        concedeGame();
-                        setConcedeOpen(false);
-                     }}
-                  />
                </div>
             </Modal>
          )}

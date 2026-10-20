@@ -38,6 +38,8 @@ function NavActions() {
    const { resolvedTheme, toggle } = useTheme();
    const sound = useSound();
    const [open, setOpen] = useState(false);
+   const [themeBouncing, setThemeBouncing] = useState(false);
+   const [soundBouncing, setSoundBouncing] = useState(false);
    const wrap = useRef<HTMLDivElement>(null);
    const toggleSound = () => {
       if (sound.muted && sound.volume === 0) sound.setVolume(0.15);
@@ -87,9 +89,17 @@ function NavActions() {
                aria-label="Sound and music settings"
                aria-expanded={open}
                aria-controls="sound-settings"
-               onClick={() => setOpen(!open)}
+               onClick={() => {
+                  setSoundBouncing(
+                     !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                  );
+                  setOpen(!open);
+               }}
             >
                <FontAwesomeIcon
+                  className={styles.navIconBounce}
+                  data-bouncing={soundBouncing}
+                  onAnimationEnd={() => setSoundBouncing(false)}
                   icon={
                      sound.muted && !sound.music
                         ? faMusicNoteSlash
@@ -167,9 +177,17 @@ function NavActions() {
             aria-label={
                resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"
             }
-            onClick={toggle}
+            onClick={() => {
+               setThemeBouncing(
+                  !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+               );
+               toggle();
+            }}
          >
             <FontAwesomeIcon
+               className={styles.navIconBounce}
+               data-bouncing={themeBouncing}
+               onAnimationEnd={() => setThemeBouncing(false)}
                icon={resolvedTheme === "dark" ? faMoon : faSunBright}
             />
          </button>

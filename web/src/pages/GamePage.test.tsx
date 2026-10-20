@@ -324,7 +324,7 @@ describe("Quiet Table game controls", () => {
       expect(takeAction).toHaveBeenCalledWith({ type: "discard", card: "As" });
    });
 
-   it("expands real match history and closes with Escape or a click outside", () => {
+   it("shows current match details and closes with Escape or a click outside", () => {
       board(
          fixture({
             handNumber: 2,
@@ -345,8 +345,8 @@ describe("Quiet Table game controls", () => {
       const trigger = screen.getByRole("button", { name: "Match details" });
       fireEvent.click(trigger);
       const panel = screen.getByRole("region", { name: "Match details" });
-      expect(within(panel).getByText("Us +2")).toBeInTheDocument();
-      expect(within(panel).getByText("All five tricks")).toBeInTheDocument();
+      expect(within(panel).getByText("Us 2 · Them 0")).toBeInTheDocument();
+      expect(within(panel).getByText("2")).toBeInTheDocument();
       fireEvent.keyDown(document, { key: "Escape" });
       expect(trigger).toHaveFocus();
       expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -365,9 +365,7 @@ describe("Quiet Table game controls", () => {
       act(() => vi.advanceTimersByTime(1500));
       expect(takeAction).not.toHaveBeenCalled();
       expect(workers[0].terminate).toHaveBeenCalled();
-      fireEvent.click(
-         screen.getByRole("button", { name: "Close match details" })
-      );
+      fireEvent.pointerDown(document.body);
       act(() =>
          workers.at(-1)!.onmessage?.({ data: { action: { type: "pass" } } })
       );

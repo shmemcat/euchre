@@ -46,7 +46,7 @@
    background-color: var(--buttonshine);
 }
 
-button:not(:disabled):hover .button-shine {
+.menu-button:not(:disabled):hover .button-shine {
    background-color: var(--buttonshinehover);
 }
 
@@ -54,7 +54,7 @@ button:disabled .button-shine {
    background-color: var(--buttonshinedisabled);
 }
 
-button:not(:disabled):hover:active .button-shine {
+.menu-button:not(:disabled):hover:active .button-shine {
    transition: 0ms;
    background-color: var(--transparent);
 }
@@ -259,6 +259,10 @@ button[data-selected="false"]:not(:disabled):hover .piping-bag-right {
 }
 
 .icon[clicked="1"] {
+   animation: icon-select-bounce 0.4s linear;
+}
+
+.navIconBounce[data-bouncing="true"] {
    animation: icon-select-bounce 0.4s linear;
 }
 
@@ -521,7 +525,7 @@ button[data-selected="false"]:not(:disabled):hover .piping-bag-right {
       box-shadow: inset -3px -3px 0px var(--buttonboxshadow);
    }
 
-   button:not(:disabled):hover .button-shine {
+   .menu-button:not(:disabled):hover .button-shine {
       background-color: var(--buttonshine);
    }
 

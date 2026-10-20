@@ -14,8 +14,13 @@
    align-items: center;
    justify-content: center;
    gap: 3px;
+   font-family: "appFont", Georgia, serif;
    font-weight: 700;
-   font-size: clamp(1.1rem, 0.75rem + 0.35vw, 1.25rem);
+   font-size: 25px;
+   font-variant-caps: normal;
+   font-variant-numeric: lining-nums tabular-nums;
+   letter-spacing: 0;
+   text-transform: none;
    cursor: pointer;
    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -31,7 +36,7 @@
    pointer-events: none;
 }
 
-.card:hover:not(:disabled) {
+button.card:hover:not(:disabled) {
    transform: translateY(-6px);
    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
@@ -109,7 +114,6 @@
 .cardDisabled :global(.red-suit) {
    color: var(--cardredsuitdisabled);
 }
-
 .card:disabled {
    cursor: not-allowed;
 }
@@ -140,6 +144,10 @@
 .card .trumpWatermark[data-trump-suit="h"],
 .card .trumpWatermark[data-trump-suit="d"] {
    color: var(--cardwatermark);
+}
+
+.cardDisabled .trumpWatermark {
+   opacity: 0.08;
 }
 
 .cardLabel {
