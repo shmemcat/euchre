@@ -82,12 +82,17 @@ The app is prepared for `cards.shmem.dev/euchre/`:
 - All app routes use React Router's configurable base path.
 - Assets and the bot worker resolve beneath the configured Vite base.
 - Set `VITE_BASE_PATH=/euchre/` when building for the future hub.
-- Shared-account integration is isolated behind a cookie-based adapter, disabled
-  until a real service is available. No duplicate Euchre account database exists.
-- The existing Hearts site and accounts have not been modified.
+- The hub and both games share the Hearts account service through an HttpOnly
+  cookie. Start `npm run dev:accounts` in the sibling Cards repo and use localhost
+  consistently. The runner initializes a fresh local database.
+- Euchre links to the hub for registration, verification, and password recovery.
+  Production builds need `VITE_ACCOUNT_API_URL=/api/account` and API routing.
+- Existing live Hearts identities and passwords are preserved when deploying
+  migration017 against the existing database. No live deployment has been done.
+- Euchre games, stats, and achievements remain browser-local after signing in.
 
-See [the account and hosting integration plan](docs/shared-accounts.md) for the
-future hub, existing-account migration, routing, and result-validation boundaries.
+See [account and hosting notes](docs/shared-accounts.md) for local setup,
+existing-account migration, routing, and result-validation boundaries.
 No extra GitHub repository is needed to run or finish the local Euchre site.
 
 ## Verification

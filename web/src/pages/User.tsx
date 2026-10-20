@@ -33,6 +33,7 @@ export default function User() {
                         onClick={() => void logout()}
                         disabled={loading}
                      />
+                     <a className="link" href={import.meta.env.DEV ? "http://localhost:3000/user/" : "/user/"}>Account settings</a>
                   </>
                ) : configured ? (
                   <form onSubmit={submit} className="account-form">
@@ -61,6 +62,8 @@ export default function User() {
                         type="submit"
                         disabled={loading}
                      />
+                     <a className="link" href={import.meta.env.DEV ? "http://localhost:3000/user/?view=recover" : "/user/?view=recover"}>Forgot password?</a>
+                     <a className="link" href={import.meta.env.DEV ? "http://localhost:3000/user/?view=register" : "/user/?view=register"}>Create account</a>
                   </form>
                ) : (
                   <h2>Guest</h2>

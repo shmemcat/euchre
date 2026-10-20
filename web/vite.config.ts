@@ -14,16 +14,13 @@ export default defineConfig(({ mode }) => {
          host: "127.0.0.1",
          port: 3002,
          strictPort: true,
-         ...(env.ACCOUNT_PROXY_TARGET
-            ? {
-                 proxy: {
-                    "/api/account": {
-                       target: env.ACCOUNT_PROXY_TARGET,
-                       changeOrigin: true,
-                    },
-                 },
-              }
-            : {}),
+         proxy: {
+            "/api/account": {
+               target: env.ACCOUNT_PROXY_TARGET || "http://127.0.0.1:5000",
+               changeOrigin: true,
+               rewrite: (p) => p.replace(/^\/api/, ""),
+            },
+         },
       },
       preview: { host: "127.0.0.1", port: 3002, strictPort: true },
       test: {

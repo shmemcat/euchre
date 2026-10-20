@@ -1,39 +1,45 @@
 # Shared Cards accounts and hosting
 
-## Current boundary
+## Shared login locally
 
-Euchre runs locally without an account server. Guest progress is device-local.
-`VITE_ACCOUNT_API_URL` is blank by default, so the app makes no login requests and
-offers guest play. `web/src/lib/account.ts` is the single integration boundary for
-the future service. Enabling it alone does not migrate Hearts or sync local stats.
+The Cards hub and both games now use the existing Hearts account service.
+Run `npm run dev:accounts` in the sibling Cards repo, then start each frontend.
+Use localhost:3000 for the hub, localhost:3001 for Hearts, localhost:3002 for Euchre.
+The local runner creates a separate Cards/.local/accounts.sqlite database; it does
+not connect to the live Hearts database. Registration, verification, and recovery
+are on the hub `/user/` page, linked from Euchre's account screen.
 
-## Planned account contract
+Development enables `/api/account` by default and proxies it to localhost:5000.
+Override `ACCOUNT_PROXY_TARGET` for another API. Docker dev defaults to
+`http://host.docker.internal:5000`; use port5001 when using Hearts' Docker API.
+Production builds require `VITE_ACCOUNT_API_URL=/api/account` and matching ingress.
+No duplicate Euchre users table exists. Euchre games and statistics remain
+browser-local; signing in does not upload or merge them.
 
-Mount one account service at `/api/account` on `cards.shmem.dev`. Keep the existing
-Hearts user IDs, password hashes, verification status, and profile identities.
-Audit and migrate the existing account data with a backup before switching hosts.
-Keep each game's stats, achievements, active games, and preferences namespaced.
+## Account contract
 
-The adapter uses these endpoints:
+`web/src/lib/account.ts` uses:
 
-- `GET /session`: `{ user: null | { id: string, name: string, profile_icon?: string }, csrf_token: string }`.
-  An unauthenticated session also returns a CSRF token.
-- `POST /login`: JSON `{ username, password }` with `X-CSRF-Token`; returns the same
-  session response and sets the shared session cookie.
-- `POST /logout`: `X-CSRF-Token`; invalidates the server session and returns a guest
-  session response.
+- `GET /session`: `{ user: null | { id: string, name: string, email?: string, profile_icon?: string }, csrf_token: string }`.
+- `POST /login`: `{ username, password }` and X-CSRF-Token; returns a rotated session.
+- `POST /logout`: X-CSRF-Token; revokes login and returns a guest session.
 
-Requests include cookies. Session tokens are never exposed to JavaScript or stored
-in localStorage. The service should use a Secure, HttpOnly, SameSite cookie scoped
-to `cards.shmem.dev`, preferably a `__Host-` session cookie with `Path=/`, rotate
-sessions on sign-in, verify CSRF tokens and request origins, and mark session
-responses `Cache-Control: no-store`. Logout must invalidate the server session.
-Registration, verification, resets, and profile editing belong to the shared
-service; they are deliberately not cloned into this game.
+Cookies are HttpOnly, host-only, SameSite=Lax, Path=/, Secure on HTTPS. Credentials
+never enter localStorage or game links. Mutations check CSRF and Origin; session
+responses are uncached. All three sites refresh login on focus and share logout.
+Verification and recovery use expiring, hashed, single-use tokens. Password reset
+revokes existing sessions and legacy Hearts JWTs. IDs are normalized to strings.
 
-The adapter contract requires string user IDs; normalize existing integer IDs in
-the service response. A future service implementing Hearts' current bearer-token
-API is not compatible without that planned migration.
+## Existing live Hearts accounts
+
+Deploy the shared API against the existing Hearts database after backup and
+staging verification. Run migration017 using `flask db upgrade`; it adds
+users.auth_version and account_sessions without rewriting IDs, password hashes,
+profiles, games, or stats. Set API CARDS_PUBLIC_URL=https://cards.shmem.dev and
+build Hearts with VITE_SHARED_ACCOUNTS=true. Keep the existing database, JWT secret,
+and SMTP2GO mail configuration. Never replace live data with the fresh local DB.
+The Cards repo's docs/integration.md contains the full deployment sequence.
+This local work has not deployed or modified the live database.
 
 ## Future public routing
 
@@ -68,7 +74,5 @@ are separate responsibilities.
 
 ## Source repositories
 
-Hearts and Euchre can remain in their existing GitHub repositories. The future hub
-can use a small `cards` repository for the landing page and routing configuration.
-It is not required for local Euchre development; choose its deployment home when
-the hub is ready. Shared packages can be extracted once real reuse is established.
+Hearts and Euchre can remain in their existing GitHub repositories. The sibling `cards` repository contains the landing page, shared account UI,
+and local API runner. Hosting configuration remains a later deployment step. Shared packages can be extracted once real reuse is established.

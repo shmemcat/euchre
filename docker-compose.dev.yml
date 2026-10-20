@@ -13,7 +13,7 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
       VITE_ACCOUNT_API_URL: ${VITE_ACCOUNT_API_URL:-}
-      ACCOUNT_PROXY_TARGET: ${ACCOUNT_PROXY_TARGET:-}
+      ACCOUNT_PROXY_TARGET: ${ACCOUNT_PROXY_TARGET:-http://host.docker.internal:5000}
     command: npm run dev -- --host 0.0.0.0
     restart: "no"
 

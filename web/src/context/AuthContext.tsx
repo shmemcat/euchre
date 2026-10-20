@@ -6,7 +6,7 @@ import {
    type ReactNode,
 } from "react";
 import { createAccountClient, type AccountSession } from "@/lib/account";
-const base = (import.meta.env.VITE_ACCOUNT_API_URL ?? "").trim();
+const base = (import.meta.env.VITE_ACCOUNT_API_URL || (import.meta.env.DEV && import.meta.env.MODE !== "test" ? "/api/account" : "")).trim();
 const client = base ? createAccountClient(base) : null;
 const Context = createContext<{
    user: AccountSession["user"];
@@ -37,6 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          });
       return () => controller.abort();
    }, []);
+   useEffect(() => {
+      if (!client) return;
+      const refresh = () => {
+         if (document.visibilityState !== "hidden") client.session().then(fresh => { setSession(fresh); setError(""); }).catch(() => {});
+      };
+      window.addEventListener("focus", refresh);
+      window.addEventListener("pageshow", refresh);
+      return () => { window.removeEventListener("focus", refresh); window.removeEventListener("pageshow", refresh); };
+   }, []);
    const login = async (username: string, password: string) => {
       if (!client) return;
       setError("");
@@ -55,7 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError("");
       setLoading(true);
       try {
-         setSession(await client.logout(session.csrf_token));
+         const fresh = await client.session();
+         setSession(await client.logout(fresh.csrf_token));
       } catch (e) {
          setError(e instanceof Error ? e.message : "Unable to sign out.");
       } finally {

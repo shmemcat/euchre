@@ -1,4 +1,4 @@
-export type AccountUser = { id: string; name: string; profile_icon?: string };
+export type AccountUser = { id: string; name: string; email?: string; profile_icon?: string };
 export type AccountSession = { user: AccountUser | null; csrf_token: string };
 export function createAccountClient(
    base: string,
@@ -17,6 +17,7 @@ export function createAccountClient(
       const data = await response.json().catch(() => null);
       if (!response.ok)
          throw new Error(
+            typeof data?.error === "string" ? data.error :
             response.status === 401
                ? "Check your username and password."
                : "Unable to connect to your account. Please try again."
