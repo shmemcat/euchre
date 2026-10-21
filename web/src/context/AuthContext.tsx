@@ -6,7 +6,12 @@ import {
    type ReactNode,
 } from "react";
 import { createAccountClient, type AccountSession } from "@/lib/account";
-const base = (import.meta.env.VITE_ACCOUNT_API_URL || (import.meta.env.DEV && import.meta.env.MODE !== "test" ? "/api/account" : "")).trim();
+const base = (
+   import.meta.env.VITE_ACCOUNT_API_URL ||
+   (import.meta.env.DEV && import.meta.env.MODE !== "test"
+      ? "/api/account"
+      : "")
+).trim();
 const client = base ? createAccountClient(base) : null;
 const Context = createContext<{
    user: AccountSession["user"];
@@ -15,6 +20,11 @@ const Context = createContext<{
    error: string;
    login: (name: string, password: string) => Promise<void>;
    logout: () => Promise<void>;
+   updateProfile: (data: {
+      profile_icon?: string;
+      email?: string;
+   }) => Promise<AccountSession>;
+   deleteAccount: (password: string) => Promise<void>;
 } | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
    const [session, setSession] = useState<AccountSession>({
@@ -40,11 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    useEffect(() => {
       if (!client) return;
       const refresh = () => {
-         if (document.visibilityState !== "hidden") client.session().then(fresh => { setSession(fresh); setError(""); }).catch(() => {});
+         if (document.visibilityState !== "hidden")
+            client
+               .session()
+               .then((fresh) => {
+                  setSession(fresh);
+                  setError("");
+               })
+               .catch(() => {});
       };
       window.addEventListener("focus", refresh);
       window.addEventListener("pageshow", refresh);
-      return () => { window.removeEventListener("focus", refresh); window.removeEventListener("pageshow", refresh); };
+      return () => {
+         window.removeEventListener("focus", refresh);
+         window.removeEventListener("pageshow", refresh);
+      };
    }, []);
    const login = async (username: string, password: string) => {
       if (!client) return;
@@ -72,6 +92,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          setLoading(false);
       }
    };
+   const updateProfile = async (data: {
+      profile_icon?: string;
+      email?: string;
+   }) => {
+      if (!client) throw new Error("Accounts are not configured.");
+      const fresh = await client.session();
+      if (!session.user || fresh.user?.id !== session.user.id) {
+         setSession(fresh);
+         throw new Error("Your account changed. Please refresh and try again.");
+      }
+      const next = await client.profile(data, fresh.csrf_token);
+      setSession(next);
+      return next;
+   };
+   const deleteAccount = async (password: string) => {
+      if (!client) throw new Error("Accounts are not configured.");
+      const fresh = await client.session();
+      if (!session.user || fresh.user?.id !== session.user.id) {
+         setSession(fresh);
+         throw new Error("Your account changed. Please refresh and try again.");
+      }
+      const next = await client.deleteAccount(password, fresh.csrf_token);
+      setError("");
+      setSession(next);
+   };
    return (
       <Context.Provider
          value={{
@@ -81,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             error,
             login,
             logout,
+            updateProfile,
+            deleteAccount,
          }}
       >
          {children}

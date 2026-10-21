@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser } from "@fortawesome/pro-regular-svg-icons";
 import {
    faMoon,
    faSunBright,
    faVolume,
    faVolumeSlash,
-   faGear,
    faMusicNote,
    faMusicNoteSlash,
 } from "@fortawesome/pro-solid-svg-icons";
@@ -16,6 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSound } from "@/context/SoundContext";
 import { EuchreLogo } from "./EuchreLogo";
 import styles from "@/styles/buttons.module.css";
+import { getProfileIcon } from "@/lib/profileIcons";
 export function Navbar() {
    const { pathname } = useLocation();
    return (
@@ -24,7 +23,14 @@ export function Navbar() {
             <span />
          ) : (
             <Link to="/" className="nav-home" aria-label="Euchre home">
-               <EuchreLogo size={23} filled />
+               <EuchreLogo
+                  size={23}
+                  filled
+                  style={{
+                     width: "var(--nav-logo-size, 23px)",
+                     height: "var(--nav-logo-size, 23px)",
+                  }}
+               />
                <span className="navhearts">EUCHRE</span>
             </Link>
          )}
@@ -91,7 +97,8 @@ function NavActions() {
                aria-controls="sound-settings"
                onClick={() => {
                   setSoundBouncing(
-                     !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+                     !window.matchMedia("(prefers-reduced-motion: reduce)")
+                        .matches
                   );
                   setOpen(!open);
                }}
@@ -191,15 +198,12 @@ function NavActions() {
                icon={resolvedTheme === "dark" ? faMoon : faSunBright}
             />
          </button>
-         <Link to="/options" className="icon-button" aria-label="Options">
-            <FontAwesomeIcon icon={faGear} />
-         </Link>
          <Link
             to="/user"
             className="nav-user"
             aria-label={user ? "Your account" : "Guest account"}
          >
-            <FontAwesomeIcon icon={faUser} />
+            <FontAwesomeIcon icon={getProfileIcon(user?.profile_icon)} />
             <span>{user?.name ?? "Guest"}</span>
          </Link>
       </div>

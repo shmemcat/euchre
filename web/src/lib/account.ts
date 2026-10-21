@@ -1,5 +1,15 @@
-export type AccountUser = { id: string; name: string; email?: string; profile_icon?: string };
-export type AccountSession = { user: AccountUser | null; csrf_token: string };
+export type AccountUser = {
+   id: string;
+   name: string;
+   email?: string;
+   email_verified?: boolean;
+   profile_icon?: string;
+};
+export type AccountSession = {
+   user: AccountUser | null;
+   csrf_token: string;
+   message?: string;
+};
 export function createAccountClient(
    base: string,
    fetcher: typeof fetch = fetch
@@ -17,8 +27,9 @@ export function createAccountClient(
       const data = await response.json().catch(() => null);
       if (!response.ok)
          throw new Error(
-            typeof data?.error === "string" ? data.error :
-            response.status === 401
+            typeof data?.error === "string"
+               ? data.error
+               : response.status === 401
                ? "Check your username and password."
                : "Unable to connect to your account. Please try again."
          );
@@ -50,6 +61,27 @@ export function createAccountClient(
          request("/logout", {
             method: "POST",
             headers: { "X-CSRF-Token": csrf },
+         }),
+      profile: (
+         data: { profile_icon?: string; email?: string },
+         csrf: string
+      ) =>
+         request("/profile", {
+            method: "POST",
+            headers: {
+               "Content-Type": "application/json",
+               "X-CSRF-Token": csrf,
+            },
+            body: JSON.stringify(data),
+         }),
+      deleteAccount: (password: string, csrf: string) =>
+         request("/delete", {
+            method: "POST",
+            headers: {
+               "Content-Type": "application/json",
+               "X-CSRF-Token": csrf,
+            },
+            body: JSON.stringify({ password }),
          }),
    };
 }

@@ -1,22 +1,68 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { Button, MenuLink } from "@/components/Buttons";
 import { useAuth } from "@/context/AuthContext";
-import { usePreferences } from "@/context/PreferencesContext";
+import { useNavigate } from "react-router-dom";
+import { AccountSummary } from "@/components/AccountSummary";
+import {
+   DangerButton,
+   DeleteAccountModal,
+} from "@/components/DeleteAccountModal";
+import { clearResults } from "@/lib/persistence";
+const accountUrl = import.meta.env.DEV
+   ? "http://localhost:3000/user/"
+   : "/user/";
+
 export default function User() {
-   const { user, configured, loading, error, login, logout } = useAuth();
-   const { preferences, update, saved } = usePreferences();
-   const [name, setName] = useState(
-      preferences.playerName === "You" ? "" : preferences.playerName
-   );
+   const { user, configured, loading, error, login, logout, deleteAccount } =
+      useAuth();
+   const navigate = useNavigate();
+   const [deleting, setDeleting] = useState(false);
    const [username, setUsername] = useState("");
    const [password, setPassword] = useState("");
-   const [nameSaved, setNameSaved] = useState(false);
+   const [submitting, setSubmitting] = useState(false);
+   const [fieldError, setFieldError] = useState<{
+      field: "username" | "password";
+      message: string;
+   } | null>(null);
+   const usernameInput = useRef<HTMLInputElement>(null);
+   const passwordInput = useRef<HTMLInputElement>(null);
+
+   useEffect(() => {
+      if (user) {
+         setUsername("");
+         setPassword("");
+         setFieldError(null);
+      }
+   }, [user]);
+
    const submit = async (event: FormEvent) => {
       event.preventDefault();
-      await login(username.trim(), password);
-      setPassword("");
+      if (loading || submitting) return;
+      if (!username.trim()) {
+         setFieldError({
+            field: "username",
+            message: "Please enter your username or email.",
+         });
+         usernameInput.current?.focus();
+         return;
+      }
+      if (!password) {
+         setFieldError({
+            field: "password",
+            message: "Please enter your password.",
+         });
+         passwordInput.current?.focus();
+         return;
+      }
+      setFieldError(null);
+      setSubmitting(true);
+      try {
+         await login(username.trim(), password);
+      } finally {
+         setSubmitting(false);
+      }
    };
    return (
       <>
@@ -26,92 +72,147 @@ export default function User() {
          <PageLayout title="USER">
             <div className="account-body">
                {user ? (
-                  <>
-                     <h2>Hello, {user.name}</h2>
-                     <Button
-                        name={loading ? "Signing out…" : "Sign Out"}
-                        onClick={() => void logout()}
-                        disabled={loading}
+                  <div className="account-dashboard">
+                     <div className="account-welcome">
+                        Welcome <strong>{user.name}</strong>!
+                     </div>
+                     <AccountSummary key={user.id} userId={user.id} />
+                     <div className="button-stack account-navigation">
+                        <Button
+                           name={loading ? "Signing out…" : "Sign Out"}
+                           onClick={() => void logout()}
+                           disabled={loading}
+                        />
+                        <MenuLink to="/" name="Home" />
+                     </div>
+                     <DangerButton
+                        name="Delete Account"
+                        onClick={() => setDeleting(true)}
                      />
-                     <a className="link" href={import.meta.env.DEV ? "http://localhost:3000/user/" : "/user/"}>Account settings</a>
-                  </>
+                     {deleting && (
+                        <DeleteAccountModal
+                           onClose={() => setDeleting(false)}
+                           onDelete={async (password) => {
+                              await deleteAccount(password);
+                              clearResults(user.id);
+                              setDeleting(false);
+                              navigate("/");
+                           }}
+                        />
+                     )}
+                  </div>
                ) : configured ? (
-                  <form onSubmit={submit} className="account-form">
-                     <h2>Sign In</h2>
-                     <label>
-                        Username
-                        <input
-                           autoComplete="username"
-                           value={username}
-                           onChange={(e) => setUsername(e.target.value)}
-                           required
+                  <>
+                     <form
+                        onSubmit={submit}
+                        className="account-form"
+                        aria-label="Sign in"
+                        aria-busy={loading || submitting}
+                        noValidate
+                     >
+                        <label htmlFor="username">
+                           <span className="sr-only">Username or email</span>
+                           <input
+                              ref={usernameInput}
+                              id="username"
+                              name="username"
+                              type="text"
+                              placeholder="Username or email"
+                              maxLength={255}
+                              autoComplete="username"
+                              autoCapitalize="none"
+                              spellCheck={false}
+                              value={username}
+                              onChange={(e) => {
+                                 setUsername(e.target.value);
+                                 if (fieldError?.field === "username")
+                                    setFieldError(null);
+                              }}
+                              aria-invalid={fieldError?.field === "username"}
+                              aria-describedby={
+                                 fieldError?.field === "username"
+                                    ? "sign-in-field-error"
+                                    : undefined
+                              }
+                              readOnly={loading || submitting}
+                              required
+                           />
+                        </label>
+                        <label htmlFor="password">
+                           <span className="sr-only">Password</span>
+                           <input
+                              ref={passwordInput}
+                              id="password"
+                              name="password"
+                              type="password"
+                              placeholder="Password"
+                              autoComplete="current-password"
+                              value={password}
+                              onChange={(e) => {
+                                 setPassword(e.target.value);
+                                 if (fieldError?.field === "password")
+                                    setFieldError(null);
+                              }}
+                              aria-invalid={fieldError?.field === "password"}
+                              aria-describedby={
+                                 fieldError?.field === "password"
+                                    ? "sign-in-field-error"
+                                    : undefined
+                              }
+                              readOnly={loading || submitting}
+                              required
+                           />
+                        </label>
+                        {(fieldError || error) && (
+                           <p
+                              role="alert"
+                              id="sign-in-field-error"
+                              className="inline-error"
+                           >
+                              {fieldError?.message || error}
+                           </p>
+                        )}
+                        <Button
+                           name={
+                              submitting
+                                 ? "Signing in…"
+                                 : loading
+                                 ? "Loading…"
+                                 : "Sign In"
+                           }
+                           type="submit"
+                           disabled={loading || submitting}
                         />
-                     </label>
-                     <label>
-                        Password
-                        <input
-                           type="password"
-                           autoComplete="current-password"
-                           value={password}
-                           onChange={(e) => setPassword(e.target.value)}
-                           required
-                        />
-                     </label>
-                     <Button
-                        name={loading ? "Signing in…" : "Sign In"}
-                        type="submit"
-                        disabled={loading}
-                     />
-                     <a className="link" href={import.meta.env.DEV ? "http://localhost:3000/user/?view=recover" : "/user/?view=recover"}>Forgot password?</a>
-                     <a className="link" href={import.meta.env.DEV ? "http://localhost:3000/user/?view=register" : "/user/?view=register"}>Create account</a>
-                  </form>
+                     </form>
+                     <div className="account-links">
+                        <a className="link" href={`${accountUrl}?view=recover`}>
+                           Forgot password?
+                        </a>
+                        <a
+                           className="link"
+                           href={`${accountUrl}?view=register`}
+                        >
+                           Create an account
+                        </a>
+                        <a className="link" href={`${accountUrl}?view=resend`}>
+                           Resend verification
+                        </a>
+                     </div>
+                  </>
                ) : (
                   <h2>Guest</h2>
                )}
-               {error && (
+               {error && (user || !configured) && (
                   <p role="alert" className="inline-error">
                      {error}
                   </p>
                )}
-               {!user && (
-                  <form
-                     className="account-form guest-name"
-                     onSubmit={(e) => {
-                        e.preventDefault();
-                        update({ playerName: name.trim() || "You" });
-                        setNameSaved(true);
-                     }}
-                  >
-                     <label>
-                        Name
-                        <input
-                           value={name}
-                           onChange={(e) => {
-                              setName(e.target.value);
-                              setNameSaved(false);
-                           }}
-                           maxLength={24}
-                           placeholder="You"
-                           autoComplete="nickname"
-                        />
-                     </label>
-                     <Button name="Save Name" type="submit" />
-                     {nameSaved && saved && (
-                        <p role="status">Name saved.</p>
-                     )}
-                     {!saved && (
-                        <p role="alert">
-                           Your browser couldn’t save your name.
-                        </p>
-                     )}
-                  </form>
-               )}
             </div>
-            <div className="button-stack">
-               <MenuLink to="/stats" name="Statistics" />
-               <MenuLink to="/options" name="Options" />
-               <MenuLink to="/" name="Home" />
-            </div>
+            {!user && (
+               <div className="button-stack account-navigation">
+                  <MenuLink to="/" name="Home" />
+               </div>
+            )}
          </PageLayout>
       </>
    );

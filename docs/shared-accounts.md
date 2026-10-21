@@ -20,9 +20,18 @@ browser-local; signing in does not upload or merge them.
 
 `web/src/lib/account.ts` uses:
 
-- `GET /session`: `{ user: null | { id: string, name: string, email?: string, profile_icon?: string }, csrf_token: string }`.
+- `GET /session`: `{ user: null | { id: string, name: string, email?: string, email_verified?: boolean, profile_icon?: string }, csrf_token: string }`.
 - `POST /login`: `{ username, password }` and X-CSRF-Token; returns a rotated session.
 - `POST /logout`: X-CSRF-Token; revokes login and returns a guest session.
+- `POST /profile`: `{ profile_icon?, email? }` and X-CSRF-Token; updates the shared profile. Changing email revokes sessions and requires verification of the new address before signing in again.
+- `POST /delete`: `{ password }` and X-CSRF-Token; confirms the password, deletes the shared account and its Hearts records, and returns a guest session.
+
+The signed-in Euchre user page owns personal statistics and achievements. Profile
+and Options are reached through its settings gear; guests have neither settings
+nor a custom name. Guest games are not recorded. Personal results are isolated by
+account in this browser, and old unattributed results are not assigned to a user.
+The public `/leaderboard` page contains empty category tables until database-backed
+statistics are implemented; `/stats` redirects there.
 
 Cookies are HttpOnly, host-only, SameSite=Lax, Path=/, Secure on HTTPS. Credentials
 never enter localStorage or game links. Mutations check CSRF and Origin; session
@@ -66,7 +75,7 @@ also need a migration path or export before changing origins.
 
 ## Statistics trust
 
-Current local statistics are suitable for personal guest play. Do not accept
+Current account-scoped local statistics are suitable for personal play. Do not accept
 client-reported wins as authoritative shared leaderboards. Before adding synced
 competitive stats, either validate/replay an action log server-side with a trusted
 deal or move game authority to a game service. Shared identity and game authority

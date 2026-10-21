@@ -4,6 +4,8 @@ import {
    useContext,
    useEffect,
    useState,
+   useRef,
+   useMemo,
    type ReactNode,
 } from "react";
 import {
@@ -15,6 +17,8 @@ import {
    type Game,
 } from "@/game/engine";
 import { loadGame, recordResult, saveGame } from "@/lib/persistence";
+import { readStorage, writeStorage } from "@/lib/storage";
+import { useAuth } from "@/context/AuthContext";
 const Context = createContext<{
    game: Game | null;
    start: (difficulty: Difficulty, name: string) => void;
@@ -24,36 +28,78 @@ const Context = createContext<{
    error: string;
 } | null>(null);
 export function GameProvider({ children }: { children: ReactNode }) {
+   const { user } = useAuth();
    const [game, setGame] = useState<Game | null>(loadGame);
+   const owner = useRef(
+      readStorage<{ gameId: string; userId: string | null } | null>(
+         "euchre.game-owner.v1",
+         null
+      )
+   );
    const [saved, setSaved] = useState(true);
+   const [resultSaved, setResultSaved] = useState(true);
    const [error, setError] = useState("");
    useEffect(() => {
-      if (game) setSaved(saveGame(game) && recordResult(game));
+      if (game) setSaved(saveGame(game));
    }, [game]);
-   const start = useCallback((difficulty: Difficulty, name: string) => {
-      setError("");
-      setGame(newGame(difficulty, name));
-   }, []);
+   const start = useCallback(
+      (difficulty: Difficulty, _name: string) => {
+         setError("");
+         setResultSaved(true);
+         const next = newGame(difficulty, user?.name ?? "You");
+         owner.current = { gameId: next.id, userId: user?.id ?? null };
+         writeStorage("euchre.game-owner.v1", owner.current);
+         setGame(next);
+      },
+      [user?.id, user?.name]
+   );
+   const playerGame = useMemo(
+      () => (game ? { ...game, playerName: user?.name ?? "You" } : null),
+      [game, user?.name]
+   );
+   const finish = (next: Game) => {
+      if (
+         game &&
+         game.phase !== "game_over" &&
+         next.phase === "game_over" &&
+         user &&
+         owner.current?.gameId === game.id &&
+         owner.current.userId === user.id
+      ) {
+         setResultSaved(recordResult(next, user.id));
+      }
+      setGame(next);
+   };
    const act = useCallback(
       (action: Action) => {
-         if (!game) return;
+         if (!playerGame) return;
          try {
-            const next = applyAction(game, action);
+            const next = applyAction(playerGame, action);
             setError("");
-            setGame(next);
+            finish(next);
          } catch (e) {
             setError(
                e instanceof Error ? e.message : "That move could not be played."
             );
          }
       },
-      [game]
+      [playerGame, user?.id]
    );
    const concedeGame = () => {
-      if (game && game.phase !== "game_over") setGame(concede(game));
+      if (playerGame && playerGame.phase !== "game_over")
+         finish(concede(playerGame));
    };
    return (
-      <Context.Provider value={{ game, start, act, concedeGame, saved, error }}>
+      <Context.Provider
+         value={{
+            game: playerGame,
+            start,
+            act,
+            concedeGame,
+            saved: saved && resultSaved,
+            error,
+         }}
+      >
          {children}
       </Context.Provider>
    );

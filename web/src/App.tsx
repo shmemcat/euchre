@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
@@ -10,7 +10,8 @@ import CreateGame from "@/pages/CreateGame";
 import GamePage from "@/pages/GamePage";
 import Rules from "@/pages/Rules";
 import Options from "@/pages/Options";
-import Stats from "@/pages/Stats";
+import Leaderboard from "@/pages/Leaderboard";
+import Profile from "@/pages/Profile";
 import User from "@/pages/User";
 import About from "@/pages/About";
 import NotFound from "@/pages/NotFound";
@@ -38,7 +39,12 @@ export default function App() {
                         />
                         <Route path="/rules" element={<Rules />} />
                         <Route path="/options" element={<Options />} />
-                        <Route path="/stats" element={<Stats />} />
+                        <Route
+                           path="/stats"
+                           element={<Navigate to="/leaderboard" replace />}
+                        />
+                        <Route path="/leaderboard" element={<Leaderboard />} />
+                        <Route path="/profile" element={<Profile />} />
                         <Route path="/user" element={<User />} />
                         <Route path="/about" element={<About />} />
                         <Route path="*" element={<NotFound />} />

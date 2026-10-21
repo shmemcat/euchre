@@ -87,13 +87,16 @@ export function OpeningMotion({
             : step.kind === "discard"
             ? 0.7
             : 0.65;
+      const handTransform = handCard?.closest<HTMLElement>(".hand-card");
+      const matrix =
+         handTransform && typeof DOMMatrix !== "undefined"
+            ? new DOMMatrix(getComputedStyle(handTransform).transform)
+            : null;
       const rotation =
          step.kind === "pickup" && step.seat === 0
-            ? Number(
-                 handCard
-                    ?.closest<HTMLElement>(".hand-card")
-                    ?.style.transform.match(/rotate\(([-\d.]+)deg\)/)?.[1] ?? 0
-              )
+            ? matrix
+               ? (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI
+               : 0
             : 0;
       animation.current =
          element.animate?.(

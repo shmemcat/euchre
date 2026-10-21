@@ -3,6 +3,21 @@ import containers from "@/styles/containers.module.css";
 import { Navbar } from "@/components/Navbar";
 import { EuchreLogo } from "@/components/EuchreLogo";
 import { motion } from "framer-motion";
+import { useLocation } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { SettingsGear } from "@/components/SettingsGear";
+
+function AccountSettings() {
+   const { user } = useAuth();
+   const { pathname } = useLocation();
+   if (!user || !["/user", "/profile", "/options"].includes(pathname))
+      return null;
+   return (
+      <div className="account-settings">
+         <SettingsGear exclude={pathname} />
+      </div>
+   );
+}
 
 export type PageLayoutVariant = "default" | "menu";
 
@@ -30,6 +45,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
    hideTitleBlock = false,
 }) => (
    <div
+      style={{ position: "relative" }}
       className={
          variant === "menu"
             ? "w-full max-w-[1030px] mx-auto p-9 pb-[120px] box-border mt-5 mb-5 bg-transparent"
@@ -37,6 +53,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
       }
    >
       <Navbar />
+      <AccountSettings />
       <motion.div
          initial={{ opacity: 0, y: -12 }}
          animate={{ opacity: 1, y: 0 }}

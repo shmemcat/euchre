@@ -2,7 +2,8 @@ import { isGame, type Difficulty, type Game } from "@/game/engine";
 import { readStorage, removeStorage, writeStorage } from "./storage";
 
 export const GAME_KEY = "euchre.game.v1";
-const RESULTS_KEY = "euchre.results.v1";
+const resultsKey = (userId: string) => `euchre.results.v2:${encodeURIComponent(userId)}`;
+export const clearResults = (userId: string) => removeStorage(resultsKey(userId));
 export type StoredResult = {
    id: string;
    difficulty: Difficulty;
@@ -21,8 +22,9 @@ export function loadGame(): Game | null {
    return null;
 }
 export const saveGame = (game: Game): boolean => writeStorage(GAME_KEY, game);
-export function readResults(): StoredResult[] {
-   const value = readStorage<unknown>(RESULTS_KEY, []);
+export function readResults(userId?: string | null): StoredResult[] {
+   if (!userId) return [];
+   const value = readStorage<unknown>(resultsKey(userId), []);
    if (!Array.isArray(value)) return [];
    return value.filter(
       (r): r is StoredResult =>
@@ -45,9 +47,10 @@ export function readResults(): StoredResult[] {
          )
    );
 }
-export function recordResult(game: Game): boolean {
+export function recordResult(game: Game, userId?: string | null): boolean {
+   if (!userId) return true;
    if (game.phase !== "game_over" || !game.finishedAt) return true;
-   const results = readResults();
+   const results = readResults(userId);
    if (results.some((r) => r.id === game.id)) return true;
    results.push({
       id: game.id,
@@ -65,5 +68,5 @@ export function recordResult(game: Game): boolean {
       euchres: game.results.filter((r) => r.maker % 2 === 1 && r.tricks[1] < 3)
          .length,
    });
-   return writeStorage(RESULTS_KEY, results);
+   return writeStorage(resultsKey(userId), results);
 }

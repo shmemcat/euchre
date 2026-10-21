@@ -1,13 +1,22 @@
+import { Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { MenuLink } from "@/components/Buttons";
 import { Card } from "@/components/Card";
 import { usePreferences } from "@/context/PreferencesContext";
+import { useAuth } from "@/context/AuthContext";
 import type { Card as CardCode } from "@/game/engine";
 import styles from "@/styles/options.module.css";
 const CARDS: CardCode[] = ["Jc", "Qh", "As"];
 export default function Options() {
    const { preferences, update, saved } = usePreferences();
+   const { user, loading } = useAuth();
+   if (!user)
+      return loading ? (
+         <p role="status">Loading…</p>
+      ) : (
+         <Navigate to="/user" replace />
+      );
    return (
       <>
          <Helmet>
@@ -82,6 +91,7 @@ export default function Options() {
                )}
             </div>
             <div className="button-stack">
+               <MenuLink to="/user" name="Back" />
                <MenuLink to="/" name="Home" />
             </div>
          </PageLayout>

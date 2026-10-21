@@ -45,7 +45,9 @@ export default function About() {
                   .
                </p>
                <p>
-                  Credit for this lovely music you’re listening to goes to{" "}
+                  Credit for this lovely music you’re listening to
+                  <br />
+                  goes to{" "}
                   <a
                      className="link"
                      href="https://tallbeard.itch.io/"

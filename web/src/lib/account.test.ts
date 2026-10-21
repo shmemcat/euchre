@@ -4,7 +4,7 @@ const session = {
    user: { id: "existing-hearts-id", name: "Emily" },
    csrf_token: "anti-csrf",
 };
-describe("Future shared account adapter", () => {
+describe("Shared account adapter", () => {
    it("uses cookie credentials and CSRF protection without storing a bearer token", async () => {
       const fetcher = vi
          .fn()
@@ -29,25 +29,47 @@ describe("Future shared account adapter", () => {
    it("rejects malformed identity responses", async () => {
       const client = createAccountClient(
          "/api/account",
-         vi
-            .fn()
-            .mockResolvedValue({
-               ok: true,
-               json: async () => ({ user: { name: "wrong" } }),
-            })
+         vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ user: { name: "wrong" } }),
+         })
       );
       await expect(client.session()).rejects.toThrow("unexpected response");
+   });
+   it("updates profiles and deletes accounts using the shared session and CSRF", async () => {
+      const fetcher = vi
+         .fn()
+         .mockResolvedValue({ ok: true, json: async () => session });
+      const client = createAccountClient("/api/account", fetcher);
+      await client.profile({ profile_icon: "sparkles" }, "csrf");
+      await client.deleteAccount("confirmation-password", "csrf");
+      expect(fetcher.mock.calls[0]).toEqual([
+         "/api/account/profile",
+         expect.objectContaining({
+            method: "POST",
+            credentials: "include",
+            headers: expect.objectContaining({ "X-CSRF-Token": "csrf" }),
+            body: JSON.stringify({ profile_icon: "sparkles" }),
+         }),
+      ]);
+      expect(fetcher.mock.calls[1]).toEqual([
+         "/api/account/delete",
+         expect.objectContaining({
+            method: "POST",
+            credentials: "include",
+            headers: expect.objectContaining({ "X-CSRF-Token": "csrf" }),
+            body: JSON.stringify({ password: "confirmation-password" }),
+         }),
+      ]);
    });
    it("handles unreachable and rejected sessions", async () => {
       const client = createAccountClient(
          "/api/account",
-         vi
-            .fn()
-            .mockResolvedValue({
-               ok: false,
-               status: 401,
-               json: async () => ({}),
-            })
+         vi.fn().mockResolvedValue({
+            ok: false,
+            status: 401,
+            json: async () => ({}),
+         })
       );
       await expect(client.login("x", "y", "csrf")).rejects.toThrow(
          "username and password"

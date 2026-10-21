@@ -21,7 +21,7 @@ export default function CreateGame() {
          difficulty === "hard"
             ? preferences.hardLevel
             : (difficulty as "easy" | "medium"),
-         user?.name ?? preferences.playerName
+         user?.name ?? "You"
       );
       navigate("/game/single-play");
    };

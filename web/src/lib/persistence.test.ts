@@ -23,15 +23,30 @@ describe("Local game persistence", () => {
    });
    it("counts a finished game once even after reloading", () => {
       const game = concede(newGame());
-      recordResult(game);
-      recordResult(game);
-      expect(readResults()).toHaveLength(1);
-      expect(readResults()[0].conceded).toBe(true);
-      expect(readResults()[0].won).toBe(false);
+      recordResult(game, "alice");
+      recordResult(game, "alice");
+      expect(readResults("alice")).toHaveLength(1);
+      expect(readResults("alice")[0].conceded).toBe(true);
+      expect(readResults("alice")[0].won).toBe(false);
    });
    it("does not count unfinished or abandoned games", () => {
-      recordResult(newGame());
+      recordResult(newGame(), "alice");
+      expect(readResults("alice")).toEqual([]);
+   });
+   it("keeps guest games and legacy browser results out of account statistics", () => {
+      recordResult(concede(newGame()));
+      localStorage.setItem(
+         "euchre.results.v1",
+         JSON.stringify([{ won: true }])
+      );
       expect(readResults()).toEqual([]);
+      expect(readResults("alice")).toEqual([]);
+      expect(localStorage.getItem("euchre.results.v2:alice")).toBeNull();
+   });
+   it("isolates results for accounts sharing the same browser", () => {
+      recordResult(concede(newGame()), "alice");
+      expect(readResults("alice")).toHaveLength(1);
+      expect(readResults("bob")).toEqual([]);
    });
    it("reports disabled storage without crashing", () => {
       vi.spyOn(localStorage, "setItem").mockImplementation(() => {

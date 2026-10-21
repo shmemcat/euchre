@@ -4,12 +4,10 @@ import type { HardLevel } from "@/game/ai";
 export type Preferences = {
    hardLevel: HardLevel;
    cardStyle: "celestial" | "classic";
-   playerName: string;
 };
 const DEFAULTS: Preferences = {
    hardLevel: "hard",
    cardStyle: "celestial",
-   playerName: "You",
 };
 function loadPreferences(): Preferences {
    const value = readStorage<Partial<Preferences> | null>(
@@ -22,10 +20,6 @@ function loadPreferences(): Preferences {
             ? value.hardLevel!
             : "hard",
       cardStyle: value?.cardStyle === "classic" ? "classic" : "celestial",
-      playerName:
-         typeof value?.playerName === "string"
-            ? value.playerName.trim().slice(0, 24) || "You"
-            : "You",
    };
 }
 const Context = createContext<{
