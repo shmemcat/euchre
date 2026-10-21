@@ -5,13 +5,12 @@ import {
    useState,
    type ReactNode,
 } from "react";
-import { createAccountClient, type AccountSession } from "@/lib/account";
-const base = (
-   import.meta.env.VITE_ACCOUNT_API_URL ||
-   (import.meta.env.DEV && import.meta.env.MODE !== "test"
-      ? "/api/account"
-      : "")
-).trim();
+import {
+   accountApiBase,
+   createAccountClient,
+   type AccountSession,
+} from "@/lib/account";
+const base = accountApiBase();
 const client = base ? createAccountClient(base) : null;
 const Context = createContext<{
    user: AccountSession["user"];

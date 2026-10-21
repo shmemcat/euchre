@@ -12,13 +12,11 @@ vi.mock("@/components/Navbar", () => ({ Navbar: () => null }));
 let auth: ReturnType<typeof useAuth>;
 const updateProfile = vi.fn();
 beforeEach(() => {
-   updateProfile
-      .mockReset()
-      .mockResolvedValue({
-         user: { id: "alice" },
-         csrf_token: "csrf",
-         message: "Profile saved.",
-      });
+   updateProfile.mockReset().mockResolvedValue({
+      user: { id: "alice" },
+      csrf_token: "csrf",
+      message: "Profile saved.",
+   });
    auth = {
       user: {
          id: "alice",
@@ -107,7 +105,7 @@ describe("Leaderboard placeholder", () => {
    it("has empty monthly and all-time tables for every category", async () => {
       const user = userEvent.setup();
       render(page(<Leaderboard />));
-      expect(screen.getAllByRole("table")).toHaveLength(2);
+      expect(await screen.findAllByRole("table")).toHaveLength(2);
       expect(screen.getAllByText("No winners yet")).toHaveLength(2);
       await user.click(
          screen.getByRole("button", { name: "hard", exact: true })

@@ -2,8 +2,25 @@ import { isGame, type Difficulty, type Game } from "@/game/engine";
 import { readStorage, removeStorage, writeStorage } from "./storage";
 
 export const GAME_KEY = "euchre.game.v1";
-const resultsKey = (userId: string) => `euchre.results.v2:${encodeURIComponent(userId)}`;
-export const clearResults = (userId: string) => removeStorage(resultsKey(userId));
+const resultsKey = (userId: string) =>
+   `euchre.results.v2:${encodeURIComponent(userId)}`;
+const syncedKey = (userId: string) =>
+   `euchre.synced-results.v1:${encodeURIComponent(userId)}`;
+export const clearResults = (userId: string) => {
+   removeStorage(resultsKey(userId));
+   removeStorage(syncedKey(userId));
+};
+export function readSyncedResultIds(userId: string): string[] {
+   const value = readStorage<unknown>(syncedKey(userId), []);
+   return Array.isArray(value)
+      ? value.filter((id): id is string => typeof id === "string")
+      : [];
+}
+export function markResultsSynced(userId: string, ids: string[]) {
+   writeStorage(syncedKey(userId), [
+      ...new Set([...readSyncedResultIds(userId), ...ids]),
+   ]);
+}
 export type StoredResult = {
    id: string;
    difficulty: Difficulty;

@@ -13,8 +13,10 @@ Development enables `/api/account` by default and proxies it to localhost:5000.
 Override `ACCOUNT_PROXY_TARGET` for another API. Docker dev defaults to
 `http://host.docker.internal:5000`; use port5001 when using Hearts' Docker API.
 Production builds require `VITE_ACCOUNT_API_URL=/api/account` and matching ingress.
-No duplicate Euchre users table exists. Euchre games and statistics remain
-browser-local; signing in does not upload or merge them.
+No duplicate Euchre users table exists. In-progress Euchre games remain local.
+Completed bot games recorded for a signed-in account sync to the shared service
+and populate Euchre's leaderboards. Guest games and legacy unassigned results
+are never uploaded or assigned to an account.
 
 ## Account contract
 
@@ -25,13 +27,18 @@ browser-local; signing in does not upload or merge them.
 - `POST /logout`: X-CSRF-Token; revokes login and returns a guest session.
 - `POST /profile`: `{ profile_icon?, email? }` and X-CSRF-Token; updates the shared profile. Changing email revokes sessions and requires verification of the new address before signing in again.
 - `POST /delete`: `{ password }` and X-CSRF-Token; confirms the password, deletes the shared account and its Hearts records, and returns a guest session.
+- `POST /euchre/results`: `{ results: [...] }` and X-CSRF-Token; saves up to 40 completed bot games for the signed-in account. Game IDs make retries idempotent.
+- `GET /euchre/leaderboard?category=easy`: public monthly and all-time top-ten win rankings. Categories are easy, medium, hard, harder, and hardest; multiplayer remains empty. Profile icons and names come from the shared user record.
 
 The signed-in Euchre user page owns personal statistics and achievements. Profile
 and Options are reached through its settings gear; guests have neither settings
-nor a custom name. Guest games are not recorded. Personal results are isolated by
-account in this browser, and old unattributed results are not assigned to a user.
-The public `/leaderboard` page contains empty category tables until database-backed
-statistics are implemented; `/stats` redirects there.
+nor a custom name. Guest games are not recorded. The personal dashboard still
+reads account-scoped results in this browser. Signed-in bot results sync on game
+completion, sign-in, focus, reconnection, and leaderboard visits. Acknowledged
+uploads are tracked per account, while server uniqueness prevents duplicate wins.
+Monthly rankings use UTC completion dates, including for older account-owned
+results uploaded later. The public `/leaderboard` reads the shared database;
+`/stats` redirects there.
 
 Cookies are HttpOnly, host-only, SameSite=Lax, Path=/, Secure on HTTPS. Credentials
 never enter localStorage or game links. Mutations check CSRF and Origin; session
@@ -42,9 +49,10 @@ revokes existing sessions and legacy Hearts JWTs. IDs are normalized to strings.
 ## Existing live Hearts accounts
 
 Deploy the shared API against the existing Hearts database after backup and
-staging verification. Run migration017 using `flask db upgrade`; it adds
-users.auth_version and account_sessions without rewriting IDs, password hashes,
-profiles, games, or stats. Set API CARDS_PUBLIC_URL=https://cards.shmem.dev and
+staging verification. Run migrations 017–018 using `flask db upgrade`; they add
+users.auth_version, account_sessions, and a separate euchre_game_results table
+without rewriting IDs, password hashes, profiles, Hearts games, or Hearts stats.
+Set API CARDS_PUBLIC_URL=https://cards.shmem.dev and
 build Hearts with VITE_SHARED_ACCOUNTS=true. Keep the existing database, JWT secret,
 and SMTP2GO mail configuration. Never replace live data with the fresh local DB.
 The Cards repo's docs/integration.md contains the full deployment sequence.
@@ -75,11 +83,12 @@ also need a migration path or export before changing origins.
 
 ## Statistics trust
 
-Current account-scoped local statistics are suitable for personal play. Do not accept
-client-reported wins as authoritative shared leaderboards. Before adding synced
-competitive stats, either validate/replay an action log server-side with a trusted
-deal or move game authority to a game service. Shared identity and game authority
-are separate responsibilities.
+Bot leaderboards store account-reported single-player results, matching Hearts'
+current statistics model. The API checks completed scores, categories, dates,
+account ownership, CSRF, and duplicate game IDs; it does not replay the game or
+verify bot decisions. These are not authoritative competitive results. Before
+multiplayer or competitive rankings, validate/replay an action log server-side
+with a trusted deal or move game authority to a game service.
 
 ## Source repositories
 

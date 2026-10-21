@@ -19,6 +19,7 @@ import {
 import { loadGame, recordResult, saveGame } from "@/lib/persistence";
 import { readStorage, writeStorage } from "@/lib/storage";
 import { useAuth } from "@/context/AuthContext";
+import { syncLeaderboardResults } from "@/lib/leaderboard";
 const Context = createContext<{
    game: Game | null;
    start: (difficulty: Difficulty, name: string) => void;
@@ -39,6 +40,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
    const [saved, setSaved] = useState(true);
    const [resultSaved, setResultSaved] = useState(true);
    const [error, setError] = useState("");
+   useEffect(() => {
+      if (!user) return;
+      const sync = () => {
+         void syncLeaderboardResults(user.id).catch(() => {});
+      };
+      sync();
+      window.addEventListener("online", sync);
+      window.addEventListener("focus", sync);
+      return () => {
+         window.removeEventListener("online", sync);
+         window.removeEventListener("focus", sync);
+      };
+   }, [user?.id]);
    useEffect(() => {
       if (game) setSaved(saveGame(game));
    }, [game]);
@@ -66,7 +80,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
          owner.current?.gameId === game.id &&
          owner.current.userId === user.id
       ) {
-         setResultSaved(recordResult(next, user.id));
+         const stored = recordResult(next, user.id);
+         setResultSaved(stored);
+         if (stored) void syncLeaderboardResults(user.id).catch(() => {});
       }
       setGame(next);
    };

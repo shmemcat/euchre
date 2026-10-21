@@ -69,7 +69,7 @@ html {
    --achievement-secret-text: #1c283b66;
    --color-warning: #8b5761;
    --stats-label: #8b5761;
-   --stats-header: #1c283b;
+   --stats-header: var(--darkpink);
    color-scheme: light;
 }
 html[data-theme="dark"] {
@@ -125,7 +125,7 @@ html[data-theme="dark"] {
    --achievement-secret-text: #efebe680;
    --color-warning: #e1aeb0;
    --stats-label: #e1aeb0;
-   --stats-header: #efebe6;
+   --stats-header: var(--darkpink);
    color-scheme: dark;
 }
 /* Light faces and Hearts' muted inactive ink stay consistent in both themes. */
@@ -512,11 +512,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 .category-tabs > button {
    min-width: 0;
    flex: 1 1 auto;
-   padding-inline: 6px;
+   padding-inline: 12px;
    font-size: 12px;
-   letter-spacing: 1px;
+   letter-spacing: 2px;
    white-space: nowrap;
    overflow-wrap: normal;
+}
+@media (max-width: 480px) {
+   .category-tabs > button {
+      padding-inline: 8px;
+      letter-spacing: 2px;
+   }
+}
+@media (max-width: 360px) {
+   .category-tabs > button {
+      padding-inline: 6px;
+      letter-spacing: 1px;
+   }
 }
 .account-intro {
    margin: 0;

@@ -1,3 +1,12 @@
+export function accountApiBase() {
+   return (
+      import.meta.env.VITE_ACCOUNT_API_URL ||
+      (import.meta.env.DEV && import.meta.env.MODE !== "test"
+         ? "/api/account"
+         : "")
+   ).trim();
+}
+
 export type AccountUser = {
    id: string;
    name: string;
