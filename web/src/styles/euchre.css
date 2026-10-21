@@ -462,7 +462,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 }
 .account-settings {
    position: absolute;
-   top: 72px;
+   top: 76px;
    right: 48px;
    z-index: 50;
 }
@@ -694,8 +694,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
       letter-spacing: 0.1em;
    }
    .account-settings {
-      top: 82px;
-      right: 36px;
+      top: 78px;
+      right: calc(2.5vw + 38px);
    }
    .account-dashboard [class*="stats-grid"] {
       gap: 10px;

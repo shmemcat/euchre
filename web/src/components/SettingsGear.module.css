@@ -79,8 +79,9 @@
    white-space: nowrap;
 }
 
-.menuItem:hover {
-   color: var(--hoverpink);
+.menuItem:hover,
+.menuItem:focus-visible {
+   color: color-mix(in srgb, var(--darkpink) 55%, #000);
    background-color: var(--lightpink);
 }
 
