@@ -9,9 +9,10 @@ import {
 } from "react";
 import { asset } from "@/lib/assets";
 import { readStorage, writeStorage } from "@/lib/storage";
-type Sound = "deal" | "play" | "trick" | "round" | "win";
+type Sound = "deal" | "trump" | "play" | "trick" | "round" | "win";
 const FILES: Record<Sound, string> = {
    deal: "card-fan-1",
+   trump: "trump-chosen-chime",
    play: "card-place-1",
    trick: "cards-sweep-1",
    round: "round-end",
@@ -66,7 +67,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       [muted, volume]
    );
    useEffect(() => {
-      const audio = new Audio(asset("sounds/music-loop.mp3"));
+      const audio = new Audio(
+         asset("sounds/abstraction-sketchbook-2025-11-26.ogg")
+      );
       audio.loop = true;
       track.current = audio;
       return () => {

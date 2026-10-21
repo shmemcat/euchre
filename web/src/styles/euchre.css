@@ -529,6 +529,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    letter-spacing: 1px;
    margin-bottom: 20px;
 }
+.game-result-modal {
+   animation: result-fade-in 0.3s ease-out;
+}
+.game-result-modal .modal-body {
+   animation: result-sweep-down 0.3s ease-out;
+}
+@keyframes result-fade-in {
+   from {
+      opacity: 0;
+   }
+   to {
+      opacity: 1;
+   }
+}
+@keyframes result-sweep-down {
+   from {
+      opacity: 0;
+      transform: translateY(-24px);
+   }
+   to {
+      opacity: 1;
+      transform: translateY(0);
+   }
+}
 .modal-body > .euchre-logo {
    color: var(--rulesbuttonselected);
    margin-bottom: 18px;

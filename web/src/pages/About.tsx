@@ -44,6 +44,18 @@ export default function About() {
                   </a>
                   .
                </p>
+               <p>
+                  Credit for this lovely music you’re listening to goes to{" "}
+                  <a
+                     className="link"
+                     href="https://tallbeard.itch.io/"
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     Abstraction (Tallbeard Studios)
+                  </a>
+                  !
+               </p>
             </article>
             <div className="button-stack">
                <MenuLink to="/" name="Home" />

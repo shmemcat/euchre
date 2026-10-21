@@ -340,13 +340,156 @@
    width: 82px;
    height: 115px;
    isolation: isolate;
+   perspective: 700px;
 }
-.upcard-stack > .euchre-card {
+.upcard-front > .euchre-card {
    position: relative;
    z-index: 2;
    width: 100%;
    min-width: 100%;
    height: 100%;
+}
+.upcard-flipper {
+   position: absolute;
+   inset: 0;
+   z-index: 2;
+   transform-style: preserve-3d;
+}
+.upcard-front,
+.upcard-reverse {
+   position: absolute;
+   inset: 0;
+   width: 100%;
+   height: 100%;
+   backface-visibility: hidden;
+   border-radius: 8px;
+}
+.upcard-reverse {
+   transform: rotateY(180deg);
+}
+.kitty-facedown .upcard-flipper {
+   transform: rotateY(180deg);
+}
+.kitty-facedown .kitty-back {
+   opacity: 0;
+}
+.kitty-picking-up .upcard-front {
+   visibility: hidden;
+}
+.kitty-turning .kitty-back,
+.kitty-picking-up .kitty-back {
+   animation: kitty-tuck 300ms ease-in-out forwards;
+}
+.kitty-turning .upcard-flipper {
+   animation: kitty-flip 450ms 300ms ease-in-out forwards;
+}
+@keyframes kitty-tuck {
+   to {
+      transform: translate(0, 0) rotate(0);
+   }
+}
+@keyframes kitty-flip {
+   to {
+      transform: rotateY(180deg);
+   }
+}
+.bid-toast {
+   position: absolute;
+   z-index: 6;
+   top: calc(100% + var(--seat-hand-gap) + 12px);
+   left: 50%;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 6px;
+   padding: 8px 14px;
+   border-radius: 10px;
+   background: var(--lightpink);
+   color: var(--buttontext);
+   box-shadow: inset -2px -2px 0 var(--buttonboxshadow);
+   font-size: 15px;
+   line-height: 1.2;
+   text-transform: capitalize;
+   white-space: nowrap;
+   pointer-events: none;
+   animation: bid-sweep 1100ms both;
+}
+.bid-toast .red-suit,
+.bid-toast .black-suit {
+   color: inherit;
+}
+@keyframes bid-sweep {
+   0% {
+      opacity: 0;
+      transform: translate(-50%, -18px);
+   }
+   25%,
+   70% {
+      opacity: 1;
+      transform: translate(-50%, 0);
+   }
+   100% {
+      opacity: 0;
+      transform: translate(-50%, 12px);
+   }
+}
+.hand-dealing {
+   animation: opening-fan 350ms ease-out both;
+}
+@keyframes opening-fan {
+   from {
+      opacity: 0;
+      transform: scale(0.3);
+   }
+   to {
+      opacity: 1;
+      transform: scale(1);
+   }
+}
+.hand-card-in-flight .hand-card-motion {
+   visibility: hidden;
+}
+.hand-card-motion {
+   transition: transform 100ms ease-out;
+}
+.hand-card-received {
+   transform: translateY(-6px);
+   transition: none;
+}
+.hand-card-received .euchre-card {
+   --cardhighlight: var(--lightpink);
+   border-color: var(--cardhighlight);
+}
+.hand-card-discarding {
+   animation: discarded-up 350ms ease-in forwards;
+}
+@keyframes discarded-up {
+   to {
+      opacity: 0;
+      transform: translateY(-40px);
+   }
+}
+.game-container[data-opening-paused="true"]
+   :is(
+      .hand-dealing,
+      .bid-toast,
+      .upcard-flipper,
+      .kitty-back,
+      .hand-card-discarding
+   ) {
+   animation-play-state: paused;
+}
+.opening-flight {
+   position: absolute;
+   z-index: 50;
+   pointer-events: none;
+}
+.opening-flight > .euchre-card,
+.opening-flight > img {
+   width: 100%;
+   min-width: 100%;
+   height: 100%;
+   border-radius: 8px;
 }
 .kitty-back {
    position: absolute;
@@ -395,6 +538,10 @@
    inset: 0;
    display: flex;
    animation: card-arrive 0.18s ease-out;
+}
+.trick-table.is-collecting .trick-card {
+   animation: none;
+   opacity: 0;
 }
 .trick-slot .euchre-card,
 .trick-slot .card-placeholder {
@@ -565,6 +712,11 @@
    }
 }
 @media (max-width: 768px) {
+   .bid-toast {
+      top: calc(100% + 5px);
+      font-size: 12px;
+      padding: 6px 9px;
+   }
    .game-container {
       --hand-card-width: 66px;
       --scoreboard-seat-gap: 55px;
@@ -740,6 +892,10 @@
    }
 }
 @media (max-width: 360px) {
+   .bid-toast {
+      font-size: 11px;
+      padding: 5px 7px;
+   }
    .game-container {
       --hand-card-width: 54px;
       --table-columns: minmax(48px, 1fr) 170px minmax(48px, 1fr);
@@ -763,8 +919,49 @@
    }
 }
 @media (prefers-reduced-motion: reduce) {
+   .hand-dealing {
+      animation: none;
+   }
+   .hand-card-received {
+      transform: none;
+   }
+   .hand-card-discarding {
+      animation: discarded-fade 350ms ease-in forwards;
+   }
+   .bid-toast {
+      animation-name: bid-fade;
+      transform: translateX(-50%);
+   }
+   .kitty-turning .kitty-back,
+   .kitty-picking-up .kitty-back {
+      animation: none;
+      transform: none;
+   }
+   .kitty-turning .upcard-flipper {
+      animation: none;
+      transform: rotateY(180deg);
+   }
+   .trick-card {
+      animation: none;
+   }
    .hand-card,
+   .hand-card-motion,
    .team-trick-dot {
       transition: none;
+   }
+}
+@keyframes discarded-fade {
+   to {
+      opacity: 0;
+   }
+}
+@keyframes bid-fade {
+   0%,
+   100% {
+      opacity: 0;
+   }
+   25%,
+   70% {
+      opacity: 1;
    }
 }

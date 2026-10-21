@@ -399,7 +399,7 @@ export function applyAction(
                : game.tricks[makerTeam] === 5
                ? game.alone
                   ? "A lone-hand sweep!"
-                  : "A march — all five tricks!"
+                  : "Marched! All five tricks!"
                : "Hand complete.";
       } else {
          game.trick = [];

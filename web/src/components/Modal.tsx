@@ -4,10 +4,12 @@ export function Modal({
    title,
    children,
    onClose,
+   className = "",
 }: {
    title: string;
    children: ReactNode;
    onClose?: () => void;
+   className?: string;
 }) {
    const ref = useRef<HTMLDivElement>(null);
    const close = useRef(onClose);
@@ -56,7 +58,7 @@ export function Modal({
    }, []);
    return createPortal(
       <div
-         className="modal-backdrop"
+         className={`modal-backdrop ${className}`.trim()}
          onClick={(e) => {
             if (e.target === e.currentTarget) close.current?.();
          }}

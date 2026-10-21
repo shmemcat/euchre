@@ -9,6 +9,13 @@ import { EuchreLogo } from "@/components/EuchreLogo";
 import { Modal } from "@/components/Modal";
 import { MatchInfo } from "@/components/MatchInfo";
 import { TeamScoreboard } from "@/components/TeamScoreboard";
+import { Trick } from "@/components/Trick";
+import { Kitty } from "@/components/Kitty";
+import { OpeningMotion } from "@/components/OpeningMotion";
+import {
+   OPENING_BOT_DELAY_MS,
+   useOpeningSequence,
+} from "@/hooks/useOpeningSequence";
 import { useGame } from "@/context/GameContext";
 import { useSound } from "@/context/SoundContext";
 import { mediumAction } from "@/game/ai";
@@ -50,14 +57,17 @@ function hint(game: Game): string {
 }
 
 export default function GamePage() {
-   const { game, act, saved, error } = useGame();
+   const { game, act: apply, saved, error } = useGame();
    const sound = useSound();
    const [alone, setAlone] = useState(false);
    const [info, setInfo] = useState(false);
+   const opening = useOpeningSequence(game, apply, info);
+   const act = opening.perform;
+   const boardRef = useRef<HTMLElement>(null);
    const [botError, setBotError] = useState("");
    const lastSound = useRef("");
    const paused = info;
-   const delay = 700;
+   const delay = game?.phase === "playing" ? 700 : OPENING_BOT_DELAY_MS;
    useEffect(() => {
       setAlone(false);
    }, [game?.handNumber, game?.phase]);
@@ -68,23 +78,20 @@ export default function GamePage() {
       lastSound.current = key;
       if (game.phase === "game_over") sound.play("win");
       else if (game.phase === "round_complete") sound.play("round");
-      else if (game.phase === "trick_complete") sound.play("trick");
-      else if (game.phase === "playing" && game.trick.length)
+      else if (
+         (game.phase === "playing" || game.phase === "trick_complete") &&
+         game.trick.length
+      )
          sound.play("play");
       else if (game.phase === "bidding1" && game.passes === 0)
          sound.play("deal");
    }, [game, sound]);
    useEffect(() => {
-      if (!game || paused) return;
-      if (game.phase === "trick_complete") {
-         const timer = window.setTimeout(
-            () => act({ type: "advance" }),
-            Math.max(900, delay + 350)
-         );
-         return () => clearTimeout(timer);
-      }
+      if (!game || paused || opening.busy) return;
       if (
-         ["round_complete", "game_over"].includes(game.phase) ||
+         ["trick_complete", "round_complete", "game_over"].includes(
+            game.phase
+         ) ||
          game.turn === 0
       )
          return;
@@ -133,7 +140,7 @@ export default function GamePage() {
          clearTimeout(watchdog);
          worker?.terminate();
       };
-   }, [game, act, delay, paused]);
+   }, [game, act, delay, paused, opening.busy]);
    if (!game)
       return (
          <main className={containers["content-border-container"]}>
@@ -159,7 +166,18 @@ export default function GamePage() {
    const over = game.phase === "game_over";
    const summary = over || game.phase === "round_complete";
    const phaseHint = hint(game);
-   const hand = sortHand(game.hands[0], game.trump);
+   const pickup =
+      opening.step?.kind === "pickup" && opening.step.seat === 0
+         ? opening.step
+         : null;
+   const discardedCard =
+      opening.step?.kind === "discard" && opening.step.seat === 0
+         ? opening.step.card
+         : null;
+   const hand = sortHand(
+      pickup ? [...game.hands[0], pickup.card] : game.hands[0],
+      pickup?.suit ?? game.trump
+   );
    const last = game.results[game.results.length - 1];
    const won = !game.conceded && game.scores[0] >= 10;
    const seat = (s: Seat) => (
@@ -217,6 +235,12 @@ export default function GamePage() {
                )}
             </div>
             {s === 3 && <TeamScoreboard game={game} side={1} />}
+            {opening.step?.kind === "bid" && opening.step.seat === s && (
+               <span className="bid-toast" role="status">
+                  {opening.step.suit && <SuitIcon suit={opening.step.suit} />}
+                  {opening.step.text}
+               </span>
+            )}
          </div>
          {s !== 0 && game.sittingOut !== s && (
             <div
@@ -248,6 +272,8 @@ export default function GamePage() {
             <title>Playing | Euchre</title>
          </Helmet>
          <main
+            ref={boardRef}
+            data-opening-paused={info}
             className={`${containers["content-border-container"]} game-container`}
          >
             <div className="game-header">
@@ -256,82 +282,20 @@ export default function GamePage() {
             <div id="page-content" tabIndex={-1} className="game-content">
                <div className="game-top-row">
                   {seat(2)}
-                  <MatchInfo
-                     game={game}
-                     open={info}
-                     onOpenChange={setInfo}
-                  />
+                  <MatchInfo game={game} open={info} onOpenChange={setInfo} />
                </div>
                <div className="game-table">
                   {seat(1)}
                   {seat(3)}
                   <div className="table-center">
                      {bidding || game.phase === "discard" ? (
-                        <div className="kitty-display">
-                           <div className="upcard-stack">
-                              <img
-                                 className="kitty-back"
-                                 src={asset("cards/back.svg")}
-                                 alt="Face-down cards beneath the upcard"
-                                 draggable={false}
-                              />
-                              <Card code={game.upCard} trump={game.trump} />
-                           </div>
-                           <span className="upcard-label">
-                              {game.phase === "bidding2"
-                                 ? "Turned down"
-                                 : game.phase === "discard"
-                                 ? "Picked up"
-                                 : "Upcard"}
-                           </span>
-                        </div>
+                        <Kitty game={game} step={opening.step} />
                      ) : (
-                        <div
-                           className="trick-table"
-                           role="group"
-                           aria-label="Current trick"
-                        >
-                           {game.trump && (
-                              <span
-                                 className="table-trump"
-                                 role="img"
-                                 aria-label={`${SUIT_NAMES[game.trump]} trump`}
-                                 title={`${SUIT_NAMES[game.trump]} trump`}
-                              >
-                                 <SuitIcon suit={game.trump} />
-                              </span>
-                           )}
-                           {([0, 1, 2, 3] as Seat[])
-                              .filter((s) => s !== game.sittingOut)
-                              .map((s) => {
-                                 const play = game.trick.find(
-                                    (p) => p.seat === s
-                                 );
-                                 return (
-                                    <div
-                                       className={`trick-slot trick-slot-${s}`}
-                                       key={s}
-                                       role="group"
-                                       aria-label={`${seatName(game, s)} ${
-                                          play ? "played" : "card slot"
-                                       }`}
-                                    >
-                                       <CardPlaceholder />
-                                       {play && (
-                                          <div
-                                             className="trick-card"
-                                             key={play.card}
-                                          >
-                                             <Card
-                                                code={play.card}
-                                                trump={game.trump}
-                                             />
-                                          </div>
-                                       )}
-                                    </div>
-                                 );
-                              })}
-                        </div>
+                        <Trick
+                           game={game}
+                           paused={paused}
+                           onCollected={() => act({ type: "advance" })}
+                        />
                      )}
                   </div>
                </div>
@@ -372,6 +336,7 @@ export default function GamePage() {
                            <label className="alone-label">
                               <input
                                  type="checkbox"
+                                 disabled={opening.busy}
                                  checked={alone}
                                  onChange={(e) => setAlone(e.target.checked)}
                               />{" "}
@@ -395,6 +360,7 @@ export default function GamePage() {
                                     }
                                     size="compact"
                                     type="button"
+                                    disabled={opening.busy}
                                     className="bid-action"
                                     aria-label={
                                        game.phase === "bidding1"
@@ -427,6 +393,7 @@ export default function GamePage() {
                                  variant="secondary"
                                  className="bid-action pass-button"
                                  type="button"
+                                 disabled={opening.busy}
                                  onClick={() => act({ type: "pass" })}
                               >
                                  Pass
@@ -449,7 +416,8 @@ export default function GamePage() {
                   <div
                      className={`player-hand ${
                         activeHand ? "hand-active" : ""
-                     }`}
+                     }${opening.step?.kind === "deal" ? " hand-dealing" : ""}`}
+                     key={`${game.id}:${game.handNumber}`}
                      data-card-count={hand.length}
                   >
                      {hand.length === 0 && (
@@ -457,31 +425,55 @@ export default function GamePage() {
                      )}
                      {hand.map((card, index) => (
                         <div
-                           className="hand-card"
+                           className={`hand-card${
+                              pickup?.card === card
+                                 ? " hand-card-in-flight"
+                                 : ""
+                           }`}
+                           data-hand-card={card}
                            key={card}
                            style={cardFanStyle(index, hand.length)}
                         >
-                           <Card
-                              code={card}
-                              trump={game.trump}
-                              disabled={activeHand && !legal.includes(card)}
-                              onClick={
-                                 activeHand
-                                    ? () =>
-                                         act({
-                                            type:
-                                               game.phase === "discard"
-                                                  ? "discard"
-                                                  : "play",
-                                            card,
-                                         })
-                                    : undefined
-                              }
-                           />
+                           <div
+                              className={`hand-card-motion${
+                                 opening.step?.kind === "receive" &&
+                                 opening.step.card === card
+                                    ? " hand-card-received"
+                                    : discardedCard === card
+                                    ? " hand-card-discarding"
+                                    : ""
+                              }`}
+                           >
+                              <Card
+                                 code={card}
+                                 trump={game.trump}
+                                 disabled={
+                                    activeHand && !legal.includes(card)
+                                 }
+                                 interactionDisabled={opening.busy}
+                                 onClick={
+                                    activeHand
+                                       ? () =>
+                                            act({
+                                               type:
+                                                  game.phase === "discard"
+                                                     ? "discard"
+                                                     : "play",
+                                               card,
+                                            })
+                                       : undefined
+                                 }
+                              />
+                           </div>
                         </div>
                      ))}
                   </div>
                </section>
+               <OpeningMotion
+                  step={opening.step}
+                  board={boardRef}
+                  paused={info}
+               />
                {(error || botError) && (
                   <p role="alert" className="inline-error">
                      {error || botError}
@@ -497,6 +489,7 @@ export default function GamePage() {
          </main>
          {summary && !info && (
             <Modal
+               className="game-result-modal"
                title={
                   over
                      ? game.conceded

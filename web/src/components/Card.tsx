@@ -40,6 +40,7 @@ export function Card({
    code,
    onClick,
    disabled = false,
+   interactionDisabled = false,
    selected = false,
    small = false,
    styleOverride,
@@ -48,6 +49,8 @@ export function Card({
    code: CardCode;
    onClick?: () => void;
    disabled?: boolean;
+   /** Block input during motion without applying the disabled appearance. */
+   interactionDisabled?: boolean;
    selected?: boolean;
    small?: boolean;
    styleOverride?: "celestial" | "classic";
@@ -101,7 +104,7 @@ export function Card({
          type="button"
          aria-label={cardName(code)}
          aria-description={description}
-         disabled={disabled}
+         disabled={disabled || interactionDisabled}
          aria-pressed={selected ? true : undefined}
          onClick={onClick}
       >
