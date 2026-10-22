@@ -70,8 +70,8 @@ This local work has not deployed or modified the live database.
 For static game hosting, the hub proxy must map `/euchre/` to the build root and
 fall back to that game's `index.html` for nested routes. If it strips the prefix
 before forwarding to the supplied Nginx container, it must also forward asset
-paths consistently. The game container serves its build root; Cards strips `/euchre/` before
-forwarding, while generated asset URLs retain that public prefix.
+paths consistently. The game container serves its build root; Cards strips
+`/euchre/` before forwarding, while generated asset URLs retain that public prefix.
 
 Keep each existing Hearts path and query when redirecting
 `hearts.shmem.dev/<path>` to `cards.shmem.dev/hearts/<path>`, and do the equivalent
@@ -95,7 +95,6 @@ with a trusted deal or move game authority to a game service.
 Hearts and Euchre can remain in their existing GitHub repositories. The sibling `cards` repository contains the landing page, shared account UI,
 and local API runner. The sibling infra repository controls production hosting.
 Shared packages can be extracted once real reuse is established.
-
 
 Push a `v*` tag (for example `v1.2.3`) to run **Release Euchre**. It tests this
 repository, builds with `/euchre/` and `/api/account`, and publishes
