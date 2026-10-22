@@ -135,7 +135,7 @@ describe("Shared Euchre leaderboards", () => {
       await syncLeaderboardResults("alice");
       expect(readSyncedResultIds("alice")).toEqual(["g1"]);
    });
-   it("does not fetch multiplayer rankings or accept malformed counts", async () => {
+   it("fetches multiplayer rankings and rejects malformed counts", async () => {
       const fetcher = vi.fn().mockResolvedValue(
          response({
             monthly: [{ rank: 1, username: "Alice", games_won: "2" }],
@@ -143,11 +143,8 @@ describe("Shared Euchre leaderboards", () => {
          })
       );
       const client = createLeaderboardClient("/api/account", fetcher);
-      expect(await client.load("multiplayer")).toEqual({
-         monthly: [],
-         all_time: [],
-      });
-      expect(fetcher).not.toHaveBeenCalled();
+      await expect(client.load("multiplayer")).rejects.toThrow("unexpected response");
+      expect(fetcher).toHaveBeenCalledWith("/api/account/euchre/leaderboard?category=multiplayer", expect.any(Object));
       await expect(client.load("easy")).rejects.toThrow("unexpected response");
    });
    it("includes a new completed game while a previous upload is still running", async () => {

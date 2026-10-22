@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
    faCardsBlank,
    faTrophy,
@@ -10,6 +10,8 @@ import {
 import { ToggleButtonGroup } from "./ToggleButtonGroup";
 import { AchievementBadge } from "./AchievementBadge";
 import { readResults } from "@/lib/persistence";
+import { accountApiBase } from "@/lib/account";
+import type { StoredResult } from "@/lib/persistence";
 import containers from "@/styles/containers.module.css";
 import achievements from "@/styles/achievements.module.css";
 
@@ -92,7 +94,41 @@ export function HardTabs({
 }
 
 export function AccountSummary({ userId }: { userId: string }) {
-   const all = readResults(userId);
+   const [multiplayer, setMultiplayer] = useState<
+      (Omit<StoredResult, "difficulty"> & { difficulty: "multiplayer" })[]
+   >([]);
+   const [statsError, setStatsError] = useState("");
+   const [retry, setRetry] = useState(0);
+   const [loading, setLoading] = useState(false);
+   useEffect(() => {
+      const base = accountApiBase();
+      if (!base) return;
+      const controller = new AbortController();
+      setLoading(true);
+      setStatsError("");
+      void fetch(`${base.replace(/\/$/, "")}/euchre/multiplayer-results`, {
+         credentials: "include",
+         cache: "no-store",
+         signal: controller.signal,
+      })
+         .then(async (response) => {
+            const data = await response.json();
+            if (!response.ok || !Array.isArray(data.results)) throw new Error();
+            return data.results;
+         })
+         .then((results) => {
+            if (!controller.signal.aborted) setMultiplayer(results);
+         })
+         .catch(() => {
+            if (!controller.signal.aborted)
+               setStatsError("Your multiplayer statistics couldn’t be loaded.");
+         })
+         .finally(() => {
+            if (!controller.signal.aborted) setLoading(false);
+         });
+      return () => controller.abort();
+   }, [userId, retry]);
+   const all = [...readResults(userId), ...multiplayer];
    const [mode, setMode] = useState("all_time");
    const [category, setCategory] = useState("easy");
    const [hard, setHard] = useState("hard");
@@ -182,6 +218,19 @@ export function AccountSummary({ userId }: { userId: string }) {
    ];
    return (
       <>
+         {loading && (
+            <p role="status" className="quiet-text">
+               Loading multiplayer statistics…
+            </p>
+         )}
+         {statsError && (
+            <p role="alert" className="inline-error">
+               {statsError}{" "}
+               <button className="link" onClick={() => setRetry(retry + 1)}>
+                  Try again
+               </button>
+            </p>
+         )}
          <ToggleButtonGroup
             options={[
                { value: "all_time", label: "All Time" },

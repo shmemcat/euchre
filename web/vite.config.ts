@@ -15,6 +15,11 @@ export default defineConfig(({ mode }) => {
          port: 3002,
          strictPort: true,
          proxy: {
+            "/socket.io": {
+               target: env.ACCOUNT_PROXY_TARGET || "http://127.0.0.1:5000",
+               ws: true,
+               changeOrigin: true,
+            },
             "/api/account": {
                target: env.ACCOUNT_PROXY_TARGET || "http://127.0.0.1:5000",
                changeOrigin: true,

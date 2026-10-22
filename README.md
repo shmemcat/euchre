@@ -48,9 +48,10 @@ npm run down-prod
 ```
 
 Font Awesome credentials are passed using BuildKit secret mounts and are not
-retained in the image. This first version needs only a web container: gameplay,
-bot simulations, saved games, and stats run in the browser. There is no separate
-database or Socket.IO service. If dependencies change, stop the dev containers
+retained in the image. Solo gameplay, bot simulations and saves run in the browser.
+Online games use the shared Cards API in the sibling Hearts project. Start
+`npm run dev:accounts` in the sibling Cards repo for local multiplayer; the web
+preview proxies `/api/account` and `/socket.io` to it. If dependencies change, stop the dev containers
 and remove only the `euchre_web_node_modules` volume before rebuilding; it stores
 installed packages, not saved games.
 
@@ -61,12 +62,19 @@ installed packages, not saved games.
   dealer pickup/discard, right/left bowers, following suit, and optional lone hands.
 - The dealer rotates after eight passes. No stick-the-dealer rule.
 - First partnership to 10 wins; no rubber points.
-- Easy: loose bidding and random legal plays.
+- Easy: loose bidding, mostly sensible card play and discards, and occasional
+  random legal choices.
 - Medium: heuristic bidding, discards, and cooperative card play.
-- Hard, Harder, Hardest: 32, 128, and 384 sampled deals per decision.
+- Hard, Harder, Hardest: 32, 128, and 384 sampled deals per decision. All three
+  simulate passing through the remaining auction and use card-aware simulated
+  play. Hard keeps the Medium choice when the estimated gain is small; Harder
+  and Hardest use smaller margins and search the final two and three tricks of
+  each hypothetical deal respectively.
 - Simulations run in a Web Worker and receive only the bot's own hand and public
   information. Sampling accounts for public voids, the upcard, and the dealer's
-  own discard. These budgets are distinct; playing strength is not yet benchmarked.
+  own discard. Late search solves hypothetical deals, not the actual hidden
+  hands. See [AI benchmarks](docs/ai-benchmarks.md) for strength measurements,
+  methodology, and difficulty tuning.
 - Games auto-save after every action. Leaving the table pauses bots. Local
   statistics and achievements are recorded once when a game finishes or is conceded.
 - Sound effects, optional music, dark/light themes, and card styles.
@@ -89,7 +97,51 @@ The app is prepared for `cards.shmem.dev/euchre/`:
   Production builds need `VITE_ACCOUNT_API_URL=/api/account` and API routing.
 - Existing live Hearts identities and passwords are preserved when deploying
   migration017 against the existing database. No live deployment has been done.
-- Euchre games, stats, and achievements remain browser-local after signing in.
+- Solo saves and achievements remain browser-local. Account-owned solo results
+  sync to the shared service; multiplayer games and results are server-owned.
+
+## Multiplayer
+
+- Play offers the same Create Game and Join Game choices as Hearts. Choose
+  Online to create a lobby, then share its six-character code or invitation URL.
+- Entering Play with an unfinished game opens a Continue/Concede prompt.
+  Online groups offer Rejoin/Leave instead. Conceding or leaving requires
+  confirmation and returns to the Play choices before a new game is selected.
+  Waiting lobbies and groups between games never show a forfeit warning;
+  leaving a seat in a game that is still running warns about the loss and bot takeover.
+- Choose any open seat. Partners sit opposite one another. The first human on
+  each team can save a name of up to 24 characters; everyone sees saved names
+  immediately, including at the table and in hand results.
+- The host starts the game and can choose a bot difficulty for empty seats.
+  The popup starts on Easy. Its Hard choice uses the signed-in creator's Hard
+  strength from Options (Hard, Harder or Hardest); guests get regular Hard.
+  That Hard setting stays with the lobby across host changes and later games.
+  Replacement bots use the current game's difficulty; a game starting with
+  four humans uses the creator's Hard setting for any later replacements.
+  Online Easy and Medium follow the browser's bidding/discard/play policies;
+  Hard levels compare 32/128/384 hypothetical deals using Medium rollouts.
+  The browser's strategic rollout policy and late-hand search are specific to
+  solo Hard levels. Online bots never use the actual opponents' hands.
+- Disconnects have a 30-second grace period, then a bot takes over. A reconnect
+  can reclaim that seat. Leaving explicitly forfeits the game and gives the
+  seat to a bot. Hosting and team naming transfer to the remaining humans.
+- At game end the host can Play Again immediately with the same partners and
+  difficulty, or choose Back to Lobby to rearrange the group. Invitations,
+  seats and team names carry over.
+- Leave Seat frees your spot while keeping you in the group, so a full table
+  can trade seats. Your place stays reserved while you rearrange, and the host
+  waits until those players are seated before starting.
+- Anyone viewing the lobby without a seat appears in its waiting room, which
+  disappears when empty. Guests can enter a name there; signed-in arrivals use
+  their account name. Additional visitors can wait for the next game without
+  blocking the current group or taking a place reserved during a seat swap.
+- Signed-in players get server-recorded multiplayer results, deduplicated by
+  account and game. Multiplayer wins have monthly and all-time leaderboards and
+  appear in User → Separate → Multiplayer, independently of Hearts statistics.
+- Lobby/game snapshots survive service restarts and expire after 20 minutes
+  without activity. The shared API uses one worker for multiplayer timers,
+  matching the existing Hearts deployment. Apply migration **019** before
+  deploying the updated API. No live deployment is performed by local setup.
 
 See [account and hosting notes](docs/shared-accounts.md) for local setup,
 existing-account migration, routing, and result-validation boundaries.
@@ -100,6 +152,7 @@ No extra GitHub repository is needed to run or finish the local Euchre site.
 ```powershell
 npm test
 npm run build
+npm run test:multiplayer-rules
 ```
 
 Tests cover card ranking, left-bower following suit, all scoring cases, lone hands,

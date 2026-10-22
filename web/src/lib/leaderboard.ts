@@ -36,7 +36,6 @@ export function createLeaderboardClient(
          category: LeaderboardCategory,
          signal?: AbortSignal
       ): Promise<LeaderboardData> {
-         if (category === "multiplayer") return empty;
          const data = await read(
             await fetcher(
                `${url}/euchre/leaderboard?category=${encodeURIComponent(

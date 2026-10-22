@@ -36,6 +36,7 @@ import {
 } from "@/game/engine";
 import { asset } from "@/lib/assets";
 import { cardFanStyle } from "@/lib/cardFan";
+import { getProfileIcon } from "@/lib/profileIcons";
 import containers from "@/styles/containers.module.css";
 
 function hint(game: Game): string {
@@ -56,12 +57,27 @@ function hint(game: Game): string {
       : "Your turn · Play any card.";
 }
 
-export default function GamePage() {
-   const { game, act: apply, saved, error } = useGame();
+export type OnlineGame = {
+   game: Game;
+   act: (action: Action) => void;
+   saved: boolean;
+   error: string;
+   isHost: boolean;
+   disabled: boolean;
+   onRematch: () => void;
+   onLobby: () => void;
+   onLeave: () => void;
+};
+export default function GamePage({ online }: { online?: OnlineGame } = {}) {
+   const single = useGame();
+   const { game, act: apply, saved, error } = online ?? single;
    const sound = useSound();
    const [alone, setAlone] = useState(false);
    const [info, setInfo] = useState(false);
-   const opening = useOpeningSequence(game, apply, info);
+   const singleOpening = useOpeningSequence(online ? null : game, apply, info);
+   const opening = online
+      ? { step: null, busy: online.disabled, perform: apply }
+      : singleOpening;
    const act = opening.perform;
    const boardRef = useRef<HTMLElement>(null);
    const [botError, setBotError] = useState("");
@@ -87,7 +103,7 @@ export default function GamePage() {
          sound.play("deal");
    }, [game, sound]);
    useEffect(() => {
-      if (!game || paused || opening.busy) return;
+      if (online || !game || paused || opening.busy) return;
       if (
          ["trick_complete", "round_complete", "game_over"].includes(
             game.phase
@@ -140,7 +156,7 @@ export default function GamePage() {
          clearTimeout(watchdog);
          worker?.terminate();
       };
-   }, [game, act, delay, paused, opening.busy]);
+   }, [game, act, delay, paused, opening.busy, online]);
    if (!game)
       return (
          <main className={containers["content-border-container"]}>
@@ -207,7 +223,13 @@ export default function GamePage() {
             >
                <span className="seat-name">
                   <FontAwesomeIcon
-                     icon={s === 0 ? faUser : faRobot}
+                     icon={
+                        game.seatIcons && game.humanSeats?.[s]
+                           ? getProfileIcon(game.seatIcons[s])
+                           : (game.humanSeats ? game.humanSeats[s] : s === 0)
+                           ? faUser
+                           : faRobot
+                     }
                      className="seat-icon"
                   />
                   <span className="seat-full-name">{seatName(game, s)}</span>
@@ -252,7 +274,8 @@ export default function GamePage() {
                   </span>
                ) : (
                   <span className="seat-detail">
-                     {team(s) === 0 ? "Your team" : "Opponents"}
+                     {game.teamNames?.[team(s)] ??
+                        (team(s) === 0 ? "Your team" : "Opponents")}
                   </span>
                )}
             </div>
@@ -321,7 +344,9 @@ export default function GamePage() {
                            <Trick
                               game={game}
                               paused={paused}
-                              onCollected={() => act({ type: "advance" })}
+                              onCollected={() => {
+                                 if (!online) act({ type: "advance" });
+                              }}
                            />
                         )}
                      </div>
@@ -515,6 +540,14 @@ export default function GamePage() {
                      continue.
                   </p>
                )}
+               {online && (
+                  <div className="multiplayer-table-footer">
+                     <span>Multiplayer · {game.teamNames?.join(" vs. ")}</span>
+                     <button className="link" onClick={online.onLeave}>
+                        Leave Game
+                     </button>
+                  </div>
+               )}
             </div>
          </main>
          {summary && !info && (
@@ -555,7 +588,9 @@ export default function GamePage() {
                   <tbody>
                      {[0, 1].map((t) => (
                         <tr key={t}>
-                           <th>{t === 0 ? "Us" : "Them"}</th>
+                           <th>
+                              {game.teamNames?.[t] ?? (t === 0 ? "Us" : "Them")}
+                           </th>
                            {!over && <td>{last?.tricks[t]}</td>}
                            {!over && <td>+{last?.points[t]}</td>}
                            <td>{game.scores[t]}</td>
@@ -565,10 +600,39 @@ export default function GamePage() {
                </table>
                <div className="button-stack">
                   {over ? (
-                     <MenuLink to="/play" name="Play Again" />
+                     online ? (
+                        online.isHost ? (
+                           <>
+                              <Button
+                                 name="Play Again"
+                                 disabled={online.disabled}
+                                 onClick={online.onRematch}
+                              />
+                              <Button
+                                 name="Back to Lobby"
+                                 disabled={online.disabled}
+                                 onClick={online.onLobby}
+                              />
+                           </>
+                        ) : (
+                           <p role="status">
+                              Waiting for the host to play again or return the
+                              group to the lobby.
+                           </p>
+                        )
+                     ) : (
+                        <MenuLink to="/play" name="Play Again" />
+                     )
                   ) : (
                      <Button
-                        name="Next Hand"
+                        name={
+                           online && !online.isHost
+                              ? "Waiting for Host"
+                              : "Next Hand"
+                        }
+                        disabled={
+                           !!online && (!online.isHost || online.disabled)
+                        }
                         onClick={() => act({ type: "advance" })}
                      />
                   )}

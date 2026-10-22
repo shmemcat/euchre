@@ -1,0 +1,17 @@
+{
+  "goal": "Move Easy near50 on the original fixed relative strength scale, retaining Medium and higher behavior",
+  "scope": ["web/src/game/ai.ts", "web/src/game/easy.test.ts", "web/src/game/hardest.test.ts"],
+  "metric": "Absolute distance between Easy's fixed-reference index and50, based on500 paired full matches vs Medium with Medium partners",
+  "direction": "lower_is_better",
+  "verify": "node scripts/score-easy.mjs",
+  "guard": "node ../../web/node_modules/vitest/vitest.mjs run --root web --config vite.config.mjs; TypeScript",
+  "working_directory": ".local/easy-calibration",
+  "iterations": 4,
+  "development_seed": 20270203,
+  "development_pairs": 500,
+  "validation_seed": 20270221,
+  "validation_pairs_per_version": 2000,
+  "validation_matches_total": 8000,
+  "fixed_reference": "docs/benchmarks/hardest-strengthening-followup/relative-strength.json",
+  "notes": "Keep ORIGINAL Easy0 and Hardest100 anchors. Medium72.329, Hard88.410, Harder94.387 remain fixed. Only card-play/discard sensible-choice probability changes; bidding retains12%loose calls and no loners. Independent validation after selection; no hidden-card simulations for Easy. Development seeds are excluded from validation. Experimental commits use configured user identity in isolated repo; no primary staging, reverts, pushes, publishing, or deployment."
+}

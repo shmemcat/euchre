@@ -1,0 +1,25 @@
+{
+  "version": "2.1.0",
+  "source": "loop",
+  "timestamp": "2026-10-22T07:38:00Z",
+  "status": "COMPLETE",
+  "results_tsv": "autoresearch/loop-261022-0028/results.tsv",
+  "iterations": 1,
+  "kept": 1,
+  "discarded": 0,
+  "selected_revision": "99d161c",
+  "findings": [
+    "Easy's 70% basic card-policy mixture calibrated to49.813 on development deals",
+    "Fresh8,000-match validation gives fixed-reference index46.415,95% range42.007–50.952",
+    "Easy wins36.05% against Medium versus16.225% previously, Medium partners on both sides",
+    "223 primary tests and production build passed; other difficulties unchanged",
+    "Exact sources, compiled entries, raw outcomes and graph archived in docs/benchmarks/easy-rebalance"
+  ],
+  "config": {
+    "goal": "Move Easy near50 on the original fixed scale",
+    "scope": ["web/src/game/ai.ts", "web/src/game/easy.test.ts", "web/src/game/hardest.test.ts"],
+    "metric": "Absolute distance from fixed-reference index50 on500 development pairs",
+    "direction": "lower_is_better",
+    "verify": "node scripts/score-easy.mjs"
+  }
+}

@@ -11,6 +11,9 @@
     "dev": "npm --prefix web run dev",
     "build": "npm --prefix web run build",
     "test": "npm --prefix web run test:run",
+    "test:multiplayer-rules": "node scripts/check-multiplayer-engine.mjs",
+    "benchmark:ai": "node scripts/benchmark-ai.mjs",
+    "benchmark:easy": "node scripts/benchmark-easy.mjs",
     "preview": "npm --prefix web run preview"
   }
 }

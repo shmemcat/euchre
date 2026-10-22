@@ -1,0 +1,6 @@
+# metric_direction: higher_is_better
+iteration	timestamp	commit	metric	delta	guard	guard-metric	status	description
+0	2026-10-22T05:55:26.2458605Z	20854cb	51.8333333333	0	pass	70	baseline	Exact-source reuse: first300 pairs from phase-one validation, now development-only
+1	2026-10-22T06:04:55.0539581Z	275f2d8	53	1.1666666667	pass	73	keep	Consistent latent hand order improved the enlarged development metric
+2	2026-10-22T06:13:48.8835459Z	a23134c	53.3333333333	0.3333333333	pass	73	keep	Information-consistent planning improved development wins and reduced cost
+3	2026-10-22T06:18:47.9731789Z	ebdbf03	53	-0.3333333333	pass	75	discard	Policy-specific bid evidence reduced the development win metric

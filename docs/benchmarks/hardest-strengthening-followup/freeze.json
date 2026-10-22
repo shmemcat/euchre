@@ -1,0 +1,35 @@
+{
+  "frozenAt": "2026-10-22T06:22:53.3947335Z",
+  "sourceRepository": ".local/hardest-phase2",
+  "revision": "fd028e0",
+  "retainedTrial": "a23134c",
+  "primaryTests": 218,
+  "primaryTestFiles": 25,
+  "productionBuild": "pass",
+  "developmentWholeGuard": {
+    "pairs": 100,
+    "wins": 113,
+    "excludedFromFinalInference": true,
+    "seed": 20261221,
+    "matches": 200
+  },
+  "workers": {
+    "current": 24,
+    "control": 20
+  },
+  "simulationBudgets": {
+    "hardest": 384,
+    "harder": 128,
+    "hard": 32
+  },
+  "strategyChangedAfterFreshRunStarted": false,
+  "controlSchedulingRestart": "Original8-worker control interrupted after50/500pairs progress, before any completedcase or aggregate. Restarted sameimmutablebuild/deals/settings with20workers for resource balance; interrupted work excluded.",
+  "completedValidation": {
+    "perfectPlayProven": false,
+    "completedAt": "2026-10-22T07:13:25.8002977Z",
+    "measuredTargetMet": true,
+    "independentRebuildMatches": true,
+    "matches": 4000,
+    "primaryMatchesTestedSource": true
+  }
+}

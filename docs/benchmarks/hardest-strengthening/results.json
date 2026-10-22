@@ -1,0 +1,389 @@
+{
+  "study": "Direct current-bot difficulty ladder: adjacent tiers",
+  "primaryMetric": "Higher-tier match win rate; six comparisons including partner setups",
+  "analysis": {
+    "method": "Whole-pair percentile bootstrap, Bonferroni across six comparisons per metric",
+    "resamples": 100000,
+    "seed": 816713,
+    "intervalConfidence": 0.9916666666666667,
+    "nominalFamilyConfidence": 0.95,
+    "note": "Point margins are supporting evidence; no combined coverage claim across both metrics.",
+    "runtime": {
+      "python": "3.12.14",
+      "numpy": "2.5.4",
+      "matplotlib": "3.11.2"
+    }
+  },
+  "run": {
+    "suite": "ladder",
+    "seed": 20261221,
+    "mode": "matches",
+    "workers": 24,
+    "bootstrapResamples": 10000,
+    "sourceSha256": {
+      "web/src/game/ai.ts": "95b7b131d096f6a8c6c3804aa51262b69be08f32d52c8660def52b91d51b828f",
+      "web/src/game/hardest.ts": "896edfdcee24a7a5e48ab4d6c765c91f3534a07c602271950b77031a9847f4d0",
+      "web/src/game/partner-search.ts": "9a1f2c33ff8d912f51b403bdf99c9e2a68781a8d23d1c27bbad1c9e9999e45c2",
+      "web/src/game/play-policy.ts": "ad0b21b3d8dca05dbe5b4a449c9cda525438b5cd0992a11e1791af257fe95344",
+      "web/src/game/endgame.ts": "f56893952ae0471c621abcd9fb5f455db6693c2bd7662f37147ccbe4cdc8b653",
+      "web/src/game/engine.ts": "a0935be870c9aaaddc19f6112e11e59d43d52cff7497e605b8e79a64b72e1042",
+      "web/benchmarks/legacy-ai.ts": "9a4d3ce47e6b8f33e09f31f3af731e8d0613d022c70607a7017413005a2af250",
+      "web/benchmarks/pre-strengthening-ai.ts": "d40f50daf6b5fd3cf124e38152b6da256cf1f9544a98be8a8c33084ecc5ca2fb",
+      "web/benchmarks/pre-strengthening-play-policy.ts": "b35d4b16333796c77964514956fac82541522647fe4965e305d50e829247764d",
+      "web/benchmarks/pre-strengthening-endgame.ts": "b4074a72ce8e008cc3a72a0c14add05423fead7c6a0700e586d2cd1c2b003da7"
+    },
+    "pairsPerComparison": 500,
+    "legacySourceReference": null,
+    "generatedAt": "2026-10-22T05:00:42.361Z",
+    "runtime": {
+      "node": "v22.23.2",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "settings": {
+      "simulations": {
+        "hard": 32,
+        "harder": 128,
+        "hardest": 384
+      },
+      "hardestStrategy": {
+        "objective": "approximate match-win probability",
+        "partnerBasicPrior": 0.75,
+        "opponentBasicPrior": 0.15,
+        "priorWeight": 0.35,
+        "evidenceWeight": 0.65,
+        "likelihoodTemperature": 0.5,
+        "tacticalWeight": 0.75,
+        "informationWeight": 0.25,
+        "informationTricks": 3,
+        "minInformationParticles": 12
+      },
+      "switchMargin": {
+        "hard": 0.4,
+        "harder": 0.12,
+        "hardest": 0
+      },
+      "endgameTricks": {
+        "hard": 0,
+        "harder": 2,
+        "hardest": 4
+      }
+    },
+    "preStrengtheningSettings": {
+      "simulations": {
+        "hard": 32,
+        "harder": 128,
+        "hardest": 384
+      },
+      "switchMargin": {
+        "hard": 0.4,
+        "harder": 0.12,
+        "hardest": 0.04
+      },
+      "endgameTricks": {
+        "hard": 0,
+        "harder": 2,
+        "hardest": 3
+      }
+    },
+    "opponentVersion": "current"
+  },
+  "results": [
+    {
+      "comparison": "hard vs medium",
+      "partners": "same bot",
+      "candidateVersion": "current",
+      "opponentVersion": "current",
+      "pairs": 500,
+      "games": 1000,
+      "scoreShare": 0.661,
+      "pointMargin": 1.829,
+      "margin95": [
+        1.639,
+        2.019
+      ],
+      "margin975": [
+        1.61,
+        2.045
+      ],
+      "share95": [
+        0.639,
+        0.684
+      ],
+      "share975": [
+        0.636,
+        0.687
+      ],
+      "redeals": 9,
+      "decisions": 126558,
+      "meanDecisionMs": 5.571274117795789,
+      "maxDecisionMs": 110.53169999999997,
+      "candidate": "hard",
+      "opponent": "medium",
+      "wins": 661,
+      "shareAdjusted": [
+        0.631,
+        0.691
+      ],
+      "marginAdjusted": [
+        1.572,
+        2.085
+      ],
+      "share95Analysis": [
+        0.639,
+        0.683
+      ],
+      "margin95Analysis": [
+        1.638,
+        2.019
+      ]
+    },
+    {
+      "comparison": "hard vs medium",
+      "partners": "medium",
+      "candidateVersion": "current",
+      "opponentVersion": "current",
+      "pairs": 500,
+      "games": 1000,
+      "scoreShare": 0.588,
+      "pointMargin": 0.928,
+      "margin95": [
+        0.778,
+        1.077
+      ],
+      "margin975": [
+        0.755,
+        1.099
+      ],
+      "share95": [
+        0.568,
+        0.608
+      ],
+      "share975": [
+        0.565,
+        0.611
+      ],
+      "redeals": 10,
+      "decisions": 129848,
+      "meanDecisionMs": 2.9105557852258066,
+      "maxDecisionMs": 107.01400000000285,
+      "candidate": "hard",
+      "opponent": "medium",
+      "wins": 588,
+      "shareAdjusted": [
+        0.561,
+        0.616
+      ],
+      "marginAdjusted": [
+        0.727,
+        1.134
+      ],
+      "share95Analysis": [
+        0.568,
+        0.608
+      ],
+      "margin95Analysis": [
+        0.778,
+        1.08
+      ]
+    },
+    {
+      "comparison": "harder vs hard",
+      "partners": "same bot",
+      "candidateVersion": "current",
+      "opponentVersion": "current",
+      "pairs": 500,
+      "games": 1000,
+      "scoreShare": 0.564,
+      "pointMargin": 0.752,
+      "margin95": [
+        0.565,
+        0.942
+      ],
+      "margin975": [
+        0.542,
+        0.971
+      ],
+      "share95": [
+        0.542,
+        0.586
+      ],
+      "share975": [
+        0.539,
+        0.59
+      ],
+      "redeals": 11,
+      "decisions": 122989,
+      "meanDecisionMs": 21.58988027628487,
+      "maxDecisionMs": 335.9482999999964,
+      "candidate": "harder",
+      "opponent": "hard",
+      "wins": 564,
+      "shareAdjusted": [
+        0.534,
+        0.594
+      ],
+      "marginAdjusted": [
+        0.497,
+        1.008
+      ],
+      "share95Analysis": [
+        0.542,
+        0.586
+      ],
+      "margin95Analysis": [
+        0.563,
+        0.943
+      ]
+    },
+    {
+      "comparison": "harder vs hard",
+      "partners": "medium",
+      "candidateVersion": "current",
+      "opponentVersion": "current",
+      "pairs": 500,
+      "games": 1000,
+      "scoreShare": 0.533,
+      "pointMargin": 0.418,
+      "margin95": [
+        0.271,
+        0.563
+      ],
+      "margin975": [
+        0.248,
+        0.584
+      ],
+      "share95": [
+        0.515,
+        0.552
+      ],
+      "share975": [
+        0.512,
+        0.554
+      ],
+      "redeals": 11,
+      "decisions": 127645,
+      "meanDecisionMs": 10.94328690743867,
+      "maxDecisionMs": 529.2558000000136,
+      "candidate": "harder",
+      "opponent": "hard",
+      "wins": 533,
+      "shareAdjusted": [
+        0.508,
+        0.559
+      ],
+      "marginAdjusted": [
+        0.219,
+        0.618
+      ],
+      "share95Analysis": [
+        0.514,
+        0.552
+      ],
+      "margin95Analysis": [
+        0.27,
+        0.566
+      ]
+    },
+    {
+      "comparison": "hardest vs harder",
+      "partners": "same bot",
+      "candidateVersion": "current",
+      "opponentVersion": "current",
+      "pairs": 500,
+      "games": 1000,
+      "scoreShare": 0.557,
+      "pointMargin": 0.46,
+      "margin95": [
+        0.269,
+        0.655
+      ],
+      "margin975": [
+        0.241,
+        0.682
+      ],
+      "share95": [
+        0.536,
+        0.578
+      ],
+      "share975": [
+        0.534,
+        0.581
+      ],
+      "redeals": 10,
+      "decisions": 122123,
+      "meanDecisionMs": 272.33645207946057,
+      "maxDecisionMs": 4753.76370000001,
+      "candidate": "hardest",
+      "opponent": "harder",
+      "wins": 557,
+      "shareAdjusted": [
+        0.529,
+        0.585
+      ],
+      "marginAdjusted": [
+        0.199,
+        0.722
+      ],
+      "share95Analysis": [
+        0.536,
+        0.578
+      ],
+      "margin95Analysis": [
+        0.267,
+        0.654
+      ]
+    },
+    {
+      "comparison": "hardest vs harder",
+      "partners": "medium",
+      "candidateVersion": "current",
+      "opponentVersion": "current",
+      "pairs": 500,
+      "games": 1000,
+      "scoreShare": 0.506,
+      "pointMargin": 0.13,
+      "margin95": [
+        -0.031,
+        0.292
+      ],
+      "margin975": [
+        -0.054,
+        0.315
+      ],
+      "share95": [
+        0.486,
+        0.526
+      ],
+      "share975": [
+        0.483,
+        0.529
+      ],
+      "redeals": 13,
+      "decisions": 127504,
+      "meanDecisionMs": 113.94213000925478,
+      "maxDecisionMs": 3983.5523000000976,
+      "candidate": "hardest",
+      "opponent": "harder",
+      "wins": 506,
+      "shareAdjusted": [
+        0.479,
+        0.533
+      ],
+      "marginAdjusted": [
+        -0.087,
+        0.345
+      ],
+      "share95Analysis": [
+        0.486,
+        0.526
+      ],
+      "margin95Analysis": [
+        -0.03,
+        0.291
+      ]
+    }
+  ],
+  "rawReportSha256": "480deb039f1386d36eadf1d35a846ddb54e57bd773b9b49c194d3176b1faf822",
+  "analysisScriptSha256": "040e37f1cb370b21159490f53bd5dda4b5f7181c4d937253a3ba962f18707265"
+}

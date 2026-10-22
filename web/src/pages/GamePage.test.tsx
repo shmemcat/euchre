@@ -11,7 +11,7 @@ import {
    type Action,
    type Game,
 } from "@/game/engine";
-import GamePage from "./GamePage";
+import GamePage, { type OnlineGame } from "./GamePage";
 import cardStyles from "@/styles/card.module.css";
 
 vi.mock("@/context/GameContext", () => ({ useGame: vi.fn() }));
@@ -43,7 +43,7 @@ function fixture(overrides: Partial<Game> = {}): Game {
    };
 }
 
-function board(game: Game) {
+function board(game: Game, online?: Omit<OnlineGame, "game">) {
    const setGame = (next: Game) =>
       vi.mocked(useGame).mockReturnValue({
          game: next,
@@ -57,7 +57,7 @@ function board(game: Game) {
       <HelmetProvider>
          <MemoryRouter>
             <PreferencesProvider>
-               <GamePage />
+               <GamePage online={online ? { ...online, game } : undefined} />
             </PreferencesProvider>
          </MemoryRouter>
       </HelmetProvider>
@@ -72,6 +72,53 @@ function board(game: Game) {
       },
    };
 }
+
+describe("Multiplayer game end", () => {
+   it("offers separate rematch and lobby actions to the host", () => {
+      const onRematch = vi.fn(),
+         onLobby = vi.fn();
+      board(fixture({ phase: "game_over", scores: [10, 4] }), {
+         act: vi.fn(),
+         saved: true,
+         error: "",
+         isHost: true,
+         disabled: false,
+         onRematch,
+         onLobby,
+         onLeave: vi.fn(),
+      });
+      const dialog = within(screen.getByRole("dialog"));
+      fireEvent.click(
+         dialog.getByRole("button", { name: "Play Again", exact: true })
+      );
+      expect(onRematch).toHaveBeenCalledOnce();
+      expect(onLobby).not.toHaveBeenCalled();
+      fireEvent.click(dialog.getByRole("button", { name: "Back to Lobby" }));
+      expect(onLobby).toHaveBeenCalledOnce();
+      expect(dialog.getByRole("link", { name: "Home" })).toBeInTheDocument();
+   });
+
+   it("waits for the host's group decision when you are a guest", () => {
+      board(fixture({ phase: "game_over", scores: [4, 10] }), {
+         act: vi.fn(),
+         saved: true,
+         error: "",
+         isHost: false,
+         disabled: false,
+         onRematch: vi.fn(),
+         onLobby: vi.fn(),
+         onLeave: vi.fn(),
+      });
+      expect(
+         screen.queryByRole("button", { name: "Back to Lobby" })
+      ).not.toBeInTheDocument();
+      expect(
+         screen.getByText(
+            "Waiting for the host to play again or return the group to the lobby."
+         )
+      ).toBeVisible();
+   });
+});
 
 beforeEach(() => {
    takeAction.mockReset();
@@ -312,18 +359,22 @@ describe("Quiet Table game controls", () => {
       fireEvent.click(hand.getAllByRole("button")[0]);
       expect(takeAction).toHaveBeenCalledTimes(1);
       act(() => vi.advanceTimersByTime(100));
-      expect(document.querySelector(".hand-card-received")).not.toBeInTheDocument();
+      expect(
+         document.querySelector(".hand-card-received")
+      ).not.toBeInTheDocument();
       const cards = hand.getAllByRole("button");
       expect(cards.every((button) => !button.hasAttribute("disabled"))).toBe(
          true
       );
       fireEvent.click(cards[0]);
-      expect(
-         document.querySelector(".hand-card-discarding .euchre-card")
-      ).toBe(cards[0]);
+      expect(document.querySelector(".hand-card-discarding .euchre-card")).toBe(
+         cards[0]
+      );
       expect(cards[0]).toBeDisabled();
       expect(
-         document.querySelector('.hand-card-discarding img[src$="/cards/back.svg"]')
+         document.querySelector(
+            '.hand-card-discarding img[src$="/cards/back.svg"]'
+         )
       ).not.toBeInTheDocument();
       expect(
          document.querySelector(".hand-card-discarding")

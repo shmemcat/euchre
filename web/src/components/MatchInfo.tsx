@@ -71,7 +71,8 @@ export function MatchInfo({ game, open, onOpenChange }: Props) {
                   <div>
                      <dt>First to {game.target}</dt>
                      <dd>
-                        Us {game.scores[0]} · Them {game.scores[1]}
+                        {game.teamNames?.[0] ?? "Us"} {game.scores[0]} ·{" "}
+                        {game.teamNames?.[1] ?? "Them"} {game.scores[1]}
                      </dd>
                   </div>
                   <div>

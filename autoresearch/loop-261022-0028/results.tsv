@@ -1,0 +1,4 @@
+# metric_direction: lower_is_better
+iteration	timestamp	commit	metric	delta	guard	guard-metric	status	description
+0	2026-10-22T07:32:32.3823351Z	d54ff1f	47.4600420370133	0	pass	73	baseline	Original Easy: index2.540 on500 development pairs; fixed original index from1000 pairs was0
+1	2026-10-22T07:34:00Z	99d161c	0.1871301322257395	-47.27291190478753	pass	78	keep	Easy follows basic sensible play/discard with probability0.7; development index49.813; stop calibration near target and validate independently

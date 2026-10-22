@@ -58,6 +58,10 @@ export type Game = {
    message: string;
    finishedAt: string | null;
    conceded: boolean;
+   seatNames?: string[];
+   seatIcons?: string[];
+   humanSeats?: boolean[];
+   teamNames?: string[];
 };
 export const SUIT_NAMES: Record<Suit, string> = {
    c: "clubs",
@@ -152,7 +156,8 @@ export function shuffle<T>(
    return shuffled;
 }
 
-export function seatName(game: Pick<Game, "playerName">, seat: Seat): string {
+export function seatName(game: Pick<Game, "playerName" | "seatNames">, seat: Seat): string {
+   if (game.seatNames) return game.seatNames[seat];
    return [game.playerName || "You", "West", "Partner", "East"][seat];
 }
 
