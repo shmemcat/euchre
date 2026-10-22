@@ -58,7 +58,7 @@ and SMTP2GO mail configuration. Never replace live data with the fresh local DB.
 The Cards repo's docs/integration.md contains the full deployment sequence.
 This local work has not deployed or modified the live database.
 
-## Future public routing
+## Production routing and releases
 
 - `/`: a Cards landing page with individually themed game links.
 - `/hearts/`: the Hearts application.
@@ -70,8 +70,8 @@ This local work has not deployed or modified the live database.
 For static game hosting, the hub proxy must map `/euchre/` to the build root and
 fall back to that game's `index.html` for nested routes. If it strips the prefix
 before forwarding to the supplied Nginx container, it must also forward asset
-paths consistently. The local Nginx config is a root-path preview; it is not the
-finished hub ingress configuration.
+paths consistently. The game container serves its build root; Cards strips `/euchre/` before
+forwarding, while generated asset URLs retain that public prefix.
 
 Keep each existing Hearts path and query when redirecting
 `hearts.shmem.dev/<path>` to `cards.shmem.dev/hearts/<path>`, and do the equivalent
@@ -93,4 +93,22 @@ with a trusted deal or move game authority to a game service.
 ## Source repositories
 
 Hearts and Euchre can remain in their existing GitHub repositories. The sibling `cards` repository contains the landing page, shared account UI,
-and local API runner. Hosting configuration remains a later deployment step. Shared packages can be extracted once real reuse is established.
+and local API runner. The sibling infra repository controls production hosting.
+Shared packages can be extracted once real reuse is established.
+
+
+Push a `v*` tag (for example `v1.2.3`) to run **Release Euchre**. It tests this
+repository, builds with `/euchre/` and `/api/account`, and publishes
+`ghcr.io/shmemcat/euchre-web:<version>` before promoting `latest`. A manual run
+accepts an existing tag and checks out that tag. Configure this repo's
+`FONTAWESOME_PACKAGE_TOKEN` Actions secret; it is passed as a BuildKit secret.
+Make the image package publicly pullable or configure registry access on nuttybox.
+
+After the initial reviewed Cards cutover, Podman's updater on nuttybox checks
+`latest` every minute and restarts the changed Euchre container. Cards and Hearts
+do not need rebuilding. The gateway resolves the new container address, and a
+container health check gates startup/failed-start rollback. Deployments roll
+independently, so maintain compatibility with the previous account API. For
+rollback, set `shmem.cards.autoUpdate = false`, pin `shmem.cards.images.euchre`
+to the previous compatible version or digest, and apply reviewed infra. No
+Euchre release creates or replaces production account records.
