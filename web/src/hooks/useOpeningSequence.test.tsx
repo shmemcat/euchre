@@ -159,13 +159,18 @@ describe("Opening sequence", () => {
       expect(view.result.current.step).toBeNull();
    });
 
-   it("repeats the opening fan after everyone passes twice", () => {
+   it("waits at the no-calls summary before fanning a redeal for the same dealer", () => {
       let game = fresh();
       for (let i = 0; i < 7; i++) game = applyAction(game, { type: "pass" });
       const view = opening(game);
       view.perform({ type: "pass" });
       advance(1250);
+      expect(view.result.current.game.phase).toBe("round_complete");
+      expect(view.result.current.game.message).toBe("No calls — Re-deal");
+      expect(view.result.current.step).toBeNull();
+      view.perform({ type: "advance" });
       expect(view.result.current.game.handNumber).toBe(2);
+      expect(view.result.current.game.dealer).toBe(game.dealer);
       expect(view.result.current.step?.kind).toBe("deal");
    });
 

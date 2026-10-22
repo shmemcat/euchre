@@ -37,6 +37,28 @@ for (let hand = 0; hand < 60; hand++) {
     game = next;
   }
 }
+// Exercise every dealer, including wraparound, and legacy saved state. A shared
+// deterministic shuffle lets us compare the full newly dealt hands as well.
+for (const legacy of [false, true]) {
+  for (let dealer = 0; dealer < 4; dealer++) {
+    let game = engine.newGame("medium", "You", rng);
+    Object.assign(game, { dealer, turn: (dealer + 1) % 4, scores: [3, 5] });
+    if (legacy) delete game.consecutivePassOuts;
+    for (let hand = 0; hand < 4; hand++) {
+      for (let step = 0; step < 9; step++) {
+        const action = { type: step === 8 ? "advance" : "pass" };
+        const next = engine.applyAction(game, action, () => 0.5);
+        cases.push({
+          game,
+          action,
+          deterministicDeal: true,
+          expected: normalize(next),
+        });
+        game = next;
+      }
+    }
+  }
+}
 const api = resolve(root, "../hearts/api");
 const python =
   process.env.HEARTS_PYTHON ||
@@ -48,9 +70,14 @@ const python =
   );
 const code = `import json, sys
 from hearts.euchre_engine import apply_action
+class BrowserRandom:
+    def shuffle(self, cards):
+        for i in range(len(cards) - 1, 0, -1):
+            j = int(0.5 * (i + 1))
+            cards[i], cards[j] = cards[j], cards[i]
 results = []
 for case in json.load(sys.stdin):
-    result = apply_action(case['game'], case['action'])
+    result = apply_action(case['game'], case['action'], BrowserRandom() if case.get('deterministicDeal') else None)
     result.pop('message', None)
     result.pop('finishedAt', None)
     results.append(result)
@@ -76,5 +103,5 @@ for (let i = 0; i < cases.length; i++)
     )}`
   );
 console.log(
-  `${cases.length} browser/server rule transitions matched, including lone hands, bowers, scoring and game completion.`
+  `${cases.length} browser/server rule transitions matched, including pass-out summaries, redeals, dealer rotation, lone hands, bowers, scoring and game completion.`
 );

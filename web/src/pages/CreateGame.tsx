@@ -122,6 +122,19 @@ export default function CreateGame() {
                      </fieldset>
                   </>
                )}
+               {gameType === "online" && (
+                  <p className="quiet-text">
+                     {multi.connected ? (
+                        <>
+                           Invite friends via the lobby link or code.
+                           <br />
+                           Empty seats are filled by bots.
+                        </>
+                     ) : (
+                        multi.error || "Connecting…"
+                     )}
+                  </p>
+               )}
                <div className="button-stack">
                   <Button
                      name={busy ? "Starting…" : "Create Game"}
@@ -140,13 +153,6 @@ export default function CreateGame() {
                   />
                   <MenuLink to="/" name="Home" />
                </div>
-               {gameType === "online" && (
-                  <p className="quiet-text">
-                     {multi.connected
-                        ? "Share your lobby code with friends. Empty seats are filled by bots when you start."
-                        : multi.error || "Connecting…"}
-                  </p>
-               )}
                {checking && !session && (
                   <p role="status">
                      {multi.error || "Checking for an active game…"}

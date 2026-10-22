@@ -40,6 +40,7 @@ export function playLeg(
       maxMilliseconds = 0,
       redeals = 0;
    for (let moves = 0; moves < 5000; moves++) {
+      if (game.phase === "round_complete" && game.maker === null) redeals++;
       if (
          (game.phase === "round_complete" && !matches) ||
          game.phase === "game_over"

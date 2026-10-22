@@ -16,6 +16,7 @@ import {
    OPENING_BOT_DELAY_MS,
    useOpeningSequence,
 } from "@/hooks/useOpeningSequence";
+import { useMultiplayerOpeningSequence } from "@/hooks/useMultiplayerOpeningSequence";
 import { useGame } from "@/context/GameContext";
 import { useSound } from "@/context/SoundContext";
 import { mediumAction } from "@/game/ai";
@@ -38,6 +39,17 @@ import { asset } from "@/lib/assets";
 import { cardFanStyle } from "@/lib/cardFan";
 import { getProfileIcon } from "@/lib/profileIcons";
 import containers from "@/styles/containers.module.css";
+
+function seatBadge(game: Game, seat: Seat): string {
+   const name = seatName(game, seat);
+   if (game.humanSeats?.[seat] ?? seat === 0)
+      return name.trim().charAt(0).toUpperCase();
+   const number = name.match(/^Bot\s+(\d+)$/i)?.[1] ??
+      (game.humanSeats
+         ? game.humanSeats.slice(0, seat + 1).filter((human) => !human).length
+         : seat);
+   return `B${number}`;
+}
 
 function hint(game: Game): string {
    if (["trick_complete", "round_complete", "game_over"].includes(game.phase))
@@ -70,14 +82,23 @@ export type OnlineGame = {
 };
 export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    const single = useGame();
-   const { game, act: apply, saved, error } = online ?? single;
+   const { game: currentGame, act: apply, saved, error } = online ?? single;
    const sound = useSound();
    const [alone, setAlone] = useState(false);
    const [info, setInfo] = useState(false);
-   const singleOpening = useOpeningSequence(online ? null : game, apply, info);
-   const opening = online
-      ? { step: null, busy: online.disabled, perform: apply }
-      : singleOpening;
+   const singleOpening = useOpeningSequence(
+      online ? null : currentGame,
+      apply,
+      info
+   );
+   const multiplayerOpening = useMultiplayerOpeningSequence(
+      online ? currentGame : null,
+      apply,
+      info,
+      online?.disabled ?? false
+   );
+   const game = online ? multiplayerOpening.game : currentGame;
+   const opening = online ? multiplayerOpening : singleOpening;
    const act = opening.perform;
    const boardRef = useRef<HTMLElement>(null);
    const [botError, setBotError] = useState("");
@@ -180,6 +201,8 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
       humanTurn && (game.phase === "playing" || game.phase === "discard");
    const call = (suit: Suit) => act({ type: "call", suit, alone });
    const over = game.phase === "game_over";
+   const passedOut = game.phase === "round_complete" && game.maker === null;
+   const totalsOnly = over || passedOut;
    const summary = over || game.phase === "round_complete";
    const phaseHint = hint(game);
    const pickup =
@@ -195,7 +218,11 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
       pickup?.suit ?? game.trump
    );
    const last = game.results[game.results.length - 1];
-   const won = !game.conceded && game.scores[0] >= 10;
+   const scoreOrder = [0, 1].sort((a, b) => game.scores[b] - game.scores[a]);
+   const winningTeam = game.scores[0] >= game.target ? 0 : 1;
+   const winningTeamName =
+      game.teamNames?.[winningTeam] ??
+      (winningTeam === 0 ? "Your team" : "The opposing team");
    const seat = (s: Seat) => (
       <div
          className={`table-seat seat-${s} ${
@@ -234,12 +261,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                   />
                   <span className="seat-full-name">{seatName(game, s)}</span>
                   <span className="seat-badge" aria-hidden="true">
-                     {s === 0
-                        ? (game.playerName || "You")
-                             .trim()
-                             .charAt(0)
-                             .toUpperCase()
-                        : ["", "W", "P", "E"][s]}
+                     {seatBadge(game, s)}
                   </span>
                   {(s === game.dealer || s === game.maker) && (
                      <span className="seat-status">
@@ -540,14 +562,6 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      continue.
                   </p>
                )}
-               {online && (
-                  <div className="multiplayer-table-footer">
-                     <span>Multiplayer · {game.teamNames?.join(" vs. ")}</span>
-                     <button className="link" onClick={online.onLeave}>
-                        Leave Game
-                     </button>
-                  </div>
-               )}
             </div>
          </main>
          {summary && !info && (
@@ -557,14 +571,12 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                   over
                      ? game.conceded
                         ? "Game conceded"
-                        : won
-                        ? "You won!"
-                        : "Game over"
+                        : `Game over — ${winningTeamName} wins!`
                      : game.message
                }
             >
                <EuchreLogo size={65} />
-               {!over && (
+               {!totalsOnly && (
                   <p>
                      {last?.maker === 0
                         ? "You"
@@ -575,24 +587,28 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                )}
                <table className="round-score-table">
                   <caption className="sr-only">
-                     {over ? "Final scores" : "Hand scores"}
+                     {over
+                        ? "Final scores"
+                        : passedOut
+                        ? "Current scores"
+                        : "Hand scores"}
                   </caption>
                   <thead>
                      <tr>
-                        <th>Team</th>
-                        {!over && <th>Tricks</th>}
-                        {!over && <th>Points</th>}
-                        <th>Total</th>
+                        <th scope="col">Team</th>
+                        {!totalsOnly && <th scope="col">Tricks</th>}
+                        {!totalsOnly && <th scope="col">Points</th>}
+                        <th scope="col">Total</th>
                      </tr>
                   </thead>
                   <tbody>
-                     {[0, 1].map((t) => (
+                     {scoreOrder.map((t) => (
                         <tr key={t}>
-                           <th>
+                           <th scope="row">
                               {game.teamNames?.[t] ?? (t === 0 ? "Us" : "Them")}
                            </th>
-                           {!over && <td>{last?.tricks[t]}</td>}
-                           {!over && <td>+{last?.points[t]}</td>}
+                           {!totalsOnly && <td>{last?.tricks[t]}</td>}
+                           {!totalsOnly && <td>+{last?.points[t]}</td>}
                            <td>{game.scores[t]}</td>
                         </tr>
                      ))}
@@ -636,7 +652,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                         onClick={() => act({ type: "advance" })}
                      />
                   )}
-                  <MenuLink to="/" name="Home" />
+                  {over && <MenuLink to="/" name="Home" />}
                   {over && <MenuLink to="/leaderboard" name="Leaderboard" />}
                </div>
             </Modal>

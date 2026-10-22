@@ -99,7 +99,10 @@ export default function Rules() {
                            player may pass or name any of the other three suits
                            as trump. The rejected suit cannot be chosen. If
                            everyone passes again, the cards are reshuffled and
-                           the next player clockwise deals a fresh hand.
+                           the same dealer deals a fresh hand. If both bidding
+                           rounds pass again on that redeal, the deal moves to
+                           the next player clockwise. Calling trump resets this
+                           count. Passed-out hands score no points.
                         </p>
                         <p>
                            The player who names trump may declare that they are{" "}

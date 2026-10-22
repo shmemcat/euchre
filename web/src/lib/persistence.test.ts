@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { concede, newGame } from "@/game/engine";
+import { applyAction, concede, newGame, nextSeat } from "@/game/engine";
 import {
    GAME_KEY,
    loadGame,
@@ -14,6 +14,15 @@ describe("Local game persistence", () => {
       expect(saveGame(game)).toBe(true);
       expect(loadGame()).toEqual(game);
    });
+   it("gives older saved games stable bot names without changing the hand", () => {
+      const legacy = newGame();
+      delete legacy.seatNames;
+      saveGame(legacy);
+      const restored = loadGame()!;
+      expect(restored.seatNames).toHaveLength(4);
+      expect({ ...restored, seatNames: undefined }).toEqual(legacy);
+      expect(loadGame()).toEqual(restored);
+   });
    it("recovers from invalid and older saved data", () => {
       localStorage.setItem(GAME_KEY, '{"version":0}');
       expect(loadGame()).toBeNull();
@@ -21,6 +30,41 @@ describe("Local game persistence", () => {
       localStorage.setItem(GAME_KEY, "broken");
       expect(loadGame()).toBeNull();
    });
+   it("preserves the redeal count and pending summary across reloads", () => {
+      let game = newGame();
+      const dealer = game.dealer;
+      for (let hand = 0; hand < 2; hand++) {
+         for (let i = 0; i < 8; i++) game = applyAction(game, { type: "pass" });
+         saveGame(game);
+         game = loadGame()!;
+         expect(game.message).toBe(
+            hand ? "No calls — Pass" : "No calls — Re-deal"
+         );
+         game = applyAction(game, { type: "advance" });
+         expect(game.dealer).toBe(hand ? nextSeat(dealer) : dealer);
+         saveGame(game);
+         game = loadGame()!;
+      }
+   });
+   it("restores games saved before the redeal counter was added", () => {
+      const legacy = newGame();
+      delete legacy.consecutivePassOuts;
+      saveGame(legacy);
+      let game = loadGame()!;
+      expect(game).toEqual(legacy);
+      for (let i = 0; i < 8; i++) game = applyAction(game, { type: "pass" });
+      expect(game.message).toBe("No calls — Re-deal");
+      game = applyAction(game, { type: "advance" });
+      expect(game.dealer).toBe(legacy.dealer);
+      expect(game.consecutivePassOuts).toBe(1);
+   });
+   it.each([-1, 2, 0.5, "1", null])(
+      "rejects a corrupt redeal counter: %s",
+      (counter) => {
+         writeStorage(GAME_KEY, { ...newGame(), consecutivePassOuts: counter });
+         expect(loadGame()).toBeNull();
+      }
+   );
    it("counts a finished game once even after reloading", () => {
       const game = concede(newGame());
       recordResult(game, "alice");

@@ -8,6 +8,8 @@ import {
    applyAction,
    legalActions,
    newGame,
+   seatName,
+   suitOf,
    type Action,
    type Game,
 } from "@/game/engine";
@@ -67,27 +69,124 @@ function board(game: Game, online?: Omit<OnlineGame, "game">) {
    return {
       ...view,
       update(next: Game) {
+         game = next;
          setGame(next);
          view.rerender(content());
       },
    };
 }
 
+describe.each(["single", "host", "guest"])(
+   "No-calls summary for %s",
+   (mode) => {
+      it.each([0, 1] as const)(
+         "shows unchanged totals after pass-out %i",
+         (consecutivePassOuts) => {
+            const send = vi.fn();
+            let game = fixture({
+               passes: 0,
+               consecutivePassOuts,
+               scores: [3, 5],
+               teamNames: ["Our team", "Their team"],
+               results: [
+                  {
+                     hand: 1,
+                     maker: 2,
+                     trump: "h",
+                     alone: false,
+                     tricks: [3, 2],
+                     points: [1, 0],
+                     scores: [3, 5],
+                  },
+               ],
+            });
+            for (let i = 0; i < 8; i++)
+               game = applyAction(game, { type: "pass" });
+            board(
+               game,
+               mode === "single"
+                  ? undefined
+                  : {
+                       act: send,
+                       saved: true,
+                       error: "",
+                       isHost: mode === "host",
+                       disabled: false,
+                       onRematch: vi.fn(),
+                       onLobby: vi.fn(),
+                       onLeave: vi.fn(),
+                    }
+            );
+            const dialog = within(screen.getByRole("dialog"));
+            expect(
+               dialog.getByRole("heading", {
+                  name: consecutivePassOuts
+                     ? "No calls — Pass"
+                     : "No calls — Re-deal",
+               })
+            ).toBeVisible();
+            const table = within(
+               dialog.getByRole("table", { name: "Current scores" })
+            );
+            expect(
+               table
+                  .getAllByRole("columnheader")
+                  .map((cell) => cell.textContent)
+            ).toEqual(["Team", "Total"]);
+            expect(
+               table.getAllByRole("cell").map((cell) => cell.textContent)
+            ).toEqual(["5", "3"]);
+            expect(
+               table.getByRole("rowheader", { name: "Our team" })
+            ).toBeVisible();
+            expect(
+               table.getByRole("rowheader", { name: "Their team" })
+            ).toBeVisible();
+            expect(dialog.queryByText(/called/)).not.toBeInTheDocument();
+            expect(takeAction).not.toHaveBeenCalled();
+            expect(send).not.toHaveBeenCalled();
+            if (mode === "guest") {
+               expect(
+                  dialog.getByRole("button", { name: "Waiting for Host" })
+               ).toBeDisabled();
+            } else {
+               fireEvent.click(
+                  dialog.getByRole("button", { name: "Next Hand" })
+               );
+               expect(
+                  mode === "single" ? takeAction : send
+               ).toHaveBeenCalledExactlyOnceWith({ type: "advance" });
+            }
+         }
+      );
+   }
+);
+
 describe("Multiplayer game end", () => {
    it("offers separate rematch and lobby actions to the host", () => {
       const onRematch = vi.fn(),
          onLobby = vi.fn();
-      board(fixture({ phase: "game_over", scores: [10, 4] }), {
-         act: vi.fn(),
-         saved: true,
-         error: "",
-         isHost: true,
-         disabled: false,
-         onRematch,
-         onLobby,
-         onLeave: vi.fn(),
-      });
+      board(
+         fixture({
+            phase: "game_over",
+            scores: [10, 4],
+            teamNames: ["Shmut", "Team 2"],
+         }),
+         {
+            act: vi.fn(),
+            saved: true,
+            error: "",
+            isHost: true,
+            disabled: false,
+            onRematch,
+            onLobby,
+            onLeave: vi.fn(),
+         }
+      );
       const dialog = within(screen.getByRole("dialog"));
+      expect(
+         dialog.getByRole("heading", { name: "Game over — Shmut wins!" })
+      ).toBeInTheDocument();
       fireEvent.click(
          dialog.getByRole("button", { name: "Play Again", exact: true })
       );
@@ -99,16 +198,26 @@ describe("Multiplayer game end", () => {
    });
 
    it("waits for the host's group decision when you are a guest", () => {
-      board(fixture({ phase: "game_over", scores: [4, 10] }), {
-         act: vi.fn(),
-         saved: true,
-         error: "",
-         isHost: false,
-         disabled: false,
-         onRematch: vi.fn(),
-         onLobby: vi.fn(),
-         onLeave: vi.fn(),
-      });
+      board(
+         fixture({
+            phase: "game_over",
+            scores: [9, 11],
+            teamNames: ["Shmut", "Team 2"],
+         }),
+         {
+            act: vi.fn(),
+            saved: true,
+            error: "",
+            isHost: false,
+            disabled: false,
+            onRematch: vi.fn(),
+            onLobby: vi.fn(),
+            onLeave: vi.fn(),
+         }
+      );
+      expect(
+         screen.getByRole("heading", { name: "Game over — Team 2 wins!" })
+      ).toBeInTheDocument();
       expect(
          screen.queryByRole("button", { name: "Back to Lobby" })
       ).not.toBeInTheDocument();
@@ -117,6 +226,101 @@ describe("Multiplayer game end", () => {
             "Waiting for the host to play again or return the group to the lobby."
          )
       ).toBeVisible();
+   });
+});
+
+describe("Multiplayer opening animations", () => {
+   const online = (): Omit<OnlineGame, "game"> => ({
+      act: vi.fn(),
+      saved: true,
+      error: "",
+      isHost: false,
+      disabled: false,
+      onRematch: vi.fn(),
+      onLobby: vi.fn(),
+      onLeave: vi.fn(),
+   });
+
+   it("shows a remote order, flies the upcard into your hand, and animates your discard", () => {
+      vi.useFakeTimers();
+      const game = {
+         ...newGame("easy", "You", () => 0.84),
+         dealer: 0 as const,
+         turn: 1 as const,
+         passes: 1,
+      };
+      const connection = online();
+      const view = board(game, connection);
+      const ordered = applyAction(game, {
+         type: "call",
+         suit: suitOf(game.upCard),
+         alone: false,
+      });
+      view.update(ordered);
+      expect(screen.getByText("Ordered Up")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1250));
+      expect(document.querySelector(".opening-flight")).toBeInTheDocument();
+      expect(
+         document.querySelector(".hand-card-in-flight")
+      ).toBeInTheDocument();
+      expect(document.querySelectorAll(".hand-card")).toHaveLength(6);
+      act(() => vi.advanceTimersByTime(550));
+      expect(document.querySelector(".hand-card-received")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(100));
+      const card = within(
+         screen.getByRole("region", { name: "Your hand" })
+      ).getAllByRole("button")[0];
+      fireEvent.click(card);
+      expect(connection.act).toHaveBeenCalledOnce();
+      const action = vi.mocked(connection.act).mock.calls[0][0];
+      view.update(applyAction(ordered, action));
+      expect(document.querySelector(".hand-card-discarding .euchre-card")).toBe(
+         card
+      );
+      expect(card).toBeDisabled();
+      act(() => vi.advanceTimersByTime(400));
+      expect(document.querySelectorAll(".hand-card")).toHaveLength(5);
+      expect(
+         screen.getByRole("group", { name: "Current trick" })
+      ).toBeInTheDocument();
+      expect(workers).toHaveLength(0);
+      expect(takeAction).not.toHaveBeenCalled();
+   });
+
+   it("renders an unknown opponent discard as a card back after the pickup", () => {
+      vi.useFakeTimers();
+      const game = fixture();
+      const connection = online();
+      const view = board(game, connection);
+      const ordered = applyAction(game, {
+         type: "call",
+         suit: "s",
+         alone: false,
+      });
+      const discarded = applyAction(ordered, {
+         type: "discard",
+         card: ordered.hands[3][0],
+      });
+      const redact = (next: Game) => ({
+         ...next,
+         hands: next.hands.map((hand, seat) =>
+            seat === 0 ? hand : Array(hand.length).fill(null)
+         ),
+      });
+      view.update(redact(ordered));
+      view.update(redact(discarded));
+      expect(document.querySelector(".kitty-picking-up")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(550));
+      expect(document.querySelector(".opening-flight img")).toHaveAttribute(
+         "src",
+         "/cards/back.svg"
+      );
+      expect(
+         document.querySelector(".opening-flight .euchre-card")
+      ).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(400));
+      expect(document.querySelector(".opening-flight")).not.toBeInTheDocument();
+      expect(connection.act).not.toHaveBeenCalled();
    });
 });
 
@@ -240,6 +444,27 @@ afterEach(() => {
 });
 
 describe("Quiet Table game controls", () => {
+   it("shows single-player names with B1, B2 and B3 compact bot badges", () => {
+      const game = fixture({ seatNames: ["You", "Mary", "Duffy", "Tim"] });
+      board(game);
+      expect(
+         Array.from(document.querySelectorAll(".seat-badge"), (badge) => badge.textContent).sort()
+      ).toEqual(["B1", "B2", "B3", "Y"]);
+      for (const name of ["Mary", "Duffy", "Tim"])
+         expect(screen.getByText(name, { selector: ".seat-full-name" })).toBeInTheDocument();
+   });
+
+   it("keeps multiplayer bot numbers when the table is rotated", () => {
+      board(fixture({
+         playerName: "Alice",
+         seatNames: ["Alice", "Bot 2", "Bob", "Bot 1"],
+         humanSeats: [true, false, true, false],
+      }));
+      expect(document.querySelector(".seat-1 .seat-badge")).toHaveTextContent("B2");
+      expect(document.querySelector(".seat-2 .seat-badge")).toHaveTextContent("B");
+      expect(document.querySelector(".seat-3 .seat-badge")).toHaveTextContent("B1");
+   });
+
    it("keeps the regular bot play delay at 700ms", () => {
       vi.useFakeTimers();
       board(fixture({ phase: "playing", turn: 1, trump: "s", maker: 0 }));
@@ -321,7 +546,7 @@ describe("Quiet Table game controls", () => {
          screen.queryByRole("button", { name: /Spades/i })
       ).not.toBeInTheDocument();
       expect(
-         screen.getByRole("group", { name: "West · Current turn" })
+         screen.getByRole("group", { name: `${seatName(game, game.turn)} · Current turn` })
       ).toBeInTheDocument();
       expect(workers).toHaveLength(1);
    });

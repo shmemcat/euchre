@@ -1,6 +1,11 @@
 // Four-player partnership Euchre, following Bicycle's rules without rubbers.
 export const SUITS = ["c", "d", "s", "h"] as const;
 export const RANKS = ["9", "10", "J", "Q", "K", "A"] as const;
+// The same single-player bot name pool used by Hearts.
+export const BOT_NAMES = [
+   "Mary", "Cindy", "Greg", "Theresa", "Kevin", "Nelson", "Brendan",
+   "Emily", "Maddie", "Bill", "Tim",
+] as const;
 export type Suit = (typeof SUITS)[number];
 export type Rank = (typeof RANKS)[number];
 export type Card = `${Rank}${Suit}`;
@@ -49,6 +54,8 @@ export type Game = {
    alone: boolean;
    sittingOut: Seat | null;
    passes: number;
+   // Missing in older saved games; zero means this dealer has not had a redeal.
+   consecutivePassOuts?: 0 | 1;
    trick: Play[];
    completedTricks: Trick[];
    tricks: [number, number];
@@ -157,12 +164,23 @@ export function shuffle<T>(
 }
 
 export function seatName(game: Pick<Game, "playerName" | "seatNames">, seat: Seat): string {
+   if (seat === 0) return game.playerName || "You";
    if (game.seatNames) return game.seatNames[seat];
    return [game.playerName || "You", "West", "Partner", "East"][seat];
 }
 
+export function singlePlayerSeatNames(
+   playerName: string,
+   rng: () => number = Math.random
+): string[] {
+   const pool = BOT_NAMES.filter(
+      (name) => name.toLowerCase() !== playerName.trim().toLowerCase()
+   );
+   return [playerName || "You", ...shuffle(pool, rng).slice(0, 3)];
+}
+
 function phrase(
-   game: Pick<Game, "playerName">,
+   game: Pick<Game, "playerName" | "seatNames">,
    seat: Seat,
    verb: string,
    thirdPerson = `${verb}s`
@@ -183,6 +201,10 @@ function deal(game: Game, rng: () => number): Game {
          index += count;
       }
    }
+   game = {
+      ...game,
+      seatNames: game.seatNames ?? singlePlayerSeatNames(game.playerName, rng),
+   };
    return {
       ...game,
       phase: "bidding1",
@@ -225,6 +247,7 @@ export function newGame(
          alone: false,
          sittingOut: null,
          passes: 0,
+         consecutivePassOuts: 0,
          trick: [],
          completedTricks: [],
          tricks: [0, 0],
@@ -309,21 +332,16 @@ export function applyAction(
             game.message =
                "Everyone passed. Choose another trump suit, or pass.";
          } else {
-            return {
-               ...deal(
-                  {
-                     ...game,
-                     dealer: nextSeat(game.dealer),
-                     handNumber: game.handNumber + 1,
-                  },
-                  rng
-               ),
-               message:
-                  "Everyone passed twice. The next dealer deals a fresh hand.",
-            };
+            game.phase = "round_complete";
+            game.passes = 0;
+            game.message =
+               game.consecutivePassOuts === 1
+                  ? "No calls — Pass"
+                  : "No calls — Re-deal";
          }
       } else game.turn = nextSeat(seat);
    } else if (action.type === "call") {
+      game.consecutivePassOuts = 0;
       game.trump = action.suit;
       game.maker = seat;
       game.alone = action.alone;
@@ -365,11 +383,14 @@ export function applyAction(
       } else game.turn = nextActive(seat, game.sittingOut);
    } else if (action.type === "advance") {
       if (game.phase === "round_complete") {
+         const passedOut = game.maker === null;
+         const redeal = passedOut && (game.consecutivePassOuts ?? 0) === 0;
          return deal(
             {
                ...game,
-               dealer: nextSeat(game.dealer),
+               dealer: redeal ? game.dealer : nextSeat(game.dealer),
                handNumber: game.handNumber + 1,
+               consecutivePassOuts: redeal ? 1 : 0,
             },
             rng
          );
@@ -519,6 +540,9 @@ export function isGame(value: unknown): value is Game {
       !Number.isInteger(g.passes) ||
       g.passes < 0 ||
       g.passes > 3 ||
+      (g.consecutivePassOuts !== undefined &&
+         g.consecutivePassOuts !== 0 &&
+         g.consecutivePassOuts !== 1) ||
       !Array.isArray(g.hands) ||
       g.hands.length !== 4 ||
       !g.hands.every(
@@ -571,6 +595,13 @@ export function isGame(value: unknown): value is Game {
       lastTrick && JSON.stringify(lastTrick.plays) === JSON.stringify(g.trick);
    const current = currentIsComplete ? [] : g.trick.map((p) => p.card);
    const cards = [...g.hands.flat(), ...g.kitty, ...played, ...current];
+   const passedOut =
+      g.phase === "round_complete" &&
+      g.maker === null &&
+      g.trump === null &&
+      g.passes === 0 &&
+      g.trick.length === 0 &&
+      g.completedTricks.length === 0;
    return (
       cards.length === 24 &&
       new Set(cards).size === 24 &&
@@ -578,6 +609,7 @@ export function isGame(value: unknown): value is Game {
          ? g.maker !== null && g.sittingOut === partner(g.maker)
          : g.sittingOut === null) &&
       (["bidding1", "bidding2"].includes(g.phase) ||
+      passedOut ||
       (g.conceded && g.maker === null)
          ? g.maker === null && g.trump === null
          : g.maker !== null && g.trump !== null)

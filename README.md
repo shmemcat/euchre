@@ -60,7 +60,11 @@ installed packages, not saved games.
 - Four players, fixed partnerships, a 24-card deck, five cards per hand.
 - [Bicycle rules](https://bicyclecards.com/how-to-play/euchre): two bidding rounds,
   dealer pickup/discard, right/left bowers, following suit, and optional lone hands.
-- The dealer rotates after eight passes. No stick-the-dealer rule.
+- After everyone passes in both bidding rounds, the same dealer redeals. A second
+  consecutive passed-out hand moves the deal clockwise. Calling trump resets the
+  count; passed-out hands score no points. No stick-the-dealer rule.
+- Passed-out hands pause at a "No calls — Re-deal" or "No calls — Pass" summary
+  showing unchanged totals. The player (or multiplayer host) continues to the next deal.
 - First partnership to 10 wins; no rubber points.
 - Easy: loose bidding, mostly sensible card play and discards, and occasional
   random legal choices.

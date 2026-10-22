@@ -3,6 +3,14 @@ import { mediumAction } from "./ai";
 import { pair, summarize, type Bot } from "../../benchmarks/harness";
 
 describe("Duplicate-deal benchmark", () => {
+   it("counts a passed-out hand as a zero-point redeal", () => {
+      const pass: Bot = () => ({ type: "pass" });
+      for (const result of pair(31, pass, pass)) {
+         expect(result.points).toBe(0);
+         expect(result.won).toBe(0.5);
+         expect(result.redeals).toBe(1);
+      }
+   });
    it("reports zero advantage when identical bots swap teams", () => {
       const samples = [17, 35, 83, 99].map((seed) =>
          pair(seed, mediumAction, mediumAction)
