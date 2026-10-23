@@ -932,6 +932,7 @@
       --mobile-trick-card-height: 126px;
       --mobile-seat-card-gap: 4px;
       --mobile-trump-gap-extra: 8px;
+      --mobile-score-emblem-height: 30px;
       --mobile-side-offset: calc(
          var(--mobile-trick-width) / 2 + var(--mobile-trick-card-width) * 0.2
       );
@@ -990,18 +991,22 @@
       transform: translateX(-50%);
    }
    .team-scoreboard-opponents {
-      top: -4px;
+      top: 0;
       left: calc(50% + var(--mobile-side-offset));
       right: auto;
    }
    .team-score-emblem {
       width: 34px;
-      height: 30px;
+      height: var(--mobile-score-emblem-height);
    }
    .team-score-emblem strong {
       font-size: 14px;
    }
    .team-score-emblem[data-role="bidding"] {
+      width: 24px;
+      height: var(--mobile-score-emblem-height);
+   }
+   .team-score-emblem[data-role="bidding"] > svg {
       width: 24px;
       height: 24px;
    }
@@ -1036,12 +1041,6 @@
       border: 0;
       border-radius: 10px;
    }
-   .seat-2 .player-seat-card {
-      top: 4px;
-   }
-   .seat-0 .player-seat-card {
-      bottom: 4px;
-   }
    .seat-1 .player-seat-card,
    .seat-3 .player-seat-card {
       top: auto;
@@ -1055,8 +1054,8 @@
    .seat-3 .player-seat-card {
       left: calc(50% + var(--mobile-side-offset));
    }
-   /* Anchor the top and bottom labels to their card outlines during play. */
-   .play-board:has(.trick-table) .seat-2 .player-seat-card {
+   /* Keep the play layout's card and label anchors through bidding and discard. */
+   .seat-2 .player-seat-card {
       top: auto;
       bottom: calc(
          50% + var(--mobile-trick-height) / 2 +
@@ -1064,14 +1063,14 @@
             var(--mobile-trump-gap-extra) * 2
       );
    }
-   .play-board:has(.trick-table) .seat-0 .player-seat-card {
+   .seat-0 .player-seat-card {
       top: calc(
          50% + var(--mobile-trick-height) / 2 +
             var(--mobile-trick-card-height) * 0.7 + var(--mobile-seat-card-gap)
       );
       bottom: auto;
    }
-   .play-board:has(.trick-table) :is(.player-seat-card, .table-center) {
+   .play-board :is(.player-seat-card, .table-center, .bid-toast) {
       translate: 0 8px;
    }
    .seat-turn .player-seat-card {
@@ -1223,7 +1222,10 @@
       padding: 0;
    }
    .bid-toast {
-      top: 46px;
+      top: calc(
+         50% - var(--mobile-trick-height) / 2 -
+            var(--mobile-trick-card-height) * 0.7 - var(--mobile-trump-gap-extra) * 2
+      );
       font-size: 12px;
       padding: 6px 9px;
    }
@@ -1325,9 +1327,11 @@
 }
 /* Keep score trackers vertical without crowding the side seats on short phones. */
 @media (max-width: 768px) and (max-height: 720px) {
+   .game-container {
+      --mobile-score-emblem-height: 24px;
+   }
    .team-score-emblem {
       width: 28px;
-      height: 24px;
    }
    .team-trick-track {
       --pip-size: 4px;
@@ -1340,15 +1344,6 @@
    .game-container {
       --mobile-trick-card-width: 72px;
       --mobile-trick-card-height: 101px;
-   }
-   .seat-2 .player-seat-card {
-      top: 0;
-   }
-   .seat-2 .bid-toast {
-      top: 42px;
-   }
-   .seat-0 .player-seat-card {
-      bottom: 0;
    }
    .upcard-stack {
       width: 72px;
