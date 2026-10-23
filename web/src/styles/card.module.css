@@ -204,6 +204,13 @@ button.card:hover:not(:disabled) {
       padding: 2px 2px;
    }
 
+   :global(.game-container)
+      .card:not(.cardImage, .cardSmall, .cardMedium, .cardLarge),
+   :global(.opening-flight)
+      .card:not(.cardImage, .cardSmall, .cardMedium, .cardLarge) {
+      padding: 4px;
+   }
+
    .cardLabel {
       transform: none;
    }
