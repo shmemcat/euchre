@@ -114,6 +114,14 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    } | null>(null);
    const lastSound = useRef("");
    const paused = info;
+   useEffect(() => {
+      // Keep the mini-hand opacity transitions on the opening's pause clock.
+      boardRef.current?.querySelectorAll(".hidden-hand").forEach((hand) => {
+         hand.getAnimations?.().forEach((animation) =>
+            paused ? animation.pause() : animation.play()
+         );
+      });
+   }, [paused, game?.phase]);
    const inputBlocked = paused || opening.busy || game !== currentGame;
    const canPremove =
       game &&
@@ -373,7 +381,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                </span>
             )}
          </div>
-         {(s !== 0 || dealing) && game.sittingOut !== s && (
+         {(s !== 0 || dealing) && (
             <div
                className={`hidden-hand${dealing ? " deal-mini-hand" : ""}`}
                aria-label={
@@ -424,6 +432,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             ref={boardRef}
             data-opening-paused={info}
             data-dealing={dealing}
+            data-phase={game.phase}
             style={dealTimingStyle}
             className={`${containers["content-border-container"]} game-container`}
          >
