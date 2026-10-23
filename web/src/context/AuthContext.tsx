@@ -23,7 +23,7 @@ const Context = createContext<{
       profile_icon?: string;
       email?: string;
    }) => Promise<AccountSession>;
-   deleteAccount: (password: string) => Promise<void>;
+   deleteAccount: (password: string) => Promise<AccountSession>;
 } | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
    const [session, setSession] = useState<AccountSession>({
@@ -115,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const next = await client.deleteAccount(password, fresh.csrf_token);
       setError("");
       setSession(next);
+      return next;
    };
    return (
       <Context.Provider

@@ -174,3 +174,7 @@ save recovery, result deduplication, and the shared-account adapter.
   from the [Music Loop Bundle](https://tallbeard.itch.io/music-loop-bundle), CC0.
   The original Ogg is bundled as `web/public/sounds/abstraction-sketchbook-2025-11-26.ogg`
   with its [license](web/public/sounds/abstraction-sketchbook-2025-11-26.LICENSE.txt).
+
+## Independent game server (prepared, not activated)
+
+The [standalone Euchre API](api/README.md) now lives in this repository and uses the shared Cards account service. Its tests, dependency lock, schema job, Docker image, and build-only CI are independent of Hearts. The existing Compose files, gateway destinations, and tagged web release remain unchanged. The combined server retains its Euchre implementation until the reviewed cutover.

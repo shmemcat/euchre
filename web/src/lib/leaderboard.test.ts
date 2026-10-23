@@ -33,7 +33,7 @@ describe("Shared Euchre leaderboards", () => {
          await createLeaderboardClient("/api/account/", fetcher).load("hardest")
       ).toEqual(data);
       expect(fetcher).toHaveBeenCalledWith(
-         "/api/account/euchre/leaderboard?category=hardest",
+         "/api/euchre/leaderboard?category=hardest",
          expect.objectContaining({ credentials: "include", cache: "no-store" })
       );
       expect(localStorage.length).toBe(0);
@@ -64,6 +64,8 @@ describe("Shared Euchre leaderboards", () => {
          credentials: "include",
          headers: { "X-CSRF-Token": "csrf" },
       });
+      expect(fetcher.mock.calls[0][0]).toBe("/api/account/session");
+      expect(posts[0][0]).toBe("/api/euchre/results");
       expect(acknowledged).toHaveLength(81);
    });
    it("never submits another account's results after a session change", async () => {
@@ -143,8 +145,13 @@ describe("Shared Euchre leaderboards", () => {
          })
       );
       const client = createLeaderboardClient("/api/account", fetcher);
-      await expect(client.load("multiplayer")).rejects.toThrow("unexpected response");
-      expect(fetcher).toHaveBeenCalledWith("/api/account/euchre/leaderboard?category=multiplayer", expect.any(Object));
+      await expect(client.load("multiplayer")).rejects.toThrow(
+         "unexpected response"
+      );
+      expect(fetcher).toHaveBeenCalledWith(
+         "/api/euchre/leaderboard?category=multiplayer",
+         expect.any(Object)
+      );
       await expect(client.load("easy")).rejects.toThrow("unexpected response");
    });
    it("includes a new completed game while a previous upload is still running", async () => {

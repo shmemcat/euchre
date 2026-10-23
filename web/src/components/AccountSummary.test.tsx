@@ -43,7 +43,7 @@ it("loads server multiplayer results and keeps them in the multiplayer category"
    );
    expect(within(stats).getByText("100%")).toBeInTheDocument();
    expect(fetcher).toHaveBeenCalledWith(
-      "/api/account/euchre/multiplayer-results",
+      "/api/euchre/multiplayer-results",
       expect.objectContaining({ credentials: "include", cache: "no-store" })
    );
 });

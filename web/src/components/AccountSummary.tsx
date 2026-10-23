@@ -11,6 +11,7 @@ import { ToggleButtonGroup } from "./ToggleButtonGroup";
 import { AchievementBadge } from "./AchievementBadge";
 import { readResults } from "@/lib/persistence";
 import { accountApiBase } from "@/lib/account";
+import { gameApiBase } from "@/lib/gameApi";
 import type { StoredResult } from "@/lib/persistence";
 import containers from "@/styles/containers.module.css";
 import achievements from "@/styles/achievements.module.css";
@@ -106,7 +107,7 @@ export function AccountSummary({ userId }: { userId: string }) {
       const controller = new AbortController();
       setLoading(true);
       setStatsError("");
-      void fetch(`${base.replace(/\/$/, "")}/euchre/multiplayer-results`, {
+      void fetch(`${gameApiBase(base)}/multiplayer-results`, {
          credentials: "include",
          cache: "no-store",
          signal: controller.signal,

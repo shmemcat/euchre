@@ -54,6 +54,7 @@ function Probe() {
       <>
          <span>{multi.connected ? "Online" : "Offline"}</span>
          <span>{multi.resumeCode}</span>
+         <span>{multi.error}</span>
          <button
             onClick={() =>
                void multi.command({ type: "create", name: "Guest" })
@@ -90,8 +91,32 @@ it("waits for the account session before opening a multiplayer connection", asyn
       </MultiplayerProvider>
    );
    expect(clients).toHaveLength(1);
+   expect(mocks.io).toHaveBeenCalledWith(
+      "/euchre",
+      expect.objectContaining({ path: "/euchre/socket.io" })
+   );
    act(() => clients[0].ready());
    expect(screen.getByText("Online")).toBeInTheDocument();
+});
+
+it("shows a reload requirement without retrying an incompatible server", () => {
+   render(
+      <MultiplayerProvider>
+         <Probe />
+      </MultiplayerProvider>
+   );
+   act(() =>
+      clients[0].handlers.connect_error({
+         data: { code: "CLIENT_RELOAD_REQUIRED" },
+      })
+   );
+   expect(
+      screen.getByText(
+         "This page has been updated. Please reload to reconnect."
+      )
+   ).toBeInTheDocument();
+   expect(clients[0].disconnect).toHaveBeenCalledOnce();
+   expect(clients[0].connect).toHaveBeenCalledOnce();
 });
 
 it("restores the same private seat after reconnecting without exposing it in the invitation", async () => {

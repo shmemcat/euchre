@@ -11,3 +11,9 @@ coverage/
 playwright-report/
 test-results/
 .local/
+
+api/.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+api/instance/

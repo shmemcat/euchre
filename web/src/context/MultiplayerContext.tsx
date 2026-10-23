@@ -128,6 +128,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
       setLobby(null);
       setGame(null);
       const client = io("/euchre", {
+         path: "/euchre/socket.io",
          autoConnect: false,
          withCredentials: true,
          auth: async (callback) => {
@@ -158,15 +159,25 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
       });
       client.on("disconnect", () => setConnected(false));
       let retry = 0;
-      client.on("connect_error", (error) => {
-         setConnected(false);
-         setError("The multiplayer service is unavailable. Reconnecting…");
-         if (import.meta.env.DEV)
-            console.warn("Multiplayer connection:", error.message);
-         clearTimeout(retry);
-         if (!client.active)
-            retry = window.setTimeout(() => client.connect(), 5000);
-      });
+      client.on(
+         "connect_error",
+         (error: Error & { data?: { code?: string } }) => {
+            setConnected(false);
+            clearTimeout(retry);
+            if (error.data?.code === "CLIENT_RELOAD_REQUIRED") {
+               client.disconnect();
+               setError(
+                  "This page has been updated. Please reload to reconnect."
+               );
+               return;
+            }
+            setError("The multiplayer service is unavailable. Reconnecting…");
+            if (import.meta.env.DEV)
+               console.warn("Multiplayer connection:", error.message);
+            if (!client.active)
+               retry = window.setTimeout(() => client.connect(), 5000);
+         }
+      );
       client.on("state", (state: { lobby: Lobby; game: Game | null }) => {
          if (socket.current !== client) return;
          setLobby(state.lobby);

@@ -1,16 +1,16 @@
-// Compare the browser rules with the shared service using actual legal games.
+// Compare the browser rules with the game server using actual legal games.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { transform } from "../web/node_modules/esbuild/lib/main.js";
+import { stripTypeScriptTypes } from "node:module";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const source = await readFile(resolve(root, "web/src/game/engine.ts"), "utf8");
-const compiled = await transform(source, { loader: "ts", format: "esm" });
+const compiled = stripTypeScriptTypes(source);
 const engine = await import(
-  "data:text/javascript;base64," + Buffer.from(compiled.code).toString("base64")
+  "data:text/javascript;base64," + Buffer.from(compiled).toString("base64")
 );
 let seed = 20261021;
 const rng = () => {
@@ -59,9 +59,10 @@ for (const legacy of [false, true]) {
     }
   }
 }
-const api = resolve(root, "../hearts/api");
+const combined = process.argv.includes("--combined");
+const api = resolve(root, combined ? "../hearts/api" : "api");
 const python =
-  process.env.HEARTS_PYTHON ||
+  (combined ? process.env.HEARTS_PYTHON : process.env.EUCHRE_PYTHON) ||
   resolve(
     api,
     process.platform === "win32"
@@ -69,7 +70,7 @@ const python =
       : ".venv/bin/python"
   );
 const code = `import json, sys
-from hearts.euchre_engine import apply_action
+from ${combined ? "hearts" : "euchre_server"}.euchre_engine import apply_action
 class BrowserRandom:
     def shuffle(self, cards):
         for i in range(len(cards) - 1, 0, -1):
