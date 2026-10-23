@@ -14,6 +14,7 @@ export default function MultiplayerGame() {
    const [leaving, setLeaving] = useState(false);
    const [busy, setBusy] = useState(false);
    const lobby = multi.lobby?.code === code ? multi.lobby : null;
+   const finished = multi.game?.phase === "game_over";
    useEffect(() => {
       if (
          !leaving &&
@@ -31,6 +32,20 @@ export default function MultiplayerGame() {
          .catch((e) => setError(e.message))
          .finally(() => setBusy(false));
    };
+   const leaveLobby = () => {
+      if (busy || !multi.connected) return;
+      setLeaving(true);
+      setBusy(true);
+      setError("");
+      void multi
+         .command({ type: "leave", code })
+         .then(() => navigate("/play"))
+         .catch((e) => {
+            setError(e.message);
+            if (finished) setLeaving(false);
+         })
+         .finally(() => setBusy(false));
+   };
    if (!lobby || !multi.game)
       return (
          <PageLayout title="MULTIPLAYER">
@@ -43,7 +58,17 @@ export default function MultiplayerGame() {
          <GamePage
             online={{
                game: multi.game,
-               act: (action) => send({ type: "action", action }),
+               act: (action) =>
+                  send({
+                     type: "action",
+                     action,
+                     ...(action.type === "advance"
+                        ? {
+                             gameId: multi.game!.id,
+                             handNumber: multi.game!.handNumber,
+                          }
+                        : {}),
+                  }),
                saved: true,
                error:
                   error ||
@@ -54,10 +79,13 @@ export default function MultiplayerGame() {
                disabled: busy || !multi.connected,
                onRematch: () => send({ type: "play_again" }),
                onLobby: () => send({ type: "rematch" }),
-               onLeave: () => setLeaving(true),
+               onLeave: () => {
+                  if (finished) leaveLobby();
+                  else setLeaving(true);
+               },
             }}
          />
-         {leaving && (
+         {leaving && !finished && (
             <Modal title="Leave the game?" onClose={() => setLeaving(false)}>
                <p>A bot will take your seat. This game will count as a loss.</p>
                {error && (
@@ -68,15 +96,8 @@ export default function MultiplayerGame() {
                <div className="button-stack">
                   <Button
                      name="Leave Game"
-                     disabled={busy}
-                     onClick={() => {
-                        setBusy(true);
-                        void multi
-                           .command({ type: "leave", code })
-                           .then(() => navigate("/play"))
-                           .catch((e) => setError(e.message))
-                           .finally(() => setBusy(false));
-                     }}
+                     disabled={busy || !multi.connected}
+                     onClick={leaveLobby}
                   />
                   <Button
                      name="Keep Playing"

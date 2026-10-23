@@ -93,29 +93,29 @@ button:disabled .button-shine {
    pointer-events: none;
 }
 .menu-button.button-secondary {
-   --button-secondary-border: var(--infopillborder);
-   --button-secondary-shadow: color-mix(
-      in srgb,
-      var(--button-secondary-border) 25%,
-      transparent
-   );
-   background-color: var(--contentbox);
+   background-color: var(--button-secondary-background);
    color: var(--text);
-   border: 1px solid var(--button-secondary-border);
    box-shadow: inset -3px -3px 0 var(--button-secondary-shadow);
 }
 .menu-button.button-secondary:not(:disabled):hover {
-   --button-secondary-border: var(--heartslogo);
-   background-color: var(--contentbox);
-   border-color: var(--button-secondary-border);
+   background-color: var(--button-secondary-hover);
    box-shadow: inset -3px -3px 0 var(--button-secondary-shadow);
 }
 .menu-button.button-secondary:not(:disabled):active {
-   background-color: var(--contentbox);
-   box-shadow: inset 2px 2px 0 var(--button-secondary-shadow);
+   background-color: var(--button-secondary-active);
+   box-shadow: inset 3px 3px 0 var(--button-secondary-shadow);
 }
 .menu-button.button-secondary:disabled {
+   background-color: color-mix(
+      in srgb,
+      var(--button-secondary-background) 62%,
+      var(--contentbox)
+   );
    color: var(--buttontextdisabled);
+   box-shadow: none;
+}
+.button-secondary:disabled .button-shine {
+   display: none;
 }
 .button-secondary .button-shine,
 .button-secondary:not(:disabled):hover .button-shine {

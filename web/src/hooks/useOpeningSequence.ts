@@ -6,6 +6,7 @@ import {
    useState,
 } from "react";
 import { useSound } from "@/context/SoundContext";
+import { DEAL_DURATION_MS, shouldAnimateDeal } from "@/lib/dealAnimation";
 import {
    SUIT_NAMES,
    type Action,
@@ -38,7 +39,7 @@ type Sequence = {
 
 const OPENING_PAUSE_MS = 150;
 export const OPENING_BOT_DELAY_MS = 850 + OPENING_PAUSE_MS;
-export const OPENING_DEAL_MS = 1050 + OPENING_PAUSE_MS;
+export const OPENING_DEAL_MS = DEAL_DURATION_MS;
 
 export function openingSteps(
    game: Game,
@@ -99,7 +100,7 @@ export function openingSteps(
 const handKey = (game: Game | null) =>
    game ? `${game.id}:${game.handNumber}` : "";
 function dealSequence(game: Game | null): Sequence | null {
-   return game?.phase === "bidding1" && game.passes === 0
+   return game?.phase === "bidding1" && game.passes === 0 && shouldAnimateDeal()
       ? {
            game,
            steps: [{ kind: "deal", duration: OPENING_DEAL_MS }],
@@ -193,6 +194,7 @@ export function useOpeningSequence(
          const { game, act, paused, play } = latest.current;
          if (!game || paused || pending.current) return;
          if (action.type === "call") play("trump");
+         else if (action.type === "pass") play("pass");
          const steps = openingSteps(game, action);
          if (steps.length)
             update({ game, steps, index: 0, action, committed: false });

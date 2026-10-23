@@ -68,6 +68,7 @@ export type Game = {
    seatNames?: string[];
    seatIcons?: string[];
    humanSeats?: boolean[];
+   nextHandReady?: boolean[];
    teamNames?: string[];
 };
 export const SUIT_NAMES: Record<Suit, string> = {

@@ -8,11 +8,10 @@ import {
    type Action,
    type Game,
 } from "@/game/engine";
-import { useOpeningSequence } from "./useOpeningSequence";
+import { OPENING_DEAL_MS, useOpeningSequence } from "./useOpeningSequence";
 
-vi.mock("@/context/SoundContext", () => ({
-   useSound: () => ({ play: vi.fn() }),
-}));
+const sound = vi.hoisted(() => ({ play: vi.fn() }));
+vi.mock("@/context/SoundContext", () => ({ useSound: () => sound }));
 
 const fresh = () => newGame("easy", "You", () => 0.84);
 const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
@@ -38,21 +37,35 @@ function opening(initial: Game) {
          act(() => view.result.current.perform(action)),
    };
 }
-beforeEach(() => vi.useFakeTimers());
-afterEach(() => vi.useRealTimers());
+beforeEach(() => {
+   vi.useFakeTimers();
+   sound.play.mockReset();
+});
+afterEach(() => {
+   vi.useRealTimers();
+   vi.unstubAllGlobals();
+});
 
 describe("Opening sequence", () => {
-   it("fans a fresh hand and holds bidding for an acclimation beat", () => {
+   it("shows a fresh hand immediately when reduced motion is requested", () => {
+      vi.stubGlobal("matchMedia", () => ({ matches: true }));
+      const view = opening(fresh());
+      expect(view.result.current.step).toBeNull();
+      expect(view.result.current.busy).toBe(false);
+   });
+   it("holds bidding for the complete deal, kitty flip and hand reveal", () => {
       const view = opening(fresh());
       expect(view.result.current.step?.kind).toBe("deal");
       view.perform({ type: "pass" });
-      advance(1199);
+      advance(OPENING_DEAL_MS - 1);
       expect(view.result.current.busy).toBe(true);
       expect(view.actions).not.toHaveBeenCalled();
+      expect(sound.play).not.toHaveBeenCalled();
       advance(1);
       expect(view.result.current.busy).toBe(false);
       view.perform({ type: "pass" });
       expect(view.actions).toHaveBeenCalledExactlyOnceWith({ type: "pass" });
+      expect(sound.play).toHaveBeenCalledExactlyOnceWith("pass");
       expect(view.result.current.game.passes).toBe(1);
       expect(view.result.current.step).toBeNull();
    });
@@ -67,10 +80,24 @@ describe("Opening sequence", () => {
       });
       view.perform({ type: "pass" });
       advance(1249);
+      expect(sound.play).toHaveBeenCalledExactlyOnceWith("pass");
       expect(view.actions).not.toHaveBeenCalled();
       advance(1);
       expect(view.actions).toHaveBeenCalledTimes(1);
       expect(view.result.current.game.turn).toBe(2);
+   });
+
+   it("sounds every human and bot pass in both bidding rounds", () => {
+      const view = opening(fresh());
+      advance(OPENING_DEAL_MS);
+      for (let i = 0; i < 8; i++) {
+         view.perform({ type: "pass" });
+         expect(sound.play).toHaveBeenCalledTimes(i + 1);
+         expect(sound.play).toHaveBeenLastCalledWith("pass");
+         advance(1250);
+         advance(800);
+      }
+      expect(view.result.current.game.phase).toBe("round_complete");
    });
 
    it("finishes the final pass badge before tucking and flipping the kitty", () => {

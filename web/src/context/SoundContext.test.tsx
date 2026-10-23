@@ -28,6 +28,16 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Independent audio controls", () => {
+   it("randomly chooses the short single-tap clips for deal groups", () => {
+      const { result } = renderSound();
+      vi.spyOn(Math, "random").mockReturnValueOnce(0).mockReturnValueOnce(0.99);
+      act(() => result.current.play("shuffle"));
+      act(() => result.current.play("shuffle"));
+      expect(players.slice(-2).map((audio) => audio.src)).toEqual([
+         "/sounds/card-deal-group-1.mp3",
+         "/sounds/card-deal-group-2.mp3",
+      ]);
+   });
    it("changes music and effects volume independently during playback", () => {
       const { result } = renderSound();
       const music = players.find((audio) => audio.loop)!;

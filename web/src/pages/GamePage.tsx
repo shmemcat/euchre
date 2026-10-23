@@ -1,17 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCrown, faUser, faRobot } from "@fortawesome/pro-solid-svg-icons";
 import { Navbar } from "@/components/Navbar";
 import { Button, MenuLink } from "@/components/Buttons";
-import { Card, CardPlaceholder, SuitIcon } from "@/components/Card";
+import { Card, SuitIcon } from "@/components/Card";
 import { EuchreLogo } from "@/components/EuchreLogo";
 import { Modal } from "@/components/Modal";
+import { Tooltip } from "@/components/Tooltip";
 import { MatchInfo } from "@/components/MatchInfo";
 import { TeamScoreboard } from "@/components/TeamScoreboard";
 import { Trick } from "@/components/Trick";
 import { Kitty } from "@/components/Kitty";
 import { OpeningMotion } from "@/components/OpeningMotion";
+import { DealMotion } from "@/components/DealMotion";
 import {
    OPENING_BOT_DELAY_MS,
    useOpeningSequence,
@@ -31,12 +33,18 @@ import {
    suitOf,
    team,
    type Action,
+   type Card as CardCode,
    type Game,
    type Seat,
    type Suit,
 } from "@/game/engine";
 import { asset } from "@/lib/assets";
 import { cardFanStyle } from "@/lib/cardFan";
+import {
+   dealCards,
+   dealTimingStyle,
+   miniCardTransform,
+} from "@/lib/dealAnimation";
 import { getProfileIcon } from "@/lib/profileIcons";
 import containers from "@/styles/containers.module.css";
 
@@ -44,7 +52,8 @@ function seatBadge(game: Game, seat: Seat): string {
    const name = seatName(game, seat);
    if (game.humanSeats?.[seat] ?? seat === 0)
       return name.trim().charAt(0).toUpperCase();
-   const number = name.match(/^Bot\s+(\d+)$/i)?.[1] ??
+   const number =
+      name.match(/^Bot\s+(\d+)$/i)?.[1] ??
       (game.humanSeats
          ? game.humanSeats.slice(0, seat + 1).filter((human) => !human).length
          : seat);
@@ -102,9 +111,39 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    const act = opening.perform;
    const boardRef = useRef<HTMLElement>(null);
    const [botError, setBotError] = useState("");
+   const [premove, setPremove] = useState<{
+      gameId: string;
+      handNumber: number;
+      card: CardCode;
+   } | null>(null);
    const lastSound = useRef("");
    const paused = info;
-   const delay = game?.phase === "playing" ? 700 : OPENING_BOT_DELAY_MS;
+   const inputBlocked = paused || opening.busy || game !== currentGame;
+   const canPremove =
+      game &&
+      game.sittingOut !== 0 &&
+      (game.phase === "playing" || game.phase === "trick_complete");
+   const premoveCard =
+      canPremove &&
+      premove?.gameId === game.id &&
+      premove.handNumber === game.handNumber
+         ? premove.card
+         : null;
+   const delay = game?.phase === "playing" ? 500 : OPENING_BOT_DELAY_MS;
+   useEffect(() => {
+      if (!premove) return;
+      if (!game || !premoveCard || !game.hands[0].includes(premoveCard)) {
+         setPremove(null);
+         return;
+      }
+      if (game.phase !== "playing" || game.turn !== 0 || inputBlocked) return;
+      // Consume the selection even when following suit makes it illegal.
+      setPremove(null);
+      if (
+         legalCards(game.hands[0], game.trick, game.trump).includes(premoveCard)
+      )
+         act({ type: "play", card: premoveCard });
+   }, [game, premove, premoveCard, inputBlocked, act]);
    useEffect(() => {
       setAlone(false);
    }, [game?.handNumber, game?.phase]);
@@ -120,8 +159,6 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          game.trick.length
       )
          sound.play("play");
-      else if (game.phase === "bidding1" && game.passes === 0)
-         sound.play("deal");
    }, [game, sound]);
    useEffect(() => {
       if (online || !game || paused || opening.busy) return;
@@ -199,11 +236,33 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          : [];
    const activeHand =
       humanTurn && (game.phase === "playing" || game.phase === "discard");
+   const chooseCard = (card: CardCode) => {
+      if (inputBlocked) return;
+      if (activeHand) {
+         setPremove(null);
+         if (game.phase === "discard") sound.play("select");
+         act({ type: game.phase === "discard" ? "discard" : "play", card });
+      } else if (canPremove) {
+         setPremove(
+            premoveCard === card
+               ? null
+               : { gameId: game.id, handNumber: game.handNumber, card }
+         );
+         sound.play("select");
+      }
+   };
    const call = (suit: Suit) => act({ type: "call", suit, alone });
    const over = game.phase === "game_over";
    const passedOut = game.phase === "round_complete" && game.maker === null;
    const totalsOnly = over || passedOut;
    const summary = over || game.phase === "round_complete";
+   const nextHandReady = !!online && !!game.nextHandReady?.[0];
+   const dealing = opening.step?.kind === "deal";
+   const dealingHint =
+      game.dealer === 0
+         ? "You are dealing…"
+         : `${seatName(game, game.dealer)} is dealing…`;
+   const deliveries = dealCards(game.dealer);
    const phaseHint = hint(game);
    const pickup =
       opening.step?.kind === "pickup" && opening.step.seat === 0
@@ -228,7 +287,10 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          className={`table-seat seat-${s} ${
             team(s) === 0 ? "seat-teammate" : ""
          } ${
-            game.turn === s && !summary && game.phase !== "trick_complete"
+            game.turn === s &&
+            !summary &&
+            !dealing &&
+            game.phase !== "trick_complete"
                ? "seat-turn"
                : ""
          } ${game.sittingOut === s ? "seat-sitting-out" : ""}`}
@@ -238,12 +300,18 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                className="player-seat-card"
                role="group"
                aria-label={`${seatName(game, s)}${
-                  game.turn === s && !summary && game.phase !== "trick_complete"
+                  game.turn === s &&
+                  !summary &&
+                  !dealing &&
+                  game.phase !== "trick_complete"
                      ? " · Current turn"
                      : ""
                }`}
                aria-current={
-                  game.turn === s && !summary && game.phase !== "trick_complete"
+                  game.turn === s &&
+                  !summary &&
+                  !dealing &&
+                  game.phase !== "trick_complete"
                      ? "true"
                      : undefined
                }
@@ -309,25 +377,43 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                </span>
             )}
          </div>
-         {s !== 0 && game.sittingOut !== s && (
+         {(s !== 0 || dealing) && game.sittingOut !== s && (
             <div
-               className="hidden-hand"
-               aria-label={`${game.hands[s].length} cards remaining`}
+               className={`hidden-hand${dealing ? " deal-mini-hand" : ""}`}
+               aria-label={
+                  dealing
+                     ? `Dealing to ${seatName(game, s)}`
+                     : `${game.hands[s].length} cards remaining`
+               }
             >
                {game.hands[s].map((_, index) => (
-                  <img
+                  <span
                      key={index}
-                     src={asset("cards/back.svg")}
-                     alt=""
-                     draggable={false}
+                     className={`hidden-card${
+                        dealing ? " deal-hidden-card" : ""
+                     }`}
+                     data-deal-card={index}
                      style={{
-                        transform: `rotate(${
-                           (index - (game.hands[s].length - 1) / 2) * 8
-                        }deg) translateY(${
-                           Math.abs(index - (game.hands[s].length - 1) / 2) * 2
-                        }px)`,
+                        transform: miniCardTransform(
+                           index,
+                           game.hands[s].length
+                        ),
+                        animationDelay: dealing
+                           ? `${
+                                deliveries.find(
+                                   (card) =>
+                                      card.seat === s && card.index === index
+                                )?.arrival ?? 0
+                             }ms`
+                           : undefined,
                      }}
-                  />
+                  >
+                     <img
+                        src={asset("cards/back.svg")}
+                        alt=""
+                        draggable={false}
+                     />
+                  </span>
                ))}
             </div>
          )}
@@ -341,6 +427,8 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          <main
             ref={boardRef}
             data-opening-paused={info}
+            data-dealing={dealing}
+            style={dealTimingStyle}
             className={`${containers["content-border-container"]} game-container`}
          >
             <div className="game-header">
@@ -387,13 +475,19 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                            aria-live="polite"
                            aria-atomic="true"
                         >
-                           {bidding && humanTurn
+                           {dealing
+                              ? dealingHint
+                              : bidding && humanTurn
                               ? game.phase === "bidding1"
                                  ? "Your bid · Order up or pass."
                                  : "Your bid · Choose trump or pass."
                               : phaseHint}
                         </span>
-                        {bidding && humanTurn ? (
+                        {dealing ? (
+                           <p className="phase-hint" aria-hidden="true">
+                              {dealingHint}
+                           </p>
+                        ) : bidding && humanTurn ? (
                            <div
                               className={`bid-controls ${
                                  game.phase === "bidding2"
@@ -491,17 +585,18 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      </div>
                   </div>
                </div>
-               <section className="hand-region" aria-label="Your hand">
+               <section
+                  className="hand-region"
+                  aria-label="Your hand"
+                  aria-hidden={dealing}
+               >
                   <div
                      className={`player-hand ${
                         activeHand ? "hand-active" : ""
-                     }${opening.step?.kind === "deal" ? " hand-dealing" : ""}`}
+                     }${dealing ? " hand-dealing" : ""}`}
                      key={`${game.id}:${game.handNumber}`}
                      data-card-count={hand.length}
                   >
-                     {hand.length === 0 && (
-                        <CardPlaceholder className="hand-placeholder" />
-                     )}
                      {hand.map((card, index) => (
                         <div
                            className={`hand-card${
@@ -526,18 +621,12 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                               <Card
                                  code={card}
                                  trump={game.trump}
+                                 selected={premoveCard === card}
                                  disabled={activeHand && !legal.includes(card)}
-                                 interactionDisabled={opening.busy}
+                                 interactionDisabled={inputBlocked}
                                  onClick={
-                                    activeHand
-                                       ? () =>
-                                            act({
-                                               type:
-                                                  game.phase === "discard"
-                                                     ? "discard"
-                                                     : "play",
-                                               card,
-                                            })
+                                    activeHand || canPremove
+                                       ? () => chooseCard(card)
                                        : undefined
                                  }
                               />
@@ -546,6 +635,14 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      ))}
                   </div>
                </section>
+               {dealing && (
+                  <DealMotion
+                     key={`${game.id}:${game.handNumber}`}
+                     dealer={game.dealer}
+                     board={boardRef}
+                     paused={info}
+                  />
+               )}
                <OpeningMotion
                   step={opening.step}
                   board={boardRef}
@@ -566,15 +663,18 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          </main>
          {summary && !info && (
             <Modal
-               className="game-result-modal"
-               title={
-                  over
-                     ? game.conceded
-                        ? "Game conceded"
-                        : `Game over — ${winningTeamName} wins!`
-                     : game.message
-               }
+               className={`game-result-modal${
+                  over ? " game-complete-modal" : ""
+               }`}
+               title={over ? "Game Complete" : game.message}
             >
+               {over && (
+                  <h3 className="game-complete-winner">
+                     {game.conceded
+                        ? "Game conceded"
+                        : `${winningTeamName} wins!`}
+                  </h3>
+               )}
                <EuchreLogo size={65} />
                {!totalsOnly && (
                   <p>
@@ -585,36 +685,92 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      {last?.alone ? " alone" : ""}.
                   </p>
                )}
-               <table className="round-score-table">
-                  <caption className="sr-only">
-                     {over
-                        ? "Final scores"
-                        : passedOut
-                        ? "Current scores"
-                        : "Hand scores"}
-                  </caption>
-                  <thead>
-                     <tr>
-                        <th scope="col">Team</th>
-                        {!totalsOnly && <th scope="col">Tricks</th>}
-                        {!totalsOnly && <th scope="col">Points</th>}
-                        <th scope="col">Total</th>
-                     </tr>
-                  </thead>
-                  <tbody>
-                     {scoreOrder.map((t) => (
-                        <tr key={t}>
-                           <th scope="row">
-                              {game.teamNames?.[t] ?? (t === 0 ? "Us" : "Them")}
-                           </th>
-                           {!totalsOnly && <td>{last?.tricks[t]}</td>}
-                           {!totalsOnly && <td>+{last?.points[t]}</td>}
-                           <td>{game.scores[t]}</td>
-                        </tr>
+               {over ? (
+                  <div
+                     className="game-final-scores"
+                     role="group"
+                     aria-label="Final scores"
+                  >
+                     {scoreOrder.map((t, index) => (
+                        <Fragment key={t}>
+                           {index > 0 && (
+                              <span
+                                 className="game-score-separator"
+                                 aria-hidden="true"
+                              >
+                                 —
+                              </span>
+                           )}
+                           <div
+                              className={`game-final-team${
+                                 !game.conceded && t === winningTeam
+                                    ? " game-final-winner"
+                                    : ""
+                              }`}
+                           >
+                              <span className="game-final-total">
+                                 {game.scores[t]}
+                              </span>
+                              <span className="game-final-name">
+                                 {game.teamNames?.[t] ??
+                                    (t === 0 ? "Us" : "Them")}
+                              </span>
+                           </div>
+                        </Fragment>
                      ))}
-                  </tbody>
-               </table>
-               <div className="button-stack">
+                  </div>
+               ) : (
+                  <table className="round-score-table">
+                     <caption className="sr-only">
+                        {passedOut ? "Current scores" : "Hand scores"}
+                     </caption>
+                     <thead>
+                        <tr>
+                           <th scope="col">Team</th>
+                           {!totalsOnly && <th scope="col">Tricks</th>}
+                           {!totalsOnly && <th scope="col">Points</th>}
+                           <th scope="col">Total</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {scoreOrder.map((t) => (
+                           <tr key={t}>
+                              <th scope="row">
+                                 {game.teamNames?.[t] ??
+                                    (t === 0 ? "Us" : "Them")}
+                              </th>
+                              {!totalsOnly && <td>{last?.tricks[t]}</td>}
+                              {!totalsOnly && <td>+{last?.points[t]}</td>}
+                              <td>{game.scores[t]}</td>
+                           </tr>
+                        ))}
+                     </tbody>
+                  </table>
+               )}
+               {over && online && (
+                  <div className="game-complete-status">
+                     <p className="game-complete-status-title" role="status">
+                        {online.isHost ? "Keep playing?" : "Waiting for host"}
+                        {!online.isHost && (
+                           <span
+                              className="waiting-ellipsis"
+                              aria-hidden="true"
+                           >
+                              <span>.</span>
+                              <span>.</span>
+                              <span>.</span>
+                           </span>
+                        )}
+                     </p>
+                     {!online.isHost && (
+                        <p>
+                           Stay here. Your host can start another game or take
+                           everyone back to the lobby.
+                        </p>
+                     )}
+                  </div>
+               )}
+               <div className={over ? "game-complete-actions" : "button-stack"}>
                   {over ? (
                      online ? (
                         online.isHost ? (
@@ -626,15 +782,39 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                               />
                               <Button
                                  name="Back to Lobby"
+                                 variant="secondary"
                                  disabled={online.disabled}
                                  onClick={online.onLobby}
                               />
                            </>
                         ) : (
-                           <p role="status">
-                              Waiting for the host to play again or return the
-                              group to the lobby.
-                           </p>
+                           <>
+                              <Tooltip content="Only the host can start another game.">
+                                 <span
+                                    tabIndex={0}
+                                    style={{ cursor: "not-allowed" }}
+                                 >
+                                    <Button
+                                       name="Play Again"
+                                       disabled
+                                       style={{ pointerEvents: "none" }}
+                                    />
+                                 </span>
+                              </Tooltip>
+                              <Tooltip content="Only the host can return the group to the lobby.">
+                                 <span
+                                    tabIndex={0}
+                                    style={{ cursor: "not-allowed" }}
+                                 >
+                                    <Button
+                                       name="Back to Lobby"
+                                       variant="secondary"
+                                       disabled
+                                       style={{ pointerEvents: "none" }}
+                                    />
+                                 </span>
+                              </Tooltip>
+                           </>
                         )
                      ) : (
                         <MenuLink to="/play" name="Play Again" />
@@ -642,19 +822,52 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                   ) : (
                      <Button
                         name={
-                           online && !online.isHost
-                              ? "Waiting for Host"
-                              : "Next Hand"
+                           nextHandReady ? "Waiting for players..." : "Next Hand"
                         }
+                        className="next-hand-button"
+                        aria-label={nextHandReady ? "Waiting for players" : undefined}
                         disabled={
-                           !!online && (!online.isHost || online.disabled)
+                           nextHandReady || (!!online && online.disabled)
                         }
                         onClick={() => act({ type: "advance" })}
-                     />
+                     >
+                        {nextHandReady ? (
+                           <span role="status">
+                              Waiting
+                              <span className="next-hand-waiting-detail">
+                                 {" "}
+                                 for players
+                              </span>
+                              <span
+                                 className="waiting-ellipsis"
+                                 aria-hidden="true"
+                              >
+                                 <span>.</span>
+                                 <span>.</span>
+                                 <span>.</span>
+                              </span>
+                           </span>
+                        ) : undefined}
+                     </Button>
                   )}
-                  {over && <MenuLink to="/" name="Home" />}
-                  {over && <MenuLink to="/leaderboard" name="Leaderboard" />}
                </div>
+               {over && (
+                  <div className="game-complete-footer">
+                     {online && (
+                        <Button
+                           name="Leave Lobby"
+                           disabled={online.disabled}
+                           onClick={online.onLeave}
+                        />
+                     )}
+                     {error && (
+                        <p role="alert" className="inline-error">
+                           {error}
+                        </p>
+                     )}
+                     <MenuLink to="/" name="Home" />
+                  </div>
+               )}
             </Modal>
          )}
       </>

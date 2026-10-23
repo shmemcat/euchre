@@ -103,6 +103,72 @@ def join(client, code, seat, name="Guest"):
     return result["token"]
 
 
+def ready(client, game, revision=0):
+    return cmd(
+        client,
+        "action",
+        action=dict(type="advance"),
+        revision=revision,
+        gameId=game["id"],
+        handNumber=game["handNumber"],
+    )
+
+
+def passed_out(table):
+    for _ in range(8):
+        table["game"] = apply_action(table["game"], dict(type="pass"))
+    return copy.deepcopy(table["game"])
+
+
+def test_ready_clicks_are_idempotent_bound_to_the_hand_and_skip_bots(tables):
+    connect, tasks, mp = tables
+    host, guest = connect(), connect()
+    code = cmd(host, "create", name="Host")["code"]
+    join(guest, code, 2)
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    summary = passed_out(table)
+    assert not ready(guest, {**summary, "id": "another-game"})["ok"]
+    assert not ready(guest, {**summary, "handNumber": 999})["ok"]
+    assert ready(guest, summary)["ok"]
+    revision = table["revision"]
+    assert ready(guest, summary)["ok"]
+    assert table["revision"] == revision
+    assert table["game"]["phase"] == "round_complete"
+    assert state(guest)["game"]["nextHandReady"] == [True, True, False, True]
+    assert ready(host, summary)["ok"]
+    assert table["game"]["phase"] == "bidding1"
+    assert table["game"]["handNumber"] == summary["handNumber"] + 1
+    assert "nextHandReady" not in table["game"]
+    assert not ready(guest, summary)["ok"]
+    next_summary = passed_out(table)
+    assert not ready(guest, summary)["ok"]
+    assert ready(host, next_summary)["ok"]
+    assert table["game"]["phase"] == "round_complete"
+
+
+@pytest.mark.parametrize("departure", ["leave", "disconnect"])
+def test_waiting_player_replaced_by_a_bot_does_not_hold_up_the_next_hand(
+    tables, departure
+):
+    connect, tasks, mp = tables
+    host, guest = connect(), connect()
+    code = cmd(host, "create", name="Host")["code"]
+    join(guest, code, 1)
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    summary = passed_out(table)
+    assert ready(host, summary)["ok"]
+    if departure == "leave":
+        assert cmd(guest, "leave")["ok"]
+    else:
+        guest.disconnect(namespace=mp.NS)
+        assert table["game"]["phase"] == "round_complete"
+        tasks[-1]()
+    assert table["game"]["phase"] == "bidding1"
+    assert table["game"]["handNumber"] == summary["handNumber"] + 1
+
+
 def test_guest_lobbies_default_to_hard_for_fill_in_and_replacement_bots(tables):
     connect, tasks, mp = tables
     host = connect()
@@ -203,6 +269,80 @@ def test_returning_to_lobby_restores_creator_default_after_an_explicit_override(
     assert cmd(host, "start")["ok"]
     assert table["game"]["difficulty"] == "harder"
     assert table["defaultDifficulty"] == "harder"
+
+
+@pytest.mark.parametrize("lobby_status", ["waiting", "playing", "finished"])
+@pytest.mark.parametrize(
+    "host_seat, joining_seats, successor_seat",
+    [(0, [3, 1, 2], 1), (1, [0, 3], 3), (2, [1, 0], 0), (3, [2, 1], 1)],
+)
+def test_host_departure_transfers_clockwise_skipping_bots_and_empty_seats(
+    tables, lobby_status, host_seat, joining_seats, successor_seat
+):
+    connect, tasks, mp = tables
+    host = connect()
+    code = cmd(host, "create", name="Host")["code"]
+    if host_seat:
+        assert cmd(host, "join", seat=host_seat, name="Host")["ok"]
+    players = {}
+    for seat in joining_seats:
+        players[seat] = connect()
+        join(players[seat], code, seat, f"Player {seat}")
+    if lobby_status != "waiting":
+        assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    if lobby_status == "finished":
+        table["game"].update(
+            phase="game_over", scores=[10, 4],
+            finishedAt=datetime.now(timezone.utc).isoformat(),
+        )
+        mp.record_results(table)
+        mp.save(table)
+    successor = table["seats"][successor_seat]["token"]
+    assert cmd(host, "leave")["ok"]
+    assert table["host"] == successor
+    assert table["status"] == lobby_status
+    for seat, player in players.items():
+        assert state(player)["lobby"]["isHost"] == (seat == successor_seat)
+    mp._tables.clear()
+    assert mp.get_table(code)["host"] == successor
+    if lobby_status == "finished":
+        assert cmd(players[successor_seat], "rematch")["ok"]
+    elif lobby_status == "waiting":
+        assert cmd(players[successor_seat], "start")["ok"]
+
+
+@pytest.mark.parametrize("lobby_status", ["waiting", "finished"])
+def test_last_human_leaving_closes_lobby_without_changing_finished_result(
+    tables, accounts, existing_user, lobby_status
+):
+    from euchre_server.models import EuchreGameResult
+
+    connect, tasks, mp = tables
+    sign_in(accounts)
+    host = connect(accounts)
+    code = cmd(host, "create")["code"]
+    if lobby_status == "finished":
+        assert cmd(host, "start")["ok"]
+        table = mp.get_table(code)
+        table["game"].update(
+            phase="game_over", scores=[10, 4],
+            finishedAt=datetime.now(timezone.utc).isoformat(),
+        )
+        mp.record_results(table)
+        mp.save(table)
+    assert cmd(host, "leave")["ok"]
+    mp._tables.clear()
+    table = mp.get_table(code)
+    assert table["status"] == "closed" and table["host"] is None
+    assert cmd(host, "watch", code=code)["ok"]
+    assert state(host)["lobby"]["status"] == "closed"
+    assert not cmd(host, "join", seat=0, name="Host")["ok"]
+    if lobby_status == "finished":
+        result = EuchreGameResult.query.one()
+        assert result.won and not result.conceded
+    else:
+        assert EuchreGameResult.query.count() == 0
 
 
 def test_closing_a_finished_game_keeps_the_lobby_closed(tables):
@@ -330,22 +470,33 @@ def test_pass_out_summaries_redeal_then_rotate_after_snapshot_reload(tables, dea
             assert view["message"] == game["message"]
             assert view["dealer"] == (game["dealer"] - i) % 4
             assert view["scores"] == ([3, 5] if i % 2 == 0 else [5, 3])
-        assert not cmd(
+        revision = table["revision"]
+        assert cmd(
             clients[1],
             "action",
             action=dict(type="advance"),
-            revision=table["revision"],
+            revision=revision,
+            gameId=game["id"],
+            handNumber=game["handNumber"],
         )["ok"]
+        assert table["game"]["phase"] == "round_complete"
+        assert table["game"]["nextHandReady"] == [False, True, False, False]
+        assert state(clients[1])["game"]["nextHandReady"] == [True, False, False, False]
         # Recover the pending summary and counter from the persisted snapshot.
         mp._tables.clear()
         table = mp.get_table(code)
         assert table["game"] == game
-        assert cmd(
-            clients[0],
-            "action",
-            action=dict(type="advance"),
-            revision=table["revision"],
-        )["ok"]
+        for seat in (0, 2, 3):
+            assert cmd(
+                clients[seat],
+                "action",
+                action=dict(type="advance"),
+                revision=revision,
+                gameId=game["id"],
+                handNumber=game["handNumber"],
+            )["ok"]
+            if seat != 3:
+                assert table["game"]["phase"] == "round_complete"
         game = table["game"]
         assert game["phase"] == "bidding1"
         assert game["dealer"] == (
@@ -513,7 +664,7 @@ def test_last_player_leaving_finishes_as_loss(tables, accounts, existing_user):
     created = cmd(host, "create", name="Ignored")
     assert cmd(host, "start")["ok"]
     assert cmd(host, "leave")["ok"]
-    assert mp.get_table(created["code"])["status"] == "finished"
+    assert mp.get_table(created["code"])["status"] == "closed"
     result = EuchreGameResult.query.one()
     assert result.conceded and not result.won
 

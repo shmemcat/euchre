@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useSound } from "@/context/SoundContext";
 import type { Action, Game } from "@/game/engine";
+import { shouldAnimateDeal } from "@/lib/dealAnimation";
 import {
    OPENING_DEAL_MS,
    openingSteps,
@@ -27,7 +28,7 @@ function initialPlayback(game: Game | null): Playback {
    return {
       game,
       sequence:
-         game?.phase === "bidding1" && game.passes === 0
+         game?.phase === "bidding1" && game.passes === 0 && shouldAnimateDeal()
             ? {
                  target: game,
                  steps: [{ kind: "deal", duration: OPENING_DEAL_MS }],
@@ -37,7 +38,10 @@ function initialPlayback(game: Game | null): Playback {
    };
 }
 
-function transition(before: Game, after: Game): Sequence | null {
+function transition(
+   before: Game,
+   after: Game
+): { sequence: Sequence | null; passed: boolean } {
    let action: Action | { type: "discard"; card: null } | undefined;
    if (before.phase === "bidding1" || before.phase === "bidding2") {
       if (after.maker !== null && after.trump !== null) {
@@ -65,9 +69,12 @@ function transition(before: Game, after: Game): Sequence | null {
       };
    }
    const steps = action ? openingSteps(before, action) : [];
-   return steps.length
-      ? { target: after, steps, index: 0, trump: action?.type === "call" }
-      : null;
+   return {
+      sequence: steps.length
+         ? { target: after, steps, index: 0, trump: action?.type === "call" }
+         : null,
+      passed: action?.type === "pass",
+   };
 }
 
 /** Play confirmed opening actions without delaying or replaying server commands. */
@@ -94,7 +101,8 @@ export function useMultiplayerOpeningSequence(
       (current: Playback) => {
          while (!current.sequence && current.game && queue.current.length) {
             const target = queue.current.shift()!;
-            const sequence = transition(current.game, target);
+            const { sequence, passed } = transition(current.game, target);
+            if (passed) latest.current.play("pass");
             current = { game: sequence ? current.game : target, sequence };
          }
          update(current);

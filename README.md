@@ -42,13 +42,17 @@ Current production pins and the guarded combined rollback remain unchanged.
 ## Gameplay
 
 - Four players, fixed partnerships, a 24-card deck, five cards per hand.
+- Solo and multiplayer hands open with a short shuffle sound, then two clockwise
+  passes of face-down cards from the dealer's seat. The kitty flips up before
+  your hand fans face up; bidding waits until the animation finishes.
 - [Bicycle rules](https://bicyclecards.com/how-to-play/euchre): two bidding rounds,
   dealer pickup/discard, right/left bowers, following suit, and optional lone hands.
 - After everyone passes in both bidding rounds, the same dealer redeals. A second
   consecutive passed-out hand moves the deal clockwise. Calling trump resets the
   count; passed-out hands score no points. No stick-the-dealer rule.
 - Passed-out hands pause at a "No calls — Re-deal" or "No calls — Pass" summary
-  showing unchanged totals. The player (or multiplayer host) continues to the next deal.
+  showing unchanged totals. In multiplayer, every human clicks Next Hand before
+  the next deal begins; bots are ready automatically.
 - First partnership to 10 wins; no rubber points.
 - Easy: loose bidding, mostly sensible card play and discards, and occasional
   random legal choices.

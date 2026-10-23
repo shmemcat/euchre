@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyAction, newGame, suitOf, type Game } from "@/game/engine";
 import { useMultiplayerOpeningSequence } from "./useMultiplayerOpeningSequence";
+import { OPENING_DEAL_MS } from "./useOpeningSequence";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("@/context/SoundContext", () => ({ useSound: () => sound }));
@@ -55,6 +56,25 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("Multiplayer opening playback", () => {
+   it("sounds each confirmed pass once for every seat in both bidding rounds", () => {
+      let game = { ...fresh(), passes: 0 };
+      const view = opening(game);
+      advance(OPENING_DEAL_MS);
+      expect(sound.play).not.toHaveBeenCalled();
+      for (let i = 0; i < 8; i++) {
+         act(() => view.result.current.perform({ type: "pass" }));
+         expect(sound.play).toHaveBeenCalledTimes(i);
+         game = applyAction(game, { type: "pass" });
+         view.server(game);
+         expect(sound.play).toHaveBeenCalledTimes(i + 1);
+         expect(sound.play).toHaveBeenLastCalledWith("pass");
+         view.server({ ...game });
+         advance(2050);
+         expect(sound.play).toHaveBeenCalledTimes(i + 1);
+      }
+      expect(view.result.current.game?.phase).toBe("round_complete");
+   });
+
    it("announces another player's order and receives the upcard before allowing a discard", () => {
       const game = fresh();
       const view = opening(game);
@@ -259,7 +279,9 @@ describe("Multiplayer opening playback", () => {
       const view = opening(game);
       expect(view.result.current.step?.kind).toBe("deal");
       view.server(applyAction(game, { type: "pass" }));
-      advance(1200);
+      expect(sound.play).not.toHaveBeenCalled();
+      advance(OPENING_DEAL_MS);
+      expect(sound.play).toHaveBeenCalledExactlyOnceWith("pass");
       expect(view.result.current.step).toMatchObject({
          kind: "bid",
          text: "Passed",

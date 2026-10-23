@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +16,7 @@ import {
 } from "@/game/engine";
 import GamePage, { type OnlineGame } from "./GamePage";
 import cardStyles from "@/styles/card.module.css";
+import { OPENING_DEAL_MS } from "@/hooks/useOpeningSequence";
 
 vi.mock("@/context/GameContext", () => ({ useGame: vi.fn() }));
 vi.mock("@/components/Navbar", () => ({
@@ -145,27 +147,48 @@ describe.each(["single", "host", "guest"])(
             expect(dialog.queryByText(/called/)).not.toBeInTheDocument();
             expect(takeAction).not.toHaveBeenCalled();
             expect(send).not.toHaveBeenCalled();
-            if (mode === "guest") {
-               expect(
-                  dialog.getByRole("button", { name: "Waiting for Host" })
-               ).toBeDisabled();
-            } else {
-               fireEvent.click(
-                  dialog.getByRole("button", { name: "Next Hand" })
-               );
-               expect(
-                  mode === "single" ? takeAction : send
-               ).toHaveBeenCalledExactlyOnceWith({ type: "advance" });
-            }
+            fireEvent.click(
+               dialog.getByRole("button", { name: "Next Hand" })
+            );
+            expect(
+               mode === "single" ? takeAction : send
+            ).toHaveBeenCalledExactlyOnceWith({ type: "advance" });
          }
       );
    }
 );
 
 describe("Multiplayer game end", () => {
+   it("lets guests ready up and shows the waiting message inside the button", () => {
+      const connection = {
+         act: takeAction, saved: true, error: "", isHost: false, disabled: false,
+         onRematch: vi.fn(), onLobby: vi.fn(), onLeave: vi.fn(),
+      };
+      const game = fixture({
+         phase: "round_complete", humanSeats: [true, false, true, false],
+         nextHandReady: [false, true, true, true],
+      });
+      const view = board(game, connection);
+      const dialog = within(screen.getByRole("dialog"));
+      expect(dialog.queryByRole("list")).not.toBeInTheDocument();
+      expect(dialog.queryByText(/Next hand ·/)).not.toBeInTheDocument();
+      expect(dialog.queryByText("Waiting for players")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Next Hand" }));
+      expect(takeAction).toHaveBeenCalledExactlyOnceWith({ type: "advance" });
+      view.update({ ...game, nextHandReady: [true, true, true, true] });
+      const waiting = screen.getByRole("button", { name: "Waiting for players" });
+      expect(waiting).toBeDisabled();
+      fireEvent.click(waiting);
+      expect(takeAction).toHaveBeenCalledTimes(1);
+      expect(dialog.getByRole("status")).toHaveTextContent("Waiting for players...");
+      expect(waiting).toContainElement(dialog.getByRole("status"));
+      expect(dialog.queryByRole("list")).not.toBeInTheDocument();
+      expect(dialog.queryByText(/Next hand ·/)).not.toBeInTheDocument();
+   });
    it("offers separate rematch and lobby actions to the host", () => {
       const onRematch = vi.fn(),
-         onLobby = vi.fn();
+         onLobby = vi.fn(),
+         onLeave = vi.fn();
       board(
          fixture({
             phase: "game_over",
@@ -180,13 +203,17 @@ describe("Multiplayer game end", () => {
             disabled: false,
             onRematch,
             onLobby,
-            onLeave: vi.fn(),
+            onLeave,
          }
       );
       const dialog = within(screen.getByRole("dialog"));
       expect(
-         dialog.getByRole("heading", { name: "Game over — Shmut wins!" })
+         dialog.getByRole("heading", { name: "Game Complete" })
       ).toBeInTheDocument();
+      expect(dialog.getByRole("heading", { name: "Shmut wins!" })).toBeVisible();
+      const scores = within(dialog.getByRole("group", { name: "Final scores" }));
+      expect(scores.getByText("10")).toBeVisible();
+      expect(scores.getByText("4")).toBeVisible();
       fireEvent.click(
          dialog.getByRole("button", { name: "Play Again", exact: true })
       );
@@ -194,10 +221,19 @@ describe("Multiplayer game end", () => {
       expect(onLobby).not.toHaveBeenCalled();
       fireEvent.click(dialog.getByRole("button", { name: "Back to Lobby" }));
       expect(onLobby).toHaveBeenCalledOnce();
+      fireEvent.click(dialog.getByRole("button", { name: "Leave Lobby" }));
+      expect(onLeave).toHaveBeenCalledOnce();
       expect(dialog.getByRole("link", { name: "Home" })).toBeInTheDocument();
+      expect(
+         dialog.queryByRole("link", { name: "Leaderboard" })
+      ).not.toBeInTheDocument();
    });
 
-   it("waits for the host's group decision when you are a guest", () => {
+   it("shows disabled host actions with tooltips when you are a guest", async () => {
+      const user = userEvent.setup();
+      const onRematch = vi.fn(),
+         onLobby = vi.fn(),
+         onLeave = vi.fn();
       board(
          fixture({
             phase: "game_over",
@@ -210,23 +246,66 @@ describe("Multiplayer game end", () => {
             error: "",
             isHost: false,
             disabled: false,
-            onRematch: vi.fn(),
-            onLobby: vi.fn(),
-            onLeave: vi.fn(),
+            onRematch,
+            onLobby,
+            onLeave,
          }
       );
       expect(
-         screen.getByRole("heading", { name: "Game over — Team 2 wins!" })
+         screen.getByRole("heading", { name: "Team 2 wins!" })
       ).toBeInTheDocument();
-      expect(
-         screen.queryByRole("button", { name: "Back to Lobby" })
-      ).not.toBeInTheDocument();
+      const playAgain = screen.getByRole("button", { name: "Play Again" });
+      const backToLobby = screen.getByRole("button", { name: "Back to Lobby" });
+      expect(playAgain).toBeVisible();
+      expect(playAgain).toBeDisabled();
+      expect(backToLobby).toBeVisible();
+      expect(backToLobby).toBeDisabled();
+      fireEvent.click(playAgain);
+      fireEvent.click(backToLobby);
+      expect(onRematch).not.toHaveBeenCalled();
+      expect(onLobby).not.toHaveBeenCalled();
+      const leaveLobby = screen.getByRole("button", { name: "Leave Lobby" });
+      expect(leaveLobby).toBeEnabled();
+      fireEvent.click(leaveLobby);
+      expect(onLeave).toHaveBeenCalledOnce();
       expect(
          screen.getByText(
-            "Waiting for the host to play again or return the group to the lobby."
+            "Stay here. Your host can start another game or take everyone back to the lobby."
          )
       ).toBeVisible();
+      await user.hover(playAgain.parentElement!);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(
+         "Only the host can start another game."
+      );
+      await user.unhover(playAgain.parentElement!);
+      act(() => playAgain.parentElement!.focus());
+      await user.tab();
+      expect(backToLobby.parentElement).toHaveFocus();
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(
+         "Only the host can return the group to the lobby."
+      );
    });
+
+   it.each([true, false])(
+      "disables leaving while disconnected or busy (host=%s)",
+      (isHost) => {
+         const onLeave = vi.fn();
+         board(fixture({ phase: "game_over", scores: [10, 4] }), {
+            act: vi.fn(),
+            saved: true,
+            error: "",
+            isHost,
+            disabled: true,
+            onRematch: vi.fn(),
+            onLobby: vi.fn(),
+            onLeave,
+         });
+         const button = screen.getByRole("button", { name: "Leave Lobby" });
+         expect(button).toBeDisabled();
+         fireEvent.click(button);
+         expect(onLeave).not.toHaveBeenCalled();
+      }
+   );
 });
 
 describe("Multiplayer opening animations", () => {
@@ -443,6 +522,236 @@ afterEach(() => {
    vi.unstubAllGlobals();
 });
 
+describe.each(["single", "multiplayer"])(
+   "Advance card selection in %s",
+   (mode) => {
+      function waitingGame(): Game {
+         return fixture({
+            phase: "playing",
+            turn: 3,
+            trump: "s",
+            maker: 1,
+            hands: [
+               ["9c", "Ac", "Jc", "Ah", "Kd"],
+               ["10c", "Qc", "Kc", "10d", "Jd"],
+               ["9d", "Qd", "Ad", "10s", "Ks"],
+               ["9s", "Qs", "9h", "10h", "Qh"],
+            ],
+            kitty: ["Js", "Kh", "Jh", "As"],
+         });
+      }
+
+      function setup(game = waitingGame()) {
+         const connection: Omit<OnlineGame, "game"> = {
+            act: takeAction,
+            saved: true,
+            error: "",
+            isHost: false,
+            disabled: false,
+            onRematch: vi.fn(),
+            onLobby: vi.fn(),
+            onLeave: vi.fn(),
+         };
+         const view = board(
+            game,
+            mode === "multiplayer" ? connection : undefined
+         );
+         const hand = within(screen.getByRole("region", { name: "Your hand" }));
+         return { ...view, hand, connection };
+      }
+
+      it("lets you replace or cancel the selected card without playing early", () => {
+         const game = waitingGame();
+         const view = setup(game);
+         const club = view.hand.getByRole("button", { name: "9 of clubs" });
+         const bower = view.hand.getByRole("button", { name: "Jack of clubs" });
+         expect(
+            view.hand
+               .getAllByRole("button")
+               .every((card) => !card.hasAttribute("disabled"))
+         ).toBe(true);
+         fireEvent.click(club);
+         expect(club).toHaveAttribute("aria-pressed", "true");
+         expect(club).toHaveClass(cardStyles.cardSelected);
+         fireEvent.click(bower);
+         expect(club).not.toHaveAttribute("aria-pressed", "true");
+         expect(bower).toHaveAttribute("aria-pressed", "true");
+         fireEvent.click(bower);
+         expect(bower).not.toHaveAttribute("aria-pressed", "true");
+         expect(takeAction).not.toHaveBeenCalled();
+         view.update(applyAction(game, { type: "play", card: "9s" }));
+         expect(takeAction).not.toHaveBeenCalled();
+         expect(bower).toBeEnabled();
+      });
+
+      it("plays a legal selection exactly once when your turn arrives, including the left bower", () => {
+         const game = waitingGame();
+         const view = setup(game);
+         fireEvent.click(
+            view.hand.getByRole("button", { name: "Jack of clubs" })
+         );
+         expect(takeAction).not.toHaveBeenCalled();
+         const next = applyAction(game, { type: "play", card: "9s" });
+         view.update(next);
+         expect(takeAction).toHaveBeenCalledExactlyOnceWith({
+            type: "play",
+            card: "Jc",
+         });
+         expect(
+            view.hand.queryByRole("button", { pressed: true })
+         ).not.toBeInTheDocument();
+         view.update({ ...next });
+         expect(takeAction).toHaveBeenCalledTimes(1);
+      });
+
+      it("clears an illegal selection and leaves legal cards available for normal play", () => {
+         const game = waitingGame();
+         const view = setup(game);
+         fireEvent.click(view.hand.getByRole("button", { name: "9 of clubs" }));
+         view.update(applyAction(game, { type: "play", card: "9s" }));
+         expect(takeAction).not.toHaveBeenCalled();
+         expect(
+            view.hand.queryByRole("button", { pressed: true })
+         ).not.toBeInTheDocument();
+         expect(
+            view.hand.getByRole("button", { name: "9 of clubs" })
+         ).toBeDisabled();
+         const bower = view.hand.getByRole("button", { name: "Jack of clubs" });
+         expect(bower).toBeEnabled();
+         fireEvent.click(bower);
+         expect(takeAction).toHaveBeenCalledExactlyOnceWith({
+            type: "play",
+            card: "Jc",
+         });
+      });
+
+      it("keeps the selection through other players' turns before checking legality", () => {
+         let game: Game = { ...waitingGame(), turn: 1 };
+         const view = setup(game);
+         const club = view.hand.getByRole("button", { name: "9 of clubs" });
+         fireEvent.click(club);
+         for (const card of ["10c", "9d"] as const) {
+            game = applyAction(game, { type: "play", card });
+            view.update(game);
+            expect(club).toHaveAttribute("aria-pressed", "true");
+            expect(takeAction).not.toHaveBeenCalled();
+         }
+         view.update(applyAction(game, { type: "play", card: "9s" }));
+         expect(takeAction).toHaveBeenCalledExactlyOnceWith({
+            type: "play",
+            card: "9c",
+         });
+      });
+
+      it("allows selecting the next lead while a completed trick is being collected", () => {
+         let game = waitingGame();
+         for (const card of ["9s", "Jc", "10c", "Ks"] as const)
+            game = applyAction(game, { type: "play", card });
+         expect(game.phase).toBe("trick_complete");
+         expect(game.turn).toBe(0);
+         const view = setup(game);
+         const club = view.hand.getByRole("button", { name: "9 of clubs" });
+         fireEvent.click(club);
+         expect(club).toHaveAttribute("aria-pressed", "true");
+         expect(takeAction).not.toHaveBeenCalled();
+         view.update(applyAction(game, { type: "advance" }));
+         expect(takeAction).toHaveBeenCalledExactlyOnceWith({
+            type: "play",
+            card: "9c",
+         });
+      });
+
+      it("waits until match details close before playing a selected card", () => {
+         const game = waitingGame();
+         const view = setup(game);
+         fireEvent.click(
+            view.hand.getByRole("button", { name: "Jack of clubs" })
+         );
+         fireEvent.click(screen.getByRole("button", { name: "Match details" }));
+         view.update(applyAction(game, { type: "play", card: "9s" }));
+         expect(takeAction).not.toHaveBeenCalled();
+         expect(
+            view.hand.getByRole("button", { name: "Jack of clubs" })
+         ).toHaveAttribute("aria-pressed", "true");
+         fireEvent.keyDown(document, { key: "Escape" });
+         expect(takeAction).toHaveBeenCalledExactlyOnceWith({
+            type: "play",
+            card: "Jc",
+         });
+      });
+
+      it.each([
+         "new game",
+         "new hand",
+         "round end",
+         "sitting out",
+         "missing card",
+      ])(
+         "clears the selection on %s without submitting a stale card",
+         (change) => {
+            const game = waitingGame();
+            const view = setup(game);
+            fireEvent.click(
+               view.hand.getByRole("button", { name: "Jack of clubs" })
+            );
+            const changes: Partial<Game> =
+               change === "new game"
+                  ? { id: "another-game" }
+                  : change === "new hand"
+                  ? { handNumber: game.handNumber + 1 }
+                  : change === "round end"
+                  ? { phase: "round_complete" }
+                  : change === "sitting out"
+                  ? { sittingOut: 0 }
+                  : {
+                       hands: game.hands.map((hand, seat) =>
+                          seat === 0
+                             ? hand.filter((card) => card !== "Jc")
+                             : hand
+                       ),
+                    };
+            view.update({ ...game, turn: 0, ...changes });
+            expect(takeAction).not.toHaveBeenCalled();
+            expect(
+               view.hand.queryByRole("button", { pressed: true })
+            ).not.toBeInTheDocument();
+            view.update({ ...game, turn: 0 });
+            expect(takeAction).not.toHaveBeenCalled();
+         }
+      );
+
+      it("keeps cards inactive during bidding and while your partner goes alone", () => {
+         const game = waitingGame();
+         const view = setup({ ...game, phase: "bidding2" });
+         expect(view.hand.queryAllByRole("button")).toHaveLength(0);
+         view.update({ ...game, alone: true, maker: 2, sittingOut: 0 });
+         expect(view.hand.queryAllByRole("button")).toHaveLength(0);
+      });
+
+      if (mode === "multiplayer")
+         it("holds a selection while disconnected or submitting another action", () => {
+            const game = waitingGame();
+            const view = setup(game);
+            fireEvent.click(
+               view.hand.getByRole("button", { name: "Jack of clubs" })
+            );
+            view.connection.disabled = true;
+            const next = applyAction(game, { type: "play", card: "9s" });
+            view.update(next);
+            expect(takeAction).not.toHaveBeenCalled();
+            expect(
+               view.hand.getByRole("button", { name: "Jack of clubs" })
+            ).toBeDisabled();
+            view.connection.disabled = false;
+            view.update(next);
+            expect(takeAction).toHaveBeenCalledExactlyOnceWith({
+               type: "play",
+               card: "Jc",
+            });
+         });
+   }
+);
+
 describe("Quiet Table game controls", () => {
    it("shows single-player names with B1, B2 and B3 compact bot badges", () => {
       const game = fixture({ seatNames: ["You", "Mary", "Duffy", "Tim"] });
@@ -465,7 +774,7 @@ describe("Quiet Table game controls", () => {
       expect(document.querySelector(".seat-3 .seat-badge")).toHaveTextContent("B1");
    });
 
-   it("keeps the regular bot play delay at 700ms", () => {
+   it("keeps the regular bot play delay at 500ms", () => {
       vi.useFakeTimers();
       board(fixture({ phase: "playing", turn: 1, trump: "s", maker: 0 }));
       act(() =>
@@ -473,7 +782,7 @@ describe("Quiet Table game controls", () => {
             data: { action: { type: "play", card: "9c" } },
          })
       );
-      act(() => vi.advanceTimersByTime(699));
+      act(() => vi.advanceTimersByTime(499));
       expect(takeAction).not.toHaveBeenCalled();
       act(() => vi.advanceTimersByTime(1));
       expect(takeAction).toHaveBeenCalledExactlyOnceWith({
@@ -510,15 +819,50 @@ describe("Quiet Table game controls", () => {
       });
    });
 
-   it("waits for the opening fan and acclimation pause before starting a bot", () => {
+   it("waits for the full deal and reveal before starting a bot", () => {
       vi.useFakeTimers();
       board(fixture({ turn: 1, passes: 0 }));
       expect(document.querySelector(".hand-dealing")).toBeInTheDocument();
       expect(workers).toHaveLength(0);
-      act(() => vi.advanceTimersByTime(1199));
+      act(() => vi.advanceTimersByTime(OPENING_DEAL_MS - 1));
       expect(workers).toHaveLength(0);
       act(() => vi.advanceTimersByTime(1));
       expect(workers).toHaveLength(1);
+   });
+
+   it.each(["single player", "multiplayer"])("deals four mini hands and reveals yours on every new hand in %s", (mode) => {
+      vi.useFakeTimers();
+      const game = fixture({ turn: 0, passes: 0 });
+      const view = board(game, mode === "multiplayer" ? {
+         act: takeAction, saved: true, error: "", isHost: false, disabled: false,
+         onRematch: vi.fn(), onLobby: vi.fn(), onLeave: vi.fn(),
+      } : undefined);
+      expect(document.querySelectorAll(".deal-mini-hand")).toHaveLength(4);
+      expect(document.querySelectorAll(".deal-hidden-card")).toHaveLength(20);
+      expect(document.querySelectorAll(".deal-flight")).toHaveLength(24);
+      expect(screen.queryByRole("region", { name: "Your hand" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument();
+      expect(document.querySelector(".kitty-dealing")).toHaveAttribute("aria-hidden", "true");
+      act(() => vi.advanceTimersByTime(OPENING_DEAL_MS));
+      expect(document.querySelector(".seat-0 .hidden-hand")).not.toBeInTheDocument();
+      expect(document.querySelector(".deal-overlay")).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Your hand" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Pass" })).toBeEnabled();
+
+      const summary = { ...game, phase: "round_complete" as const };
+      view.update(summary);
+      view.update(applyAction(summary, { type: "advance" }));
+      expect(document.querySelectorAll(".deal-overlay")).toHaveLength(1);
+      expect(document.querySelectorAll(".deal-mini-hand")).toHaveLength(4);
+      expect(document.querySelector(".kitty-dealing")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Pass" })).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(OPENING_DEAL_MS - 1));
+      expect(screen.queryByRole("region", { name: "Your hand" })).not.toBeInTheDocument();
+      expect(takeAction).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
+      expect(document.querySelector(".deal-overlay")).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Your hand" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Pass" })).toBeEnabled();
    });
 
    it("folds and turns down the kitty before enabling second-round bidding", () => {
@@ -611,7 +955,7 @@ describe("Quiet Table game controls", () => {
       expect(takeAction).toHaveBeenCalledTimes(2);
    });
 
-   it("preserves trick slots and an empty hand slot after the last card is played", () => {
+   it("preserves trick slots and hides the empty hand placeholder after the last card", () => {
       let game = newGame("easy", "You", () => 0.84);
       while (game.hands[0].length > 0) {
          const actions = legalActions(game);
@@ -631,7 +975,7 @@ describe("Quiet Table game controls", () => {
       ).toBeInTheDocument();
       const hand = screen.getByRole("region", { name: "Your hand" });
       expect(within(hand).queryAllByRole("button")).toHaveLength(0);
-      expect(hand.querySelector(".hand-placeholder")).toBeInTheDocument();
+      expect(hand.querySelector(".hand-placeholder")).not.toBeInTheDocument();
    });
 
    it("omits the sitting-out partner's trick slot during a lone hand", () => {

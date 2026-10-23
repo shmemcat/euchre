@@ -53,6 +53,8 @@ type Command = {
    difficulty?: Difficulty;
    action?: Action;
    revision?: number;
+   gameId?: string;
+   handNumber?: number;
 };
 const Context = createContext<{
    lobby: Lobby | null;

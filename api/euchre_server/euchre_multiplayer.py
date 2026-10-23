@@ -128,12 +128,23 @@ def captains(table):
         )
 
 
-def migrate_host(table):
+def migrate_host(table, after_seat=None):
     humans = [s for s in members(table) if not s.get("bot")]
     seated = [s for s in table["seats"] if s and s.get("token") and not s.get("bot")]
     if table["status"] == "playing" and seated:
         humans = seated
     if not any(s["token"] == table["host"] for s in humans):
+        if after_seat is not None:
+            # Seat numbers run clockwise. Skip bots and empty seats.
+            for step in range(1, 5):
+                successor = table["seats"][(after_seat + step) % 4]
+                if (
+                    successor
+                    and successor.get("token")
+                    and not successor.get("bot")
+                ):
+                    table["host"] = successor["token"]
+                    return
         table["host"] = (
             min(humans, key=lambda s: s["joined"])["token"] if humans else None
         )
@@ -226,6 +237,11 @@ def game_view(table, token):
     g["seatNames"] = [s["name"] for s in seats]
     g["seatIcons"] = [s.get("icon", "user") for s in seats]
     g["humanSeats"] = [not s.get("bot") for s in seats]
+    if g["phase"] == "round_complete":
+        ready = g.get("nextHandReady", [False] * 4)
+        g["nextHandReady"] = [
+            ready[(i + seat) % 4] or bool(seats[i].get("bot")) for i in range(4)
+        ]
     g["teamNames"] = [table["teams"][i]["name"] for i in (side, 1 - side)]
     g["playerName"] = seats[0]["name"]
     participant = next((p for p in table["participants"] if p["token"] == token), None)
@@ -317,7 +333,7 @@ def register_euchre_socket(socketio, app):
                     namespace=NS,
                 )
 
-    def changed(table):
+    def changed(table, close_empty=False):
         if table["status"] == "playing" and not any(
             s and s.get("token") and not s.get("bot") for s in table["seats"]
         ):
@@ -327,8 +343,24 @@ def register_euchre_socket(socketio, app):
                 finishedAt=datetime.now(timezone.utc).isoformat(),
                 message="All players have left the game.",
             )
+        g = table["game"]
+        if g and g["phase"] == "round_complete":
+            ready = g.setdefault("nextHandReady", [False] * 4)
+            humans = [
+                i
+                for i, s in enumerate(table["seats"])
+                if s and s.get("token") and not s.get("bot")
+            ]
+            if humans and all(ready[i] for i in humans):
+                table["game"] = apply_action(g, dict(type="advance"))
+                table["game"].pop("nextHandReady", None)
+        elif g:
+            g.pop("nextHandReady", None)
         table["revision"] += 1
         record_results(table) if table["game"] else None
+        # Preserve the final result before closing the last human's lobby.
+        if close_empty and not any(not s.get("bot") for s in members(table)):
+            table["status"] = "closed"
         save(table)
         broadcast(table)
         schedule(table)
@@ -346,7 +378,12 @@ def register_euchre_socket(socketio, app):
         revision = table["revision"]
 
         def run():
-            socketio.sleep(1.8 if g["phase"] == "trick_complete" else 1.1)
+            socketio.sleep(
+                1.8
+                if g["phase"] == "trick_complete"
+                # 0.75s shuffle + 3.6s deal, then the usual bidding pause.
+                else 5.45 if g["phase"] == "bidding1" and g["passes"] == 0 else 1.1
+            )
             with app.app_context(), _lock:
                 try:
                     current = get_table(code)
@@ -418,7 +455,7 @@ def register_euchre_socket(socketio, app):
                 else:
                     table["unseated"].pop(token, None)
                 captains(table)
-                migrate_host(table)
+                migrate_host(table, after_seat=index)
                 changed(table)
 
         socketio.start_background_task(expire)
@@ -718,17 +755,28 @@ def register_euchre_socket(socketio, app):
                     )
                 elif kind == "action":
                     g = table["game"]
-                    if (
-                        table["status"] != "playing"
-                        or data.get("revision") != table["revision"]
-                    ):
+                    if table["status"] != "playing":
                         raise ValueError("The table changed. Please try again.")
                     action = data.get("action")
                     if g["phase"] == "round_complete":
-                        if not is_host or action != dict(type="advance"):
-                            raise ValueError(
-                                "Waiting for the host to deal the next hand."
-                            )
+                        if (
+                            index is None
+                            or table["seats"][index].get("bot")
+                            or action != dict(type="advance")
+                            or data.get("gameId") != g["id"]
+                            or data.get("handNumber") != g["handNumber"]
+                        ):
+                            raise ValueError("This hand has changed. Please try again.")
+                        # Ready clicks can arrive together using the same revision.
+                        # Bind them to the hand, and make retries idempotent.
+                        ready = g.setdefault("nextHandReady", [False] * 4)
+                        if ready[index]:
+                            return dict(ok=True)
+                        ready[index] = True
+                        changed(table)
+                        return dict(ok=True)
+                    elif data.get("revision") != table["revision"]:
+                        raise ValueError("The table changed. Please try again.")
                     elif (
                         g["turn"] != index
                         or g["phase"] == "trick_complete"
@@ -771,7 +819,7 @@ def register_euchre_socket(socketio, app):
                         if c.get("token") == token:
                             c["token"] = None
                     captains(table)
-                    migrate_host(table)
+                    migrate_host(table, after_seat=index)
                 elif kind == "close":
                     if not is_host or table["status"] == "playing":
                         raise ValueError("Only the host can close a waiting lobby.")
@@ -781,7 +829,7 @@ def register_euchre_socket(socketio, app):
                             c["token"] = None
                 else:
                     raise ValueError("Unknown lobby action.")
-                changed(table)
+                changed(table, close_empty=kind == "leave")
                 return dict(ok=True)
             except ValueError as error:
                 return dict(ok=False, error=str(error))

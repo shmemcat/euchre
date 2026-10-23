@@ -26,6 +26,10 @@ html {
    --white: #ffffff;
    --buttonshine: #ecc5c7;
    --button-secondary-shine: #ffffff99;
+   --button-secondary-background: #c3d1e0;
+   --button-secondary-hover: #b2c4d8;
+   --button-secondary-active: #b2c4d8;
+   --button-secondary-shadow: #6f8aa03d;
    --dealer-badge-fill: #c8bcad;
    --buttonshinehover: #e2b3b7;
    --buttonshinedisabled: #dcc4c6;
@@ -91,6 +95,10 @@ html[data-theme="dark"] {
    --buttontextdisabled: #a0b2c8;
    --buttonshine: #ecc5c7;
    --button-secondary-shine: #d9d0c480;
+   --button-secondary-background: #455d7a;
+   --button-secondary-hover: #506b8b;
+   --button-secondary-active: #3d526c;
+   --button-secondary-shadow: #1c283b55;
    --dealer-badge-fill: #4b6078;
    --buttonshinehover: color-mix(in srgb, var(--buttonshine) 82%, #000);
    --buttonboxshadow: #7e525a59;
@@ -666,6 +674,149 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 .modal-body .button-stack {
    margin-bottom: 0;
 }
+.game-complete-modal .modal-body > h2 {
+   margin-bottom: 10px;
+   color: var(--text);
+   font-size: 14px;
+   font-weight: 500;
+   letter-spacing: 1.5px;
+   text-transform: uppercase;
+}
+.game-complete-winner {
+   margin: 0;
+   max-width: 100%;
+   overflow-wrap: anywhere;
+   font-size: 32px;
+   font-weight: 700;
+   line-height: 1.15;
+}
+.game-complete-modal .modal-body > .euchre-logo {
+   margin: 18px 0 24px;
+}
+.game-final-scores {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+   align-items: start;
+   gap: 12px;
+   width: 100%;
+   margin-bottom: 26px;
+}
+.game-final-team {
+   display: flex;
+   flex-direction: column;
+   gap: 9px;
+   min-width: 0;
+}
+.game-final-winner {
+   color: var(--rulesbuttonselected);
+}
+.game-final-total {
+   font-size: 64px;
+   font-weight: 600;
+   font-variant-numeric: tabular-nums;
+   line-height: 1;
+}
+.game-final-name {
+   font-size: 18px;
+   line-height: 1.3;
+   overflow-wrap: anywhere;
+}
+.game-score-separator {
+   padding-top: 16px;
+   color: var(--infopilltext);
+   font-size: 25px;
+}
+.game-complete-status {
+   width: 100%;
+   border-top: 1px solid var(--statsdivider);
+   padding-top: 22px;
+   font-size: 17px;
+   line-height: 1.35;
+}
+.game-complete-status p {
+   margin: 0;
+}
+.game-complete-status .game-complete-status-title {
+   margin-bottom: 6px;
+   font-size: 20px;
+   font-weight: 600;
+}
+.waiting-ellipsis {
+   display: inline-flex;
+   justify-content: space-between;
+   width: 1em;
+}
+.waiting-ellipsis > span {
+   animation: waiting-dot 1.4s ease-in-out infinite;
+   opacity: 0.25;
+}
+.waiting-ellipsis > span:nth-child(2) {
+   animation-delay: 0.18s;
+}
+.waiting-ellipsis > span:nth-child(3) {
+   animation-delay: 0.36s;
+}
+@keyframes waiting-dot {
+   0%,
+   60%,
+   100% {
+      opacity: 0.25;
+   }
+   30% {
+      opacity: 1;
+   }
+}
+@media (prefers-reduced-motion: reduce) {
+   .waiting-ellipsis > span {
+      animation: none;
+      opacity: 1;
+   }
+}
+.game-complete-actions {
+   display: flex;
+   align-items: stretch;
+   justify-content: center;
+   gap: 12px;
+   width: 100%;
+   margin-top: 20px;
+}
+.game-complete-actions > * {
+   flex: 1;
+   min-width: 0;
+}
+.game-complete-actions > span {
+   display: flex;
+}
+.game-complete-modal .game-complete-actions button,
+.game-complete-modal .game-complete-actions .menu-link {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   width: 100%;
+   height: auto;
+   min-height: 44px;
+   padding: 9px 8px;
+}
+.game-complete-modal .game-complete-actions button:disabled {
+   border: 1px solid var(--infopillborder);
+   background: var(--contentbox);
+   color: var(--buttontextdisabled);
+   box-shadow: none;
+}
+.game-complete-modal .game-complete-actions button:disabled > [aria-hidden] {
+   display: none;
+}
+.game-complete-footer {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   justify-content: center;
+   gap: 12px;
+   width: 100%;
+   border-top: 1px solid var(--statsdivider);
+   margin-top: 24px;
+   padding-top: 20px;
+}
 .round-score-table {
    width: 100%;
    border-collapse: collapse;
@@ -701,6 +852,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
 }
 @media (max-width: 768px) {
+   .game-final-scores {
+      gap: 8px;
+      margin-bottom: 18px;
+   }
+   .game-final-team {
+      gap: 6px;
+   }
+   .game-final-total {
+      font-size: 36px;
+   }
+   .game-final-name {
+      font-size: 16px;
+   }
+   .game-score-separator {
+      padding-top: 6px;
+      font-size: 20px;
+   }
    .leaderboard-page [class*="title-container"] h1 {
       font-size: clamp(24px, 6vw, 38px);
       letter-spacing: 0.1em;

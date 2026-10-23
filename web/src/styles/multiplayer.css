@@ -150,7 +150,7 @@
    flex-direction: column;
    align-items: flex-start;
    gap: 8px;
-   margin: 24px 0;
+   margin: 14px 0 30px;
    text-transform: capitalize;
 }
 .lobby-start-modal .modal-body {

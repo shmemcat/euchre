@@ -9,14 +9,36 @@ import {
 } from "react";
 import { asset } from "@/lib/assets";
 import { readStorage, writeStorage } from "@/lib/storage";
-type Sound = "deal" | "trump" | "play" | "trick" | "round" | "win";
-const FILES: Record<Sound, string> = {
-   deal: "card-fan-1",
-   trump: "trump-chosen-chime",
-   play: "card-place-1",
-   trick: "cards-sweep-1",
-   round: "round-end",
-   win: "game-end",
+type Sound =
+   | "deal"
+   | "shuffle"
+   | "trump"
+   | "pass"
+   | "play"
+   | "select"
+   | "trick"
+   | "round"
+   | "win";
+const FILES: Record<Sound, string[]> = {
+   deal: ["card-fan-1"],
+   // Short single taps keep adjacent deal packets from sounding like extra cards.
+   shuffle: ["card-deal-group-1", "card-deal-group-2"],
+   trump: ["trump-chosen-chime"],
+   pass: ["pass"],
+   play: [
+      "card-slide-1",
+      "card-slide-2",
+      "card-slide-3",
+      "card-slide-4",
+      "card-slide-5",
+      "card-slide-6",
+      "card-slide-7",
+      "card-slide-8",
+   ],
+   select: ["card-place-1", "card-place-2"],
+   trick: ["cards-sweep-1", "cards-sweep-2"],
+   round: ["round-end"],
+   win: ["game-end"],
 };
 const MUSIC_VOLUME_KEY = "euchre.music-volume.v1";
 const clampVolume = (value: number) =>
@@ -60,7 +82,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
    const play = useCallback(
       (sound: Sound) => {
          if (muted) return;
-         const audio = new Audio(asset(`sounds/${FILES[sound]}.mp3`));
+         const files = FILES[sound];
+         const file = files[Math.floor(Math.random() * files.length)];
+         const audio = new Audio(asset(`sounds/${file}.mp3`));
          audio.volume = volume;
          void audio.play().catch(() => {});
       },
