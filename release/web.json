@@ -1,0 +1,6 @@
+{
+  "component": "euchre-web",
+  "image": "ghcr.io/shmemcat/euchre-web",
+  "tagPrefix": "web-v",
+  "schemaRevision": null
+}
