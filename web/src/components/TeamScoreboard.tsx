@@ -16,7 +16,8 @@ const scoreCrown: IconDefinition = {
 };
 
 export function TeamScoreboard({ game, side }: { game: Game; side: Team }) {
-   const name = side === 0 ? "Your team" : "Opponents";
+   const name =
+      game.teamNames?.[side] ?? (side === 0 ? "Your team" : "Opponents");
    const bidding = game.phase === "bidding1" || game.phase === "bidding2";
    const role =
       bidding || game.maker === null

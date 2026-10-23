@@ -1,0 +1,19 @@
+{
+  "validationSeed": 20261221,
+  "pairs": 500,
+  "initialSeedsUnique": 500,
+  "disjointPriorInitialSeedSets": [
+    {
+      "seed": 20261201,
+      "pairs": 100
+    },
+    {
+      "seed": 20261202,
+      "pairs": 150
+    },
+    {
+      "seed": 20261117,
+      "pairs": 500
+    }
+  ]
+}

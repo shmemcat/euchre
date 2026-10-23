@@ -12,6 +12,7 @@ import {
    team,
    trickWinner,
    nextActive,
+   nextSeat,
    type Action,
    type Card,
    type Observation,
@@ -19,10 +20,27 @@ import {
    type Seat,
    type Suit,
 } from "./engine";
+import { strategicPlay, recordPlay, type PlayKnowledge } from "./play-policy";
+import { settledScore, solveEndgame } from "./endgame";
+import { hardestAction } from "./hardest";
+import { solvePartnerEndgame } from "./partner-search";
 
-// Each Hard setting evaluates the same information, using a larger sample budget.
+// Close estimates keep the Medium choice on Hard and, with a smaller margin,
+// Harder. Hardest instead uses its score-aware, partner-policy search.
 export const SIMULATIONS = { hard: 32, harder: 128, hardest: 384 } as const;
 export type HardLevel = keyof typeof SIMULATIONS;
+export const ENDGAME_TRICKS = { hard: 0, harder: 2, hardest: 2 } as const;
+export const SWITCH_MARGIN = {
+   hard: 0.4,
+   harder: 0.12,
+   hardest: 0, // Hardest directly maximizes its match-value estimate.
+} as const;
+
+// Easy keeps beginner mistakes without using any hidden-card search.
+export const EASY_POLICY = {
+   sensibleCardChance: 0.7,
+   looseBidChance: 0.12,
+} as const;
 
 export function observationActions(o: Observation): Action[] {
    if (o.phase === "bidding1" || o.phase === "bidding2") {
@@ -251,12 +269,22 @@ function rollout(
    turn: Seat,
    trickInput: Play[],
    takenInput: [number, number],
-   rng: () => number
+   publicSeen: Set<Card>,
+   voids: Set<Suit>[],
+   knownDead: Card[][],
+   endgameTricks: number,
+   rootSeat?: Seat,
+   partnerStyle?: "basic" | "strategic"
 ): number {
    const hands = handsInput.map((hand) => [...hand]);
    const sittingOut = alone ? partner(maker) : null;
    let trick = [...trickInput];
    const taken: [number, number] = [...takenInput];
+   const knowledge: PlayKnowledge = {
+      seen: new Set(publicSeen),
+      voids: voids.map((v) => new Set(v)),
+      counts: hands.map((h) => h.length),
+   };
    let safety = 0;
    while (taken[0] + taken[1] < 5 && safety++ < 30) {
       if (trick.length === (alone ? 3 : 4)) {
@@ -265,25 +293,115 @@ function rollout(
          trick = [];
          continue;
       }
+      const settled = settledScore(maker, alone, taken);
+      if (settled !== null) return settled;
+      if (
+         endgameTricks > 0 &&
+         hands.every((h, s) => s === sittingOut || h.length <= endgameTricks)
+      ) {
+         if (partnerStyle && rootSeat !== undefined) {
+            const teammate = partner(rootSeat);
+            return solvePartnerEndgame(
+               hands,
+               trump,
+               maker,
+               alone,
+               turn,
+               trick,
+               taken,
+               teammate,
+               knowledge,
+               (hand, plays, k) => {
+                  const own = knownDead[teammate].length
+                     ? {
+                          ...k,
+                          seen: new Set([...k.seen, ...knownDead[teammate]]),
+                       }
+                     : k;
+                  return partnerStyle === "basic"
+                     ? heuristicPlay(
+                          hand,
+                          plays,
+                          trump,
+                          teammate,
+                          maker,
+                          sittingOut
+                       )
+                     : strategicPlay(
+                          hand,
+                          plays,
+                          trump,
+                          teammate,
+                          maker,
+                          sittingOut,
+                          own
+                       );
+               }
+            );
+         }
+         return solveEndgame(hands, trump, maker, alone, turn, trick, taken);
+      }
       if (!hands[turn].length) return 0;
-      const legal = legalCards(hands[turn], trick, trump);
+      const ownKnowledge = knownDead[turn].length
+         ? {
+              ...knowledge,
+              seen: new Set([...knowledge.seen, ...knownDead[turn]]),
+           }
+         : knowledge;
       const card =
-         rng() < 0.12
-            ? legal[Math.floor(rng() * legal.length)]
-            : heuristicPlay(hands[turn], trick, trump, turn, maker, sittingOut);
+         partnerStyle === "basic" &&
+         rootSeat !== undefined &&
+         turn === partner(rootSeat)
+            ? heuristicPlay(hands[turn], trick, trump, turn, maker, sittingOut)
+            : strategicPlay(
+                 hands[turn],
+                 trick,
+                 trump,
+                 turn,
+                 maker,
+                 sittingOut,
+                 ownKnowledge
+              );
       hands[turn] = hands[turn].filter((c) => c !== card);
-      trick.push({ seat: turn, card });
+      const play = { seat: turn, card };
+      recordPlay(knowledge, trick, play, trump);
+      trick.push(play);
       turn = nextActive(turn, sittingOut);
    }
    const points = scoreHand(team(maker), taken[team(maker)], alone);
    return points[0] - points[1];
 }
 
-function evaluate(
+// Continue the auction with each bidder's own hypothetical hand. Using a fixed
+// bidding policy avoids recursive searches and never exposes other hands to it.
+// Eight passes redeal for zero points, the neutral value of this hand.
+export function auctionAfterPass(
+   o: Observation,
+   sampled: Card[][]
+): {
+   seat: Seat;
+   phase: "bidding1" | "bidding2";
+   action: Extract<Action, { type: "call" }>;
+} | null {
+   let phase = o.phase as "bidding1" | "bidding2";
+   let seat = o.seat;
+   for (let i = 0; i < 7; i++) {
+      if (seat === o.dealer) {
+         if (phase === "bidding2") return null;
+         phase = "bidding2";
+      }
+      seat = nextSeat(seat);
+      const action = mediumAction({ ...o, phase, seat, hand: sampled[seat] });
+      if (action.type === "call") return { seat, phase, action };
+   }
+   return null;
+}
+
+export function evaluateSample(
    o: Observation,
    action: Action,
    sampled: Card[][],
-   rng: () => number
+   partnerStyle?: "basic" | "strategic"
 ): number {
    const hands = sampled.map((hand) => [...hand]);
    let trump = o.trump;
@@ -291,23 +409,43 @@ function evaluate(
    let alone = o.alone;
    let turn = o.seat;
    let trick = [...o.trick];
+   const publicSeen = new Set([
+      ...o.completedTricks.flatMap((t) => t.plays.map((p) => p.card)),
+      ...o.trick.map((p) => p.card),
+   ]);
+   const knownDead: Card[][] = [[], [], [], []];
+   if (!o.pickedUp) knownDead.forEach((cards) => cards.push(o.upCard));
+   if (o.knownDiscard) knownDead[o.seat].push(o.knownDiscard);
+   let callSeat = o.seat;
+   let firstRound = o.phase === "bidding1";
+   if (action.type === "pass") {
+      const continuation = auctionAfterPass(o, hands);
+      if (!continuation) return 0;
+      action = continuation.action;
+      callSeat = continuation.seat;
+      firstRound = continuation.phase === "bidding1";
+   }
    if (action.type === "call") {
       trump = action.suit;
-      maker = o.seat;
+      maker = callSeat;
       alone = action.alone;
-      if (o.phase === "bidding1") {
+      if (firstRound) {
+         knownDead.forEach((cards) => cards.splice(0));
          hands[o.dealer].push(o.upCard);
          const discard = discardChoice(hands[o.dealer], trump);
          hands[o.dealer] = hands[o.dealer].filter((c) => c !== discard);
+         knownDead[o.dealer].push(discard);
       }
       turn = nextActive(o.dealer, alone ? partner(maker) : null);
       trick = [];
    } else if (action.type === "discard") {
       hands[o.seat] = hands[o.seat].filter((c) => c !== action.card);
+      knownDead[o.seat].push(action.card);
       turn = nextActive(o.dealer, alone ? partner(maker!) : null);
    } else if (action.type === "play") {
       hands[o.seat] = hands[o.seat].filter((c) => c !== action.card);
       trick.push({ seat: o.seat, card: action.card });
+      publicSeen.add(action.card);
       turn = nextActive(o.seat, o.sittingOut);
    }
    const delta = rollout(
@@ -318,7 +456,14 @@ function evaluate(
       turn,
       trick,
       o.tricks,
-      rng
+      publicSeen,
+      inferredVoids({ ...o, trump, trick }),
+      knownDead,
+      o.difficulty === "easy" || o.difficulty === "medium"
+         ? 0
+         : ENDGAME_TRICKS[o.difficulty],
+      o.seat,
+      partnerStyle
    );
    return team(o.seat) === 0 ? delta : -delta;
 }
@@ -334,7 +479,7 @@ export function chooseAction(
          // Easy bids loosely but does not choose a lone hand at random.
          const basic = mediumAction(o, rng);
          if (basic.type === "call") return { ...basic, alone: false };
-         if (rng() < 0.12) {
+         if (rng() < EASY_POLICY.looseBidChance) {
             const calls = actions.filter(
                (a): a is Extract<Action, { type: "call" }> =>
                   a.type === "call" && !a.alone
@@ -343,12 +488,29 @@ export function chooseAction(
          }
          return { type: "pass" };
       }
+      if (
+         EASY_POLICY.sensibleCardChance > 0 &&
+         rng() < EASY_POLICY.sensibleCardChance
+      )
+         return mediumAction(o, rng);
       return actions[Math.floor(rng() * actions.length)];
    }
    if (o.difficulty === "medium" || actions.length === 1)
       return mediumAction(o, rng);
+   if (o.difficulty === "hardest")
+      return hardestAction(o, rng, SIMULATIONS.hardest, {
+         actions: observationActions,
+         basic: mediumAction,
+         discard: discardChoice,
+         quality: handValue,
+         sample: sampleHands,
+         heuristic: heuristicPlay,
+         auction: auctionAfterPass,
+         forecast: (observation, action, hands, style) =>
+            evaluateSample(observation, action, hands, style),
+      });
    const budget = SIMULATIONS[o.difficulty];
-   const candidates = actions.filter((a) => a.type !== "pass");
+   const candidates = actions;
    const totals = candidates.map(() => 0);
    let samples = 0;
    // Common sampled deals for all choices make comparisons less noisy.
@@ -356,7 +518,7 @@ export function chooseAction(
       const hands = sampleHands(o, rng);
       if (!hands) continue;
       candidates.forEach((action, index) => {
-         totals[index] += evaluate(o, action, hands, rng);
+         totals[index] += evaluateSample(o, action, hands);
       });
       samples++;
    }
@@ -364,11 +526,22 @@ export function chooseAction(
    let best = 0;
    for (let i = 1; i < totals.length; i++)
       if (totals[i] > totals[best]) best = i;
-   // Passing keeps the option to defend or call later. Avoid marginal calls.
+   const basic = mediumAction(o, rng);
+   const basicIndex = candidates.findIndex(
+      (a) =>
+         a.type === basic.type &&
+         (a.type === "call" && basic.type === "call"
+            ? a.suit === basic.suit && a.alone === basic.alone
+            : (a.type === "play" || a.type === "discard") &&
+              (basic.type === "play" || basic.type === "discard")
+            ? a.card === basic.card
+            : true)
+   );
    if (
-      (o.phase === "bidding1" || o.phase === "bidding2") &&
-      totals[best] / samples < 0.25
+      basicIndex >= 0 &&
+      (totals[best] - totals[basicIndex]) / samples <=
+         SWITCH_MARGIN[o.difficulty]
    )
-      return { type: "pass" };
+      return basic;
    return candidates[best];
 }

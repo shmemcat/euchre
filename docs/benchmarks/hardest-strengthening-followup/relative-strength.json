@@ -1,0 +1,68 @@
+{
+  "metric": "Relative strength index with a Medium partner on both sides",
+  "model": "Add adjacent log win odds (Bradley-Terry / Elo-style), normalize Easy=0 and Hardest=100",
+  "meaning": "Relative endpoints among current bots, not accuracy percentages or progress toward perfect play",
+  "limitations": "Adjacent-only model assumes transitivity; this is an illustrative index, not a proven universal strength rating",
+  "uncertainty": "Pointwise 95% whole-pair bootstrap ranges conditional on the rating model; anchors fixed by definition",
+  "resamples": 25000,
+  "adjacentWinRates": {
+    "medium/easy": 0.832,
+    "hard/medium": 0.588,
+    "harder/hard": 0.533,
+    "hardest/harder": 0.531
+  },
+  "matches": 5000,
+  "ratings": [
+    {
+      "difficulty": "Easy",
+      "index": 0.0,
+      "interval95": [
+        0.0,
+        0.0
+      ],
+      "anchor": true
+    },
+    {
+      "difficulty": "Medium",
+      "index": 72.32928609055836,
+      "interval95": [
+        67.74204486096112,
+        77.32954113136674
+      ],
+      "anchor": false
+    },
+    {
+      "difficulty": "Hard",
+      "index": 88.41047524038177,
+      "interval95": [
+        84.24870399941103,
+        92.9224512769337
+      ],
+      "anchor": false
+    },
+    {
+      "difficulty": "Harder",
+      "index": 94.38681970873529,
+      "interval95": [
+        91.22570605528136,
+        97.67387703398826
+      ],
+      "anchor": false
+    },
+    {
+      "difficulty": "Hardest",
+      "index": 100.0,
+      "interval95": [
+        100.0,
+        100.0
+      ],
+      "anchor": true
+    }
+  ],
+  "inputSha256": {
+    "docs\\benchmarks\\hardest-strengthening-followup\\scale-easy-medium-pairs.json.gz": "0c0593dee1e1ad7b21062c488251936fef83dab8233403c9c8d2a4d88a1861d1",
+    "docs\\benchmarks\\hardest-strengthening\\current-paired-results.json.gz": "788c526e7d9f2aabc5835213e7883273509da08835e74bdfd02cb00fd882e73f",
+    "docs\\benchmarks\\hardest-strengthening-followup\\current-paired-results.json.gz": "7d961183bb226c1c82bf425d31b4050812136b8b8c5fde02a6a4742cd11e8461"
+  },
+  "analysisSha256": "fbc075571ae32fc28797964aaea6ec466b0a55b2efc4864fca52cbf5436300b6"
+}

@@ -3,7 +3,6 @@ import { Helmet } from "react-helmet-async";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { Button, MenuLink } from "@/components/Buttons";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { AccountSummary } from "@/components/AccountSummary";
 import {
    DangerButton,
@@ -17,7 +16,7 @@ const accountUrl = import.meta.env.DEV
 export default function User() {
    const { user, configured, loading, error, login, logout, deleteAccount } =
       useAuth();
-   const navigate = useNavigate();
+   const [notice, setNotice] = useState("");
    const [deleting, setDeleting] = useState(false);
    const [username, setUsername] = useState("");
    const [password, setPassword] = useState("");
@@ -93,16 +92,17 @@ export default function User() {
                         <DeleteAccountModal
                            onClose={() => setDeleting(false)}
                            onDelete={async (password) => {
-                              await deleteAccount(password);
+                              const result = await deleteAccount(password);
                               clearResults(user.id);
                               setDeleting(false);
-                              navigate("/");
+                              setNotice(result?.message || "Account deleted.");
                            }}
                         />
                      )}
                   </div>
                ) : configured ? (
                   <>
+                     {notice && <p role="status">{notice}</p>}
                      <form
                         onSubmit={submit}
                         className="account-form"

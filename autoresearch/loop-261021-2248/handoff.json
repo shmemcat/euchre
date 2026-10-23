@@ -1,0 +1,48 @@
+{
+  "version": "2.1.0",
+  "source": "loop",
+  "timestamp": "2026-10-22T07:13:25.7765558Z",
+  "status": "BOUNDED",
+  "results_tsv": "autoresearch/loop-261021-2248/results.tsv",
+  "findings": [
+    "Three trials completed: two retained and one discarded; development gains were not used as validation.",
+    "Fresh 4000-match validation meets the declared measured target with unchanged384-sample Hardest budget.",
+    "Medium partners: revised53.1%, previous49.0%; paired improvement+4.1pp, adjusted interval[1.0,7.2]. Revised vsHarder interval[50.4,55.8] is above50%.",
+    "Whole teams: revised54.5% vsHarder, adjusted[51.2,57.8]. Paired whole-team change+1.6pp[-2.3,5.5] remains inconclusive.",
+    "Primary218tests/25files and production build passed. Lower difficulties are unchanged. Primary AI and engine match tested source.",
+    "Exact sources and both compiled entries archived and independently rebuilt byte-for-byte. Figures inspected. First failed study preserved separately.",
+    "Globally perfect play remains unproven. Autoresearch2.2.2 installed at C:/Users/emily/.codex/skills/autoresearch."
+  ],
+  "config": {
+    "goal": "Make Hardest clearly beat Harder with a Medium partner while retaining the whole-team ladder",
+    "scope": [
+      "web/src/game/ai.ts",
+      "web/src/game/hardest.ts",
+      "web/src/game/partner-search.ts",
+      "web/src/game/*test.ts"
+    ],
+    "metric": "Full-match win percentage vs Harder with Medium partners, 300 paired seeds / 600 matches, seed 20261221",
+    "direction": "higher_is_better",
+    "verify": "node scripts/score-hardest.mjs",
+    "guard": "node ../../web/node_modules/vitest/vitest.mjs run --root web --config vite.config.mjs",
+    "working_directory": ".local/hardest-phase2",
+    "iterations": 3,
+    "heldout_seed": 20270113,
+    "heldout_pairs": 500,
+    "heldout_family_alpha": 0.025,
+    "baseline_reuse": "First 300 pairs of the completed first-candidate validation, reused only as development data; source identical to baseline checkpoint",
+    "notes": "The first study failed the Medium-partner target and is preserved in full. No second-stage claim may use seed 20261221 as validation. Hidden-hand budget stays384. Lower-tier behavior stays unchanged. Final validation compares current Hardest and frozen original Hardest against unchanged Harder in both lineups, on fresh20270113 seeds."
+  },
+  "validation": {
+    "primaryMatchesTestedSource": true,
+    "seed": 20270113,
+    "intervalConfidence": 0.9958333333333333,
+    "matches": 4000,
+    "measuredTargetMet": true,
+    "nominalFamilyConfidencePerMetric": 0.975,
+    "report": "docs/benchmarks/hardest-strengthening-followup/README.md",
+    "perfectPlayProven": false,
+    "independentRebuildMatches": true,
+    "pairsPerCase": 500
+  }
+}

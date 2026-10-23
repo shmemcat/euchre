@@ -26,7 +26,7 @@ export type OpeningStep =
         card: Card;
         suit: Suit;
      }
-   | { kind: "discard"; duration: number; seat: Seat; card: Card };
+   | { kind: "discard"; duration: number; seat: Seat; card: Card | null };
 
 type Sequence = {
    game: Game;
@@ -38,6 +38,63 @@ type Sequence = {
 
 const OPENING_PAUSE_MS = 150;
 export const OPENING_BOT_DELAY_MS = 850 + OPENING_PAUSE_MS;
+export const OPENING_DEAL_MS = 1050 + OPENING_PAUSE_MS;
+
+export function openingSteps(
+   game: Game,
+   action: Action | { type: "discard"; card: null }
+): OpeningStep[] {
+   const steps: OpeningStep[] = [];
+   if (action.type === "pass" || action.type === "call") {
+      if (game.turn !== 0)
+         steps.push({
+            kind: "bid",
+            duration: 1100 + OPENING_PAUSE_MS,
+            seat: game.turn,
+            text:
+               action.type === "pass"
+                  ? "Passed"
+                  : game.phase === "bidding1"
+                  ? "Ordered Up"
+                  : SUIT_NAMES[action.suit],
+            suit:
+               action.type === "call" && game.phase === "bidding2"
+                  ? action.suit
+                  : undefined,
+         });
+      if (
+         action.type === "pass" &&
+         game.phase === "bidding1" &&
+         game.passes === 3
+      )
+         steps.push({ kind: "turn-down", duration: 800 });
+      if (action.type === "call" && game.phase === "bidding1") {
+         steps.push({
+            kind: "pickup",
+            duration: 550,
+            seat: game.dealer,
+            card: game.upCard,
+            suit: action.suit,
+         });
+         if (game.dealer === 0)
+            steps.push({
+               kind: "receive",
+               duration: 100,
+               seat: 0,
+               card: game.upCard,
+               suit: action.suit,
+            });
+      }
+   } else if (action.type === "discard") {
+      steps.push({
+         kind: "discard",
+         duration: 400,
+         seat: game.turn,
+         card: action.card,
+      });
+   }
+   return steps;
+}
 
 const handKey = (game: Game | null) =>
    game ? `${game.id}:${game.handNumber}` : "";
@@ -45,7 +102,7 @@ function dealSequence(game: Game | null): Sequence | null {
    return game?.phase === "bidding1" && game.passes === 0
       ? {
            game,
-           steps: [{ kind: "deal", duration: 1050 + OPENING_PAUSE_MS }],
+           steps: [{ kind: "deal", duration: OPENING_DEAL_MS }],
            index: 0,
            committed: false,
         }
@@ -136,55 +193,7 @@ export function useOpeningSequence(
          const { game, act, paused, play } = latest.current;
          if (!game || paused || pending.current) return;
          if (action.type === "call") play("trump");
-         const steps: OpeningStep[] = [];
-         if (action.type === "pass" || action.type === "call") {
-            if (game.turn !== 0)
-               steps.push({
-                  kind: "bid",
-                  duration: 1100 + OPENING_PAUSE_MS,
-                  seat: game.turn,
-                  text:
-                     action.type === "pass"
-                        ? "Passed"
-                        : game.phase === "bidding1"
-                        ? "Ordered Up"
-                        : SUIT_NAMES[action.suit],
-                  suit:
-                     action.type === "call" && game.phase === "bidding2"
-                        ? action.suit
-                        : undefined,
-               });
-            if (
-               action.type === "pass" &&
-               game.phase === "bidding1" &&
-               game.passes === 3
-            )
-               steps.push({ kind: "turn-down", duration: 800 });
-            if (action.type === "call" && game.phase === "bidding1") {
-               steps.push({
-                  kind: "pickup",
-                  duration: 550,
-                  seat: game.dealer,
-                  card: game.upCard,
-                  suit: action.suit,
-               });
-               if (game.dealer === 0)
-                  steps.push({
-                     kind: "receive",
-                     duration: 100,
-                     seat: 0,
-                     card: game.upCard,
-                     suit: action.suit,
-                  });
-            }
-         } else if (action.type === "discard") {
-            steps.push({
-               kind: "discard",
-               duration: 400,
-               seat: game.turn,
-               card: action.card,
-            });
-         }
+         const steps = openingSteps(game, action);
          if (steps.length)
             update({ game, steps, index: 0, action, committed: false });
          else act(action);

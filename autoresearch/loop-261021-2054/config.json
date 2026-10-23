@@ -1,0 +1,13 @@
+{
+  "goal": "Strengthen Hardest, especially with a Medium partner, without raising its 384 sampled-deal budget",
+  "scope": ["web/src/game/ai.ts", "web/src/game/hardest.ts", "web/src/game/partner-search.ts", "web/src/game/*test.ts"],
+  "direction": "higher_is_better",
+  "metric": "Hardest full-match win percentage vs Harder, with Medium partners; 150 paired seeds, seed 20261202",
+  "verify": "node scripts/score-hardest.mjs",
+  "guard": "node ../../web/node_modules/vitest/vitest.mjs run --root web --config vite.config.mjs",
+  "working_directory": ".local/hardest-autoresearch",
+  "iterations": 8,
+  "heldout_seed": 20261221,
+  "heldout_pairs": 500,
+  "notes": "Experimental commits live in the isolated repository and use the configured user identity. No commit, revert, or staging is performed in the shared repository. Primary final checks: Hardest vs Harder in both partner setups and a paired before/after comparison against the same Harder opponents. A Monte Carlo policy is not a proof of globally perfect hidden-information play."
+}

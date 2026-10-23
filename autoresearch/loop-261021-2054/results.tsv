@@ -1,0 +1,11 @@
+# metric_direction: higher_is_better
+iteration	timestamp	commit	metric	delta	guard	guard-metric	status	description
+0	2026-10-22T03:58:00Z	a9084ef	50.3333333333	0	pass	65	baseline	Information-set strategy with asymmetric policy priors; development version 2
+1	2026-10-22T04:04:58.752Z	d2ee618	51.6666666667	1.3333333334	pass	67	keep	Partner-policy tactical minimax blended with public-information continuation
+2	2026-10-22T04:09:02.354Z	0562809	51.6666666667	0	pass	72	discard	Dealer-call inference: unchanged win metric and added complexity
+3	2026-10-22T04:14:10.723Z	26646ec	49.3333333333	-2.3333333334	pass	71	discard	Resample-move refinement reduced the fixed development win metric
+4	2026-10-22T04:17:44.5437034Z	ed92afb	51	-0.6666666667	pass	67	discard	Removing public play likelihood reduced development wins
+5	2026-10-22T04:19:58.0896724Z	3e201c2	50.3333333333	-1.3333333334	pass	67	discard	Pure tactical forecasts underperformed the blended continuation
+6	2026-10-22T04:26:59.1005648Z	30a0248	52.6666666667	1	pass	67	keep	Four-trick tactical planning improved development wins at a higher running cost
+7	2026-10-22T04:33:16.4207834Z	a3e9749	52	-0.6666666667	pass	67	discard	Allowing simple enemy policies reduced the fixed development win metric
+8	2026-10-22T04:40:45.2120141Z	9c0de01	52.6666666667	0	pass	68	keep	Exact pruning preserved all 300 outcomes; mean decision cost fell from 185.3ms to 164.6ms
