@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
    applyAction,
+   BOT_NAMES,
    concede,
    DECK,
    effectiveSuit,
@@ -13,6 +14,7 @@ import {
    observe,
    partner,
    scoreHand,
+   seatName,
    suitOf,
    trickWinner,
    type Card,
@@ -42,6 +44,21 @@ function makePlayGame(alone = false): Game {
    });
 }
 describe("Bicycle Euchre rules", () => {
+   it("keeps three distinct Hearts bot names across hands", () => {
+      let game = newGame("easy", "Emily", rng(12));
+      const names = game.seatNames!;
+      expect(names[0]).toBe("Emily");
+      expect(new Set(names).size).toBe(4);
+      expect(names.slice(1).every((name) =>
+         BOT_NAMES.some((candidate) => candidate === name)
+      )).toBe(true);
+      expect(game.message).toContain(`${seatName(game, game.dealer)} deals.`);
+      for (let i = 0; i < 8; i++) game = applyAction(game, { type: "pass" });
+      game = applyAction(game, { type: "advance" }, rng(13));
+      expect(game.seatNames).toEqual(names);
+      expect(seatName({ ...game, playerName: "You" }, 0)).toBe("You");
+   });
+
    it("deals all 24 cards once, five to each seat and four to the kitty", () => {
       const game = newGame("easy", "You", rng(12));
       expect(game.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
@@ -119,17 +136,79 @@ describe("Bicycle Euchre rules", () => {
          })
       ).toThrow();
    });
-   it("redeals with the next dealer after eight passes without adding points", () => {
-      let game = newGame("easy", "You", rng(3));
-      const dealer = game.dealer;
-      for (let i = 0; i < 8; i++)
-         game = applyAction(game, { type: "pass" }, rng(i + 40));
-      expect(game.phase).toBe("bidding1");
-      expect(game.dealer).toBe(nextSeat(dealer));
-      expect(game.scores).toEqual([0, 0]);
-      expect(game.handNumber).toBe(2);
-      expect(isGame(game)).toBe(true);
-   });
+   it.each([0, 1, 2, 3] as Seat[])(
+      "gives dealer %i one redeal, then passes the deal clockwise, without scoring",
+      (dealer) => {
+         const random = rng(3);
+         let game = newGame("easy", "You", random);
+         game = { ...game, dealer, turn: nextSeat(dealer), scores: [3, 5] };
+         for (let hand = 0; hand < 4; hand++) {
+            const before = structuredClone(game);
+            for (let i = 0; i < 8; i++)
+               game = applyAction(game, { type: "pass" }, random);
+            expect(game.phase).toBe("round_complete");
+            expect(game.message).toBe(
+               hand % 2 ? "No calls — Pass" : "No calls — Re-deal"
+            );
+            expect(game.dealer).toBe(before.dealer);
+            expect(game.handNumber).toBe(before.handNumber);
+            expect(game.hands).toEqual(before.hands);
+            expect(game.scores).toEqual([3, 5]);
+            expect(game.results).toEqual([]);
+            expect(legalActions(game)).toEqual([{ type: "advance" }]);
+            expect(isGame(game)).toBe(true);
+            const summary = game;
+            game = applyAction(game, { type: "advance" }, random);
+            expect(game.phase).toBe("bidding1");
+            expect(game.dealer).toBe(
+               hand % 2 ? nextSeat(before.dealer) : before.dealer
+            );
+            expect(game.turn).toBe(nextSeat(game.dealer));
+            expect(game.consecutivePassOuts).toBe(hand % 2 ? 0 : 1);
+            expect(game.handNumber).toBe(before.handNumber + 1);
+            expect(game.id).toBe(before.id);
+            expect(game.scores).toEqual(before.scores);
+            expect(game.results).toEqual(before.results);
+            expect(game.hands).not.toEqual(before.hands);
+            expect(game.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+            expect(isGame(game)).toBe(true);
+            expect(summary.hands).toEqual(before.hands);
+         }
+      }
+   );
+   it.each([
+      [1, false],
+      [1, true],
+      [2, false],
+      [2, true],
+   ] as const)(
+      "resets the pass-out count after a round %i call, alone=%s",
+      (round, alone) => {
+         let game = newGame("easy", "You", rng(3));
+         for (let i = 0; i < 8; i++) game = applyAction(game, { type: "pass" });
+         game = applyAction(game, { type: "advance" });
+         const dealer = game.dealer;
+         if (round === 2)
+            for (let i = 0; i < 4; i++)
+               game = applyAction(game, { type: "pass" });
+         game = applyAction(
+            game,
+            legalActions(game).find(
+               (a) => a.type === "call" && a.alone === alone
+            )!
+         );
+         expect(game.consecutivePassOuts).toBe(0);
+         while (game.phase !== "round_complete")
+            game = applyAction(game, legalActions(game)[0]);
+         game = applyAction(game, { type: "advance" });
+         expect(game.dealer).toBe(nextSeat(dealer));
+         for (let i = 0; i < 8; i++) game = applyAction(game, { type: "pass" });
+         expect(game.message).toBe("No calls — Re-deal");
+         game = applyAction(game, { type: "advance" });
+         expect(game.dealer).toBe(nextSeat(dealer));
+         expect(isGame(game)).toBe(true);
+      }
+   );
    it("makes the dealer take the upcard and discard before play", () => {
       let game = newGame("easy", "You", rng(11));
       const original = structuredClone(game);

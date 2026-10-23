@@ -1,0 +1,7 @@
+{
+  "component": "euchre-game",
+  "image": "ghcr.io/shmemcat/euchre-game-api",
+  "tagPrefix": "game-v",
+  "schemaRevision": "euchre_001",
+  "package": "euchre_server"
+}

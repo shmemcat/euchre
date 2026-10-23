@@ -8,9 +8,14 @@
     "up-prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build",
     "down-prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml down",
     "web:install": "node --env-file=.env scripts/install-web.mjs",
-    "dev": "npm --prefix web run dev",
+    "dev": "node ../cards/scripts/dev-split.mjs",
     "build": "npm --prefix web run build",
     "test": "npm --prefix web run test:run",
-    "preview": "npm --prefix web run preview"
+    "test:multiplayer-rules": "node scripts/check-multiplayer-engine.mjs",
+    "benchmark:ai": "node scripts/benchmark-ai.mjs",
+    "benchmark:easy": "node scripts/benchmark-easy.mjs",
+    "preview": "npm --prefix web run preview",
+    "dev:web": "npm --prefix web run dev",
+    "test:release": "node --test scripts/component-release.test.mjs scripts/legacy-release.test.mjs"
   }
 }

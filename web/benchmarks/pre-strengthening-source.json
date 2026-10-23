@@ -1,0 +1,8 @@
+{
+  "description": "Difficulty-ladder version before further Hardest strengthening",
+  "sha256": {
+    "ai": "631eb5b5575f84a3a3da7adf4bd776df8bacd4e6af185414bb2180f4bbc62b04",
+    "play-policy": "ad0b21b3d8dca05dbe5b4a449c9cda525438b5cd0992a11e1791af257fe95344",
+    "endgame": "f56893952ae0471c621abcd9fb5f455db6693c2bd7662f37147ccbe4cdc8b653"
+  }
+}

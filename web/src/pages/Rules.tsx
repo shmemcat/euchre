@@ -82,8 +82,8 @@ export default function Rules() {
                            Beginning on the dealer’s left, cards are dealt
                            clockwise in a round of two followed by a round of
                            three, giving each player five cards. The next card
-                           is turned face up on the remaining pack. This is the{" "}
-                           <strong>turn-up</strong>.
+                           is turned face up on the remaining pack (the kitty). 
+                           This is the <strong>turn-up</strong>.
                         </p>
                         <p>
                            Starting on the dealer’s left and continuing
@@ -99,7 +99,10 @@ export default function Rules() {
                            player may pass or name any of the other three suits
                            as trump. The rejected suit cannot be chosen. If
                            everyone passes again, the cards are reshuffled and
-                           the next player clockwise deals a fresh hand.
+                           the same dealer deals a fresh hand. If both bidding
+                           rounds pass again on that redeal, the deal moves to
+                           the next player clockwise. Calling trump resets this
+                           count. Passed-out hands score no points.
                         </p>
                         <p>
                            The player who names trump may declare that they are{" "}
@@ -208,7 +211,10 @@ export default function Rules() {
                                  key={code}
                                  style={cardFanStyle(i, cards.length)}
                               >
-                                 <Card code={code} />
+                                 <Card
+                                    code={code}
+                                    trump={section === "Deal & Trump" ? "s" : null}
+                                 />
                               </div>
                            ))}
                         </div>

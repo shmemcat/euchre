@@ -1,6 +1,7 @@
 import type { Difficulty } from "@/game/engine";
 import type { LeaderboardEntry } from "@/components/LeaderboardColumn";
 import { accountApiBase, createAccountClient } from "./account";
+import { gameApiBase } from "./gameApi";
 import {
    markResultsSynced,
    readResults,
@@ -19,8 +20,8 @@ export function createLeaderboardClient(
    base: string,
    fetcher: typeof fetch = fetch
 ) {
-   const url = base.replace(/\/$/, "");
-   const account = createAccountClient(url, fetcher);
+   const url = gameApiBase(base);
+   const account = createAccountClient(base, fetcher);
    const read = async (response: Response) => {
       const data = await response.json().catch(() => null);
       if (!response.ok)
@@ -36,12 +37,9 @@ export function createLeaderboardClient(
          category: LeaderboardCategory,
          signal?: AbortSignal
       ): Promise<LeaderboardData> {
-         if (category === "multiplayer") return empty;
          const data = await read(
             await fetcher(
-               `${url}/euchre/leaderboard?category=${encodeURIComponent(
-                  category
-               )}`,
+               `${url}/leaderboard?category=${encodeURIComponent(category)}`,
                {
                   credentials: "include",
                   headers: { Accept: "application/json" },
@@ -86,7 +84,7 @@ export function createLeaderboardClient(
          for (let index = 0; index < results.length; index += 40) {
             const chunk = results.slice(index, index + 40);
             const data = await read(
-               await fetcher(`${url}/euchre/results`, {
+               await fetcher(`${url}/results`, {
                   method: "POST",
                   credentials: "include",
                   headers: {

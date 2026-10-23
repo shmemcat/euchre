@@ -16,6 +16,7 @@ import {
    OPENING_BOT_DELAY_MS,
    useOpeningSequence,
 } from "@/hooks/useOpeningSequence";
+import { useMultiplayerOpeningSequence } from "@/hooks/useMultiplayerOpeningSequence";
 import { useGame } from "@/context/GameContext";
 import { useSound } from "@/context/SoundContext";
 import { mediumAction } from "@/game/ai";
@@ -36,7 +37,19 @@ import {
 } from "@/game/engine";
 import { asset } from "@/lib/assets";
 import { cardFanStyle } from "@/lib/cardFan";
+import { getProfileIcon } from "@/lib/profileIcons";
 import containers from "@/styles/containers.module.css";
+
+function seatBadge(game: Game, seat: Seat): string {
+   const name = seatName(game, seat);
+   if (game.humanSeats?.[seat] ?? seat === 0)
+      return name.trim().charAt(0).toUpperCase();
+   const number = name.match(/^Bot\s+(\d+)$/i)?.[1] ??
+      (game.humanSeats
+         ? game.humanSeats.slice(0, seat + 1).filter((human) => !human).length
+         : seat);
+   return `B${number}`;
+}
 
 function hint(game: Game): string {
    if (["trick_complete", "round_complete", "game_over"].includes(game.phase))
@@ -56,12 +69,36 @@ function hint(game: Game): string {
       : "Your turn · Play any card.";
 }
 
-export default function GamePage() {
-   const { game, act: apply, saved, error } = useGame();
+export type OnlineGame = {
+   game: Game;
+   act: (action: Action) => void;
+   saved: boolean;
+   error: string;
+   isHost: boolean;
+   disabled: boolean;
+   onRematch: () => void;
+   onLobby: () => void;
+   onLeave: () => void;
+};
+export default function GamePage({ online }: { online?: OnlineGame } = {}) {
+   const single = useGame();
+   const { game: currentGame, act: apply, saved, error } = online ?? single;
    const sound = useSound();
    const [alone, setAlone] = useState(false);
    const [info, setInfo] = useState(false);
-   const opening = useOpeningSequence(game, apply, info);
+   const singleOpening = useOpeningSequence(
+      online ? null : currentGame,
+      apply,
+      info
+   );
+   const multiplayerOpening = useMultiplayerOpeningSequence(
+      online ? currentGame : null,
+      apply,
+      info,
+      online?.disabled ?? false
+   );
+   const game = online ? multiplayerOpening.game : currentGame;
+   const opening = online ? multiplayerOpening : singleOpening;
    const act = opening.perform;
    const boardRef = useRef<HTMLElement>(null);
    const [botError, setBotError] = useState("");
@@ -87,7 +124,7 @@ export default function GamePage() {
          sound.play("deal");
    }, [game, sound]);
    useEffect(() => {
-      if (!game || paused || opening.busy) return;
+      if (online || !game || paused || opening.busy) return;
       if (
          ["trick_complete", "round_complete", "game_over"].includes(
             game.phase
@@ -140,7 +177,7 @@ export default function GamePage() {
          clearTimeout(watchdog);
          worker?.terminate();
       };
-   }, [game, act, delay, paused, opening.busy]);
+   }, [game, act, delay, paused, opening.busy, online]);
    if (!game)
       return (
          <main className={containers["content-border-container"]}>
@@ -164,6 +201,8 @@ export default function GamePage() {
       humanTurn && (game.phase === "playing" || game.phase === "discard");
    const call = (suit: Suit) => act({ type: "call", suit, alone });
    const over = game.phase === "game_over";
+   const passedOut = game.phase === "round_complete" && game.maker === null;
+   const totalsOnly = over || passedOut;
    const summary = over || game.phase === "round_complete";
    const phaseHint = hint(game);
    const pickup =
@@ -179,7 +218,11 @@ export default function GamePage() {
       pickup?.suit ?? game.trump
    );
    const last = game.results[game.results.length - 1];
-   const won = !game.conceded && game.scores[0] >= 10;
+   const scoreOrder = [0, 1].sort((a, b) => game.scores[b] - game.scores[a]);
+   const winningTeam = game.scores[0] >= game.target ? 0 : 1;
+   const winningTeamName =
+      game.teamNames?.[winningTeam] ??
+      (winningTeam === 0 ? "Your team" : "The opposing team");
    const seat = (s: Seat) => (
       <div
          className={`table-seat seat-${s} ${
@@ -207,17 +250,18 @@ export default function GamePage() {
             >
                <span className="seat-name">
                   <FontAwesomeIcon
-                     icon={s === 0 ? faUser : faRobot}
+                     icon={
+                        game.seatIcons && game.humanSeats?.[s]
+                           ? getProfileIcon(game.seatIcons[s])
+                           : (game.humanSeats ? game.humanSeats[s] : s === 0)
+                           ? faUser
+                           : faRobot
+                     }
                      className="seat-icon"
                   />
                   <span className="seat-full-name">{seatName(game, s)}</span>
                   <span className="seat-badge" aria-hidden="true">
-                     {s === 0
-                        ? (game.playerName || "You")
-                             .trim()
-                             .charAt(0)
-                             .toUpperCase()
-                        : ["", "W", "P", "E"][s]}
+                     {seatBadge(game, s)}
                   </span>
                   {(s === game.dealer || s === game.maker) && (
                      <span className="seat-status">
@@ -252,7 +296,8 @@ export default function GamePage() {
                   </span>
                ) : (
                   <span className="seat-detail">
-                     {team(s) === 0 ? "Your team" : "Opponents"}
+                     {game.teamNames?.[team(s)] ??
+                        (team(s) === 0 ? "Your team" : "Opponents")}
                   </span>
                )}
             </div>
@@ -321,7 +366,9 @@ export default function GamePage() {
                            <Trick
                               game={game}
                               paused={paused}
-                              onCollected={() => act({ type: "advance" })}
+                              onCollected={() => {
+                                 if (!online) act({ type: "advance" });
+                              }}
                            />
                         )}
                      </div>
@@ -524,14 +571,12 @@ export default function GamePage() {
                   over
                      ? game.conceded
                         ? "Game conceded"
-                        : won
-                        ? "You won!"
-                        : "Game over"
+                        : `Game over — ${winningTeamName} wins!`
                      : game.message
                }
             >
                <EuchreLogo size={65} />
-               {!over && (
+               {!totalsOnly && (
                   <p>
                      {last?.maker === 0
                         ? "You"
@@ -542,22 +587,28 @@ export default function GamePage() {
                )}
                <table className="round-score-table">
                   <caption className="sr-only">
-                     {over ? "Final scores" : "Hand scores"}
+                     {over
+                        ? "Final scores"
+                        : passedOut
+                        ? "Current scores"
+                        : "Hand scores"}
                   </caption>
                   <thead>
                      <tr>
-                        <th>Team</th>
-                        {!over && <th>Tricks</th>}
-                        {!over && <th>Points</th>}
-                        <th>Total</th>
+                        <th scope="col">Team</th>
+                        {!totalsOnly && <th scope="col">Tricks</th>}
+                        {!totalsOnly && <th scope="col">Points</th>}
+                        <th scope="col">Total</th>
                      </tr>
                   </thead>
                   <tbody>
-                     {[0, 1].map((t) => (
+                     {scoreOrder.map((t) => (
                         <tr key={t}>
-                           <th>{t === 0 ? "Us" : "Them"}</th>
-                           {!over && <td>{last?.tricks[t]}</td>}
-                           {!over && <td>+{last?.points[t]}</td>}
+                           <th scope="row">
+                              {game.teamNames?.[t] ?? (t === 0 ? "Us" : "Them")}
+                           </th>
+                           {!totalsOnly && <td>{last?.tricks[t]}</td>}
+                           {!totalsOnly && <td>+{last?.points[t]}</td>}
                            <td>{game.scores[t]}</td>
                         </tr>
                      ))}
@@ -565,14 +616,43 @@ export default function GamePage() {
                </table>
                <div className="button-stack">
                   {over ? (
-                     <MenuLink to="/play" name="Play Again" />
+                     online ? (
+                        online.isHost ? (
+                           <>
+                              <Button
+                                 name="Play Again"
+                                 disabled={online.disabled}
+                                 onClick={online.onRematch}
+                              />
+                              <Button
+                                 name="Back to Lobby"
+                                 disabled={online.disabled}
+                                 onClick={online.onLobby}
+                              />
+                           </>
+                        ) : (
+                           <p role="status">
+                              Waiting for the host to play again or return the
+                              group to the lobby.
+                           </p>
+                        )
+                     ) : (
+                        <MenuLink to="/play" name="Play Again" />
+                     )
                   ) : (
                      <Button
-                        name="Next Hand"
+                        name={
+                           online && !online.isHost
+                              ? "Waiting for Host"
+                              : "Next Hand"
+                        }
+                        disabled={
+                           !!online && (!online.isHost || online.disabled)
+                        }
                         onClick={() => act({ type: "advance" })}
                      />
                   )}
-                  <MenuLink to="/" name="Home" />
+                  {over && <MenuLink to="/" name="Home" />}
                   {over && <MenuLink to="/leaderboard" name="Leaderboard" />}
                </div>
             </Modal>

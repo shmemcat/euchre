@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
@@ -234,4 +234,27 @@ describe("Account-only options", () => {
          screen.queryByRole("form", { name: "Guest name" })
       ).not.toBeInTheDocument();
    });
+});
+
+it("shows pending deletion after the account has been signed out", async () => {
+   const message =
+      "Account deletion is processing. You are signed out; cleanup will retry automatically.";
+   auth.user = { id: "42", name: "Emily" };
+   vi.mocked(auth.deleteAccount).mockResolvedValue({
+      user: null,
+      csrf_token: "guest",
+      message,
+   });
+   const view = render(page());
+   const user = userEvent.setup();
+   await user.click(screen.getByRole("button", { name: "Delete Account" }));
+   await user.click(screen.getByRole("button", { name: "Yes" }));
+   await user.type(screen.getByLabelText("Password"), "test-password");
+   await user.click(
+      screen.getByRole("button", { name: "Delete", exact: true })
+   );
+   await waitFor(() => expect(auth.deleteAccount).toHaveBeenCalled());
+   auth.user = null;
+   view.rerender(page());
+   expect(await screen.findByRole("status")).toHaveTextContent(message);
 });

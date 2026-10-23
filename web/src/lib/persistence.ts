@@ -1,4 +1,4 @@
-import { isGame, type Difficulty, type Game } from "@/game/engine";
+import { isGame, singlePlayerSeatNames, type Difficulty, type Game } from "@/game/engine";
 import { readStorage, removeStorage, writeStorage } from "./storage";
 
 export const GAME_KEY = "euchre.game.v1";
@@ -34,7 +34,13 @@ export type StoredResult = {
 };
 export function loadGame(): Game | null {
    const value = readStorage<unknown>(GAME_KEY, null);
-   if (isGame(value)) return value;
+   if (isGame(value)) {
+      if (!value.seatNames) {
+         value.seatNames = singlePlayerSeatNames(value.playerName);
+         saveGame(value);
+      }
+      return value;
+   }
    if (value !== null) removeStorage(GAME_KEY);
    return null;
 }

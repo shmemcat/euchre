@@ -1,0 +1,15 @@
+{
+  "sourceHashesMatchPromotedFiles": true,
+  "publicRunnerReplaysFirstTwoPairsExactly": true,
+  "upperDifficultyDispatchUnchanged": true,
+  "supportingGameModulesUnchanged": true,
+  "gameGuardTests": 78,
+  "primaryTests": 223,
+  "typecheck": "pass",
+  "productionBuild": "pass",
+  "independentRebuild": "Both compiled entries match byte for byte",
+  "developmentSeed": 20270203,
+  "validationSeed": 20270221,
+  "experimentalRevision": "99d161c",
+  "noValidationRetuning": true
+}

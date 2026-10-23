@@ -1,0 +1,32 @@
+{
+  "version": "2.1.0",
+  "source": "loop",
+  "timestamp": "2026-10-22T06:17:36.3399783Z",
+  "status": "BOUNDED",
+  "results_tsv": "autoresearch/loop-261021-2054/results.tsv",
+  "findings": [
+    "Eight trials completed: three retained, five discarded.",
+    "Development win rate rose from50.3333% to52.6667%, but the independent8000-match validation failed the Medium-partner target.",
+    "Medium partners: revised50.6%, previous51.9%; paired change-1.3pp, adjusted interval[-4.3,+1.7]. Whole teams: revised55.7%, previous53.5%; paired+2.2pp[-1.3,+5.7]. Neither before/after gain established.",
+    "384 sampled allocations retained. Exact tested source builds, paired data and graphs are preserved in docs/benchmarks/hardest-strengthening.",
+    "A separately bounded second development stage uses this first validation as development data only, with fresh20270113 validation."
+  ],
+  "config": {
+    "goal": "Strengthen Hardest, especially with a Medium partner, without raising its 384 sampled-deal budget",
+    "scope": [
+      "web/src/game/ai.ts",
+      "web/src/game/hardest.ts",
+      "web/src/game/partner-search.ts",
+      "web/src/game/*test.ts"
+    ],
+    "direction": "higher_is_better",
+    "metric": "Hardest full-match win percentage vs Harder, with Medium partners; 150 paired seeds, seed 20261202",
+    "verify": "node scripts/score-hardest.mjs",
+    "guard": "node ../../web/node_modules/vitest/vitest.mjs run --root web --config vite.config.mjs",
+    "working_directory": ".local/hardest-autoresearch",
+    "iterations": 8,
+    "heldout_seed": 20261221,
+    "heldout_pairs": 500,
+    "notes": "Experimental commits live in the isolated repository and use the configured user identity. No commit, revert, or staging is performed in the shared repository. Primary final checks: Hardest vs Harder in both partner setups and a paired before/after comparison against the same Harder opponents. A Monte Carlo policy is not a proof of globally perfect hidden-information play."
+  }
+}
