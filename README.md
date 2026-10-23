@@ -5,55 +5,39 @@ navy, dusty-peach, and cream celestial deck, EB Garamond, and Font Awesome icons
 
 ## Play locally
 
-The Docker development preview runs at **http://localhost:3002**. Use
-`npm run up` to start it and `npm run down` to stop it.
-
-For a directly running preview instead, stop the Docker preview first, then run:
+Keep `cards`, `hearts` and `euchre` beside each other and install Node.js 22.12+,
+Python 3.11 and uv. Follow Cards' [local setup](../cards/README.md#run-locally)
+to install the three backend environments and both frontends. In this checkout,
+copy `.env.example` to `.env`, set the Font Awesome package token, and run
+`npm run web:install`. Keep the token out of Git.
 
 ```powershell
 npm run dev
 ```
 
-For a fresh checkout, install Node.js 22.12+ and copy `.env.example` to `.env`.
-Add your Font Awesome Pro package token to `.env`, then run:
+This starts the shared Cards split stack once: hub 3000, Hearts/Euchre web apps
+3001/3002, and accounts/Hearts/Euchre servers 5100/5101/5102. Open
+<http://localhost:3000/>. Shared accounts and file-only mail use
+`cards/.local/split-dev/`; existing databases and browser saves are not imported.
+Ctrl+C stops the processes this runner launched. Local verification/recovery
+mail is available at `/__dev/mail/`; no provider credentials are needed.
 
-```powershell
-npm run web:install
-npm run dev
-```
+`npm run dev:web` preserves the frontend-only preview with separately configured
+backend destinations. Existing `up`, `up:build`, `down`, `up-prod` and `down-prod`
+remain explicit Docker frontend previews. Stop previews using the same ports
+before starting the default stack. No Docker volumes are removed by this change.
 
-Credentials stay out of Git. The token is used only for dependency installation,
-not in frontend code. `web/.npmrc` contains an environment-variable reference.
+## Releases
 
-## Docker Compose
+`game-vMAJOR.MINOR.PATCH` publishes the independent Euchre game API and `web-v*`
+publishes only the frontend. Both publish immutable candidate records, without
+deploying or promoting `latest`. The [legacy workflow](docs/legacy-releases.md)
+is manual-only, requires acknowledgement, and refuses existing image versions.
+The follow-up PR targets the release branch; integrate that branch into `main`
+separately. Historical tags retain their original workflow definitions.
 
-The commands follow the Hearts workflow. Euchre uses its own Compose project,
-dependency volume, and **port 3002**; Hearts can continue using 3001.
-Docker Desktop must be running with Linux containers enabled. Set the Font Awesome
-token in the root `.env` first, as above. Stop a directly running `npm run dev`
-before starting Docker on the same port.
-
-```powershell
-npm run up:build  # Build and start the development container with hot reload
-npm run up        # Start it again
-npm run down      # Stop it
-```
-
-For a local Nginx preview of the production build:
-
-```powershell
-npm run down
-npm run up-prod
-npm run down-prod
-```
-
-Font Awesome credentials are passed using BuildKit secret mounts and are not
-retained in the image. Solo gameplay, bot simulations and saves run in the browser.
-Online games use the shared Cards API in the sibling Hearts project. Start
-`npm run dev:accounts` in the sibling Cards repo for local multiplayer; the web
-preview proxies `/api/account` and `/socket.io` to it. If dependencies change, stop the dev containers
-and remove only the `euchre_web_node_modules` volume before rebuilding; it stores
-installed packages, not saved games.
+Production already uses the independent Euchre server and shared Cards accounts.
+Current production pins and the guarded combined rollback remain unchanged.
 
 ## Gameplay
 
@@ -143,9 +127,9 @@ The app is prepared for `cards.shmem.dev/euchre/`:
   account and game. Multiplayer wins have monthly and all-time leaderboards and
   appear in User → Separate → Multiplayer, independently of Hearts statistics.
 - Lobby/game snapshots survive service restarts and expire after 20 minutes
-  without activity. The shared API uses one worker for multiplayer timers,
-  matching the existing Hearts deployment. Apply migration **019** before
-  deploying the updated API. No live deployment is performed by local setup.
+  without activity. The independent Euchre API uses one worker for multiplayer timers.
+  Its explicit owned migration follows the retained legacy **019** schema;
+  service startup performs no migrations. Local setup does not deploy.
 
 See [account and hosting notes](docs/shared-accounts.md) for local setup,
 existing-account migration, routing, and result-validation boundaries.
@@ -175,6 +159,9 @@ save recovery, result deduplication, and the shared-account adapter.
   The original Ogg is bundled as `web/public/sounds/abstraction-sketchbook-2025-11-26.ogg`
   with its [license](web/public/sounds/abstraction-sketchbook-2025-11-26.LICENSE.txt).
 
-## Independent game server (prepared, not activated)
+## Independent game server
 
-The [standalone Euchre API](api/README.md) now lives in this repository and uses the shared Cards account service. Its tests, dependency lock, schema job, Docker image, and build-only CI are independent of Hearts. The existing Compose files, gateway destinations, and tagged web release remain unchanged. The combined server retains its Euchre implementation until the reviewed cutover.
+The [standalone Euchre API](api/README.md) owns Euchre gameplay and uses the
+shared Cards account service. Tests, dependencies, schema jobs, images and
+component releases are independent of Hearts. The original combined copy is
+retained for guarded rollback; never run both owners against live tables.

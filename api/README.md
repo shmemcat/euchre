@@ -5,10 +5,10 @@ table recovery, bot and multiplayer results, leaderboards, and private account
 cleanup. It runs without importing or checking out Hearts or Cards. Accounts,
 passwords, sessions, recovery mail, and JWT signing remain in Cards.
 
-This phase prepares a separate server. The existing combined Hearts server,
-gateway upstreams, Compose files, and tagged web release workflow are unchanged.
-The original Euchre code remains in the combined artifact until the reviewed
-single-owner cutover; do not run both owners against live Euchre tables.
+Production uses this server with shared Cards accounts. Root `npm run dev`
+delegates to the sibling Cards split stack. The original combined Euchre code
+remains available only for guarded rollback/compatibility work; never run both
+owners against live Euchre tables. Existing production pins are unchanged.
 
 ## Independent installation and checks
 
@@ -22,7 +22,7 @@ From the repository root, run `npm run test:multiplayer-rules`. Node 22.13+
 compares browser TypeScript with this package without installing web dependencies
 or importing Hearts. `node scripts/check-multiplayer-engine.mjs --combined` is
 an optional transition check against the retained Hearts implementation when
-that checkout is available. Check CI independently tests and builds `api/` without either sibling repository. The separate `game-release.yml` publishes only `euchre-game-api` for `game-vMAJOR.MINOR.PATCH` tags, refusing existing version tags and uploading a digest/source/schema record. It does not promote `latest`, deploy, or alter the existing `v*` web workflow. Cards' opt-in local stack and pinned-image CI are described in [component releases](../../cards/docs/component-releases.md).
+that checkout is available. Check CI independently tests and builds `api/` without either sibling repository. The separate `game-release.yml` publishes only `euchre-game-api` for `game-vMAJOR.MINOR.PATCH` tags, refusing existing version tags and uploading a digest/source/schema record. It does not promote `latest` or deploy. The retained legacy web workflow is [manual-only](../docs/legacy-releases.md). Cards' default local stack and pinned-image CI are described in [component releases](../../cards/docs/component-releases.md).
 
 ## Configuration and entrypoint
 
@@ -36,8 +36,7 @@ credentials to the game process.
 
 `CARDS_GAME_ACCOUNT_TOKENS` is JSON containing a separate random `euchre` callback
 key of at least 32 characters. It matches the token in the account service's
-`CARDS_GAME_SERVICES.euchre` entry. During the eventual cutover, that entry will
-point to this server. `CORS_ORIGINS` and `TRUSTED_PROXY_HOPS` retain their existing
+`CARDS_GAME_SERVICES.euchre` entry. In the split configuration, that entry points to this server. `CORS_ORIGINS` and `TRUSTED_PROXY_HOPS` retain their existing
 meaning. Private interfaces must stay behind the gateway's `_internal` deny
 rules and inside the private service network.
 
