@@ -1151,6 +1151,9 @@
       pointer-events: none;
       transition: opacity 420ms ease-out, visibility 0s 420ms;
    }
+   .hidden-card + .hidden-card {
+      margin-left: -24px;
+   }
    .game-container:is(
          [data-phase="bidding1"],
          [data-phase="bidding2"],
