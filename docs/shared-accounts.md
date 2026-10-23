@@ -2,24 +2,22 @@
 
 ## Shared login locally
 
-The Cards hub and both games now use the existing Hearts account service.
-Run `npm run dev:accounts` in the sibling Cards repo, then start each frontend.
-Use localhost:3000 for the hub, localhost:3001 for Hearts, localhost:3002 for Euchre.
-The local runner creates a separate Cards/.local/accounts.sqlite database; it does
-not connect to the live Hearts database. Registration, verification, and recovery
-are on the hub `/user/` page, linked from Euchre's account screen.
+Root `npm run dev` in Cards, Hearts or Euchre starts the shared split stack once.
+Follow [Cards setup](../../cards/README.md#run-locally) to install the three
+backend environments and both frontends. The hub uses localhost:3000, Hearts
+3001 and Euchre 3002; accounts/Hearts/Euchre APIs use 5100/5101/5102.
+Local data and file-only verification/recovery mail live in
+`cards/.local/split-dev/`. Existing instance databases and `.local/accounts.sqlite`
+are retained and never adopted by the default runner. The hub's `/user/` owns
+registration, verification, recovery and shared sign-in.
 
-Development enables `/api/account` by default and proxies it to localhost:5000.
-Override `ACCOUNT_PROXY_TARGET` for another API. Docker dev defaults to
-`http://host.docker.internal:5000`; use port5001 when using Hearts' Docker API.
-Production builds require `VITE_ACCOUNT_API_URL=/api/account` and matching ingress.
-No duplicate Euchre users table exists. Solo saves remain local; online tables
-are owned and persisted by the shared API, using Socket.IO namespace `/euchre`.
-Proxy `/socket.io` to the same API, as Hearts does. Migration 019 adds persisted
-Euchre tables and multiplayer achievement counters without changing Hearts stats.
-Completed bot games recorded for a signed-in account sync to the shared service
-and populate Euchre's leaderboards. Guest games and legacy unassigned results
-are never uploaded or assigned to an account.
+The runner explicitly routes account calls to Cards and Euchre calls and
+`/euchre/socket.io` to the independent Euchre server. No duplicate Euchre users
+table exists. Solo saves remain browser-local; online tables and results belong
+to Euchre. `npm run dev:web` retains the frontend-only preview with separately
+configured `ACCOUNT_PROXY_TARGET` and `EUCHRE_API_TARGET` destinations.
+Production builds retain `VITE_ACCOUNT_API_URL=/api/account` and existing ingress.
+Guest games and legacy unassigned results are never assigned to an account.
 
 ## Account contract
 
@@ -51,7 +49,10 @@ responses are uncached. All three sites refresh login on focus and share logout.
 Verification and recovery use expiring, hashed, single-use tokens. Password reset
 revokes existing sessions and legacy Hearts JWTs. IDs are normalized to strings.
 
-## Existing live Hearts accounts
+## Original account adoption (historical)
+
+Production already runs the separate owners. The original migration sequence
+below is historical context; do not rerun adoption against live services.
 
 Deploy the shared API against the existing Hearts database after backup and
 staging verification. Run migrations 017–018 using `flask db upgrade`; they add
