@@ -869,10 +869,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
       padding-top: 6px;
       font-size: 20px;
    }
-   .leaderboard-page [class*="title-container"] h1 {
-      font-size: clamp(24px, 6vw, 38px);
-      letter-spacing: 0.1em;
-   }
    .account-settings {
       top: 78px;
       right: calc(2.5vw + 38px);
@@ -904,19 +900,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    [class*="title-container"] {
       width: 100%;
    }
-   [class*="title-container"] h1 {
-      font-size: clamp(27px, 7vw, 44px);
-      letter-spacing: 0.19em;
-      margin-top: -145px;
-   }
    [class*="index-container"] h1 {
       font-size: 45px;
       letter-spacing: 12px;
       margin-top: -165px !important;
-   }
-   [class*="title-container"] > .euchre-logo {
-      max-width: 190px;
-      max-height: 190px;
    }
    [class*="index-container"] .euchre-logo {
       max-width: 230px;
@@ -958,38 +945,42 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    [class*="rules-body-container"] {
       flex-direction: column;
       gap: 30px;
-      margin-top: 20px;
+      margin-top: 0;
       width: 100%;
    }
    [class*="rules-button-container"] {
-      display: grid;
-      grid-template-columns: repeat(2, max-content);
-      width: fit-content;
+      display: flex;
+      flex-direction: column;
+      width: 260px;
+      max-width: 100%;
       min-width: 0;
       align-self: center;
+      align-items: center;
       justify-content: center;
-      gap: 6px 18px;
-      padding: 14px;
+      gap: 10px;
+      padding: 15px;
+      box-sizing: border-box;
    }
    .rules-tab {
-      width: auto;
+      width: 100%;
       height: auto;
-      min-height: 28px;
+      min-height: 20px;
+      line-height: 20px;
       font-size: var(--button-label-size);
       letter-spacing: var(--button-label-spacing);
       text-align: center;
-      padding: 4px;
-   }
-   .rules-tab[data-selected="true"] {
-      text-decoration: underline;
-      text-underline-offset: 5px;
+      padding: 0;
    }
    [class*="rules-text-body"] {
       flex: none;
       align-self: stretch;
       margin: 0 0 20px;
-      text-align: left;
+      text-align: center;
       letter-spacing: 0.5px;
+   }
+   [class*="rules-text-body"] > h2 {
+      font-size: 18px;
+      letter-spacing: 1.5px;
    }
    .rules-card-fan .euchre-card {
       width: 60px;
@@ -1020,6 +1011,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
 }
 @media (max-width: 360px) {
+   .rules-card-fan > div + div {
+      margin-left: -22px;
+   }
    [class*="content-border-container"] {
       padding-left: 14px;
       padding-right: 14px;

@@ -50,14 +50,10 @@ import containers from "@/styles/containers.module.css";
 
 function seatBadge(game: Game, seat: Seat): string {
    const name = seatName(game, seat);
-   if (game.humanSeats?.[seat] ?? seat === 0)
-      return name.trim().charAt(0).toUpperCase();
-   const number =
-      name.match(/^Bot\s+(\d+)$/i)?.[1] ??
-      (game.humanSeats
-         ? game.humanSeats.slice(0, seat + 1).filter((human) => !human).length
-         : seat);
-   return `B${number}`;
+   const botNumber = name.match(/^Bot\s+(\d+)$/i)?.[1];
+   if (game.humanSeats?.[seat] === false && botNumber)
+      return `B${botNumber}`;
+   return name.trim().charAt(0).toUpperCase();
 }
 
 function hint(game: Game): string {

@@ -50,12 +50,18 @@
 
 @media only screen and (max-width: 768px) {
    .grid {
+      flex-direction: column;
+      width: 100%;
+      max-width: 300px;
       gap: 20px;
+      margin-top: 0;
    }
 
    .choice {
       padding: 28px 24px 22px;
-      min-width: 140px;
+      min-width: 0;
+      flex: none;
+      box-sizing: border-box;
    }
 
    .choiceLabel {

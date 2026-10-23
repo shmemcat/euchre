@@ -918,14 +918,20 @@
       display: none;
    }
    .game-container {
-      --hand-card-width: 72px;
+      --hand-card-width: 76px;
       --hand-fan-arc: 0.2px;
       --hand-fan-rotation: 1.2deg;
-      --mobile-board-height: 470px;
+      --mobile-board-height: clamp(340px, calc(100dvh - 290px), 470px);
       --mobile-trick-width: min(200px, calc(100vw - 150px));
-      --mobile-trick-height: 180px;
+      --mobile-trick-height: clamp(
+         104px,
+         calc(var(--mobile-board-height) - 290px),
+         180px
+      );
       --mobile-trick-card-width: 90px;
       --mobile-trick-card-height: 126px;
+      --mobile-seat-card-gap: 4px;
+      --mobile-trump-gap-extra: 8px;
       --mobile-side-offset: calc(
          var(--mobile-trick-width) / 2 + var(--mobile-trick-card-width) * 0.2
       );
@@ -939,7 +945,7 @@
       position: relative;
       width: 100%;
       height: var(--mobile-board-height);
-      margin-top: 48px;
+      margin-top: 20px;
    }
    .game-top-row,
    .game-top-row > .seat-2,
@@ -953,7 +959,7 @@
    }
    .game-top-row > .match-info {
       position: absolute;
-      top: -36px;
+      top: -8px;
       left: calc(50% - (95vw - 70px) / 2 - 6px);
       right: auto;
    }
@@ -979,11 +985,12 @@
    }
    .team-scoreboard-you {
       top: auto;
-      bottom: 4px;
+      bottom: 20px;
       left: calc(50% - var(--mobile-side-offset));
-      transform: translate(-50%, -24px);
+      transform: translateX(-50%);
    }
    .team-scoreboard-opponents {
+      top: -4px;
       left: calc(50% + var(--mobile-side-offset));
       right: auto;
    }
@@ -1024,7 +1031,7 @@
       left: 50%;
       transform: translateX(-50%);
       min-width: 0;
-      padding: 8px 10px;
+      padding: 4px 6px;
       gap: 2px;
       border: 0;
       border-radius: 10px;
@@ -1038,13 +1045,34 @@
    .seat-1 .player-seat-card,
    .seat-3 .player-seat-card {
       top: auto;
-      bottom: calc(50% + var(--mobile-trick-card-height) / 2 + 4px);
+      bottom: calc(
+         50% + var(--mobile-trick-card-height) / 2 + var(--mobile-seat-card-gap)
+      );
    }
    .seat-1 .player-seat-card {
       left: calc(50% - var(--mobile-side-offset));
    }
    .seat-3 .player-seat-card {
       left: calc(50% + var(--mobile-side-offset));
+   }
+   /* Anchor the top and bottom labels to their card outlines during play. */
+   .play-board:has(.trick-table) .seat-2 .player-seat-card {
+      top: auto;
+      bottom: calc(
+         50% + var(--mobile-trick-height) / 2 +
+            var(--mobile-trick-card-height) * 0.7 + var(--mobile-seat-card-gap) +
+            var(--mobile-trump-gap-extra) * 2
+      );
+   }
+   .play-board:has(.trick-table) .seat-0 .player-seat-card {
+      top: calc(
+         50% + var(--mobile-trick-height) / 2 +
+            var(--mobile-trick-card-height) * 0.7 + var(--mobile-seat-card-gap)
+      );
+      bottom: auto;
+   }
+   .play-board:has(.trick-table) :is(.player-seat-card, .table-center) {
+      translate: 0 8px;
    }
    .seat-turn .player-seat-card {
       outline: none;
@@ -1178,6 +1206,7 @@
       left: 50%;
       top: 0;
       transform: translate(-50%, -70%);
+      translate: 0 calc(-2 * var(--mobile-trump-gap-extra));
    }
    .trick-slot-3 {
       right: 0;
@@ -1186,14 +1215,15 @@
    }
    .table-trump {
       font-size: 36px;
+      translate: 0 calc(-1 * var(--mobile-trump-gap-extra));
    }
    .trick-slot .euchre-card {
       align-items: center;
       justify-content: center;
-      padding: 6px 8px;
+      padding: 0;
    }
    .bid-toast {
-      top: 54px;
+      top: 46px;
       font-size: 12px;
       padding: 6px 9px;
    }
@@ -1237,7 +1267,8 @@
       padding-top: 0;
    }
    .bid-round-two .bid-buttons {
-      flex-basis: 100%;
+      flex-basis: auto;
+      flex-wrap: nowrap;
       gap: 6px;
    }
    .bid-round-two .bid-action {
@@ -1248,10 +1279,7 @@
       display: none;
    }
    .bid-round-two .bid-prompt {
-      display: block;
-      order: 1;
-      font-size: 14px;
-      color: var(--text);
+      display: none;
    }
    .bid-action {
       min-height: 44px;
@@ -1260,6 +1288,8 @@
    }
    .alone-label {
       font-size: 13px;
+      flex-shrink: 0;
+      white-space: nowrap;
    }
    .hand-region {
       position: fixed;
@@ -1271,7 +1301,7 @@
       pointer-events: none;
    }
    .player-hand {
-      --hand-overlap: 24.48px;
+      --hand-overlap: 11px;
       min-height: 0;
       padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px));
       pointer-events: none;
@@ -1282,82 +1312,63 @@
    .hand-card + .hand-card {
       margin-left: calc(-1 * var(--hand-overlap));
    }
+   .player-hand[data-card-count="5"] {
+      --hand-overlap: max(
+         11px,
+         calc((var(--hand-card-width) * 5 - 100vw + 48px) / 4)
+      );
+   }
    .player-hand[data-card-count="6"] {
       --hand-card-width: 72px;
       --hand-overlap: max(24.48px, calc((432px - 100vw + 48px) / 5));
    }
 }
-/* Keep the full table and actions reachable on short phones and in landscape. */
-@media (max-width: 768px) and (max-height: 740px) {
+/* Keep score trackers vertical without crowding the side seats on short phones. */
+@media (max-width: 768px) and (max-height: 720px) {
+   .team-score-emblem {
+      width: 28px;
+      height: 24px;
+   }
+   .team-trick-track {
+      --pip-size: 4px;
+      --pip-gap: 3px;
+      --pip-padding: 4px;
+   }
+}
+/* Reduce the cards only when the viewport cannot fit the full-size table. */
+@media (max-width: 768px) and (max-height: 700px) {
    .game-container {
-      --mobile-board-height: 340px;
-      --mobile-trick-width: 160px;
-      --mobile-trick-height: 100px;
       --mobile-trick-card-width: 72px;
       --mobile-trick-card-height: 101px;
    }
    .seat-2 .player-seat-card {
       top: 0;
    }
+   .seat-2 .bid-toast {
+      top: 42px;
+   }
    .seat-0 .player-seat-card {
       bottom: 0;
-   }
-   .team-scoreboard {
-      flex-direction: row;
-      width: auto;
-   }
-   .team-scoreboard-opponents {
-      flex-direction: row-reverse;
-   }
-   .team-trick-track {
-      --pip-gap: 4px;
-      --pip-padding: 5px;
-      flex-direction: row;
-      padding: 4px var(--pip-padding);
-   }
-   .team-trick-track::before {
-      inset: -1px auto -1px -1px;
-      width: calc(
-         var(--pip-padding) + var(--pip-size) * 3 + var(--pip-gap) * 2.5 + 2px
-      );
-      height: auto;
-      clip-path: polygon(
-         0 0,
-         calc(100% - 4px) 0,
-         100% 50%,
-         calc(100% - 4px) 100%,
-         0 100%
-      );
-   }
-   .play-board:has(.bid-controls) .seat-0 .player-seat-card,
-   .play-board:has(.bid-controls) .team-scoreboard-you {
-      bottom: 52px;
    }
    .upcard-stack {
       width: 72px;
       height: 101px;
    }
-   .play-board:has(.bid-controls) .kitty-display {
-      transform: translateY(-20px);
-   }
 }
+/* Let very short screens scroll through the table, actions, and hand together. */
 @media (max-width: 768px) and (max-height: 610px) {
    .game-container {
-      --mobile-board-height: 300px;
-      --mobile-trick-height: 60px;
-      padding-bottom: calc(290px + env(safe-area-inset-bottom, 0px));
-   }
-   .play-board:has(.bid-controls) .seat-0 .player-seat-card {
-      bottom: 0;
-   }
-   .play-board:has(.bid-controls) .team-scoreboard-you {
-      bottom: 4px;
+      padding-bottom: 24px;
    }
    .phase-area {
       position: absolute;
       top: calc(100% + 16px);
       bottom: auto;
       margin: 0 auto;
+   }
+   .hand-region {
+      position: relative;
+      margin-top: 120px;
    }
 }
 @media (prefers-reduced-motion: reduce) {

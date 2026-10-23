@@ -29,12 +29,12 @@ export interface PageLayoutProps {
    contentClassName?: string;
    /** Applied to the children wrapper (body content area) */
    className?: string;
-   /** When true, do not show the hearts logo or title */
+   /** When true, do not show the Euchre logo or title */
    hideTitleBlock?: boolean;
 }
 
 const bodyContentClasses =
-   "mt-6 w-full px-2 flex flex-col items-center justify-center text-center";
+   `${containers["page-body"]} w-full px-2 flex flex-col items-center justify-center text-center`;
 
 export const PageLayout: React.FC<PageLayoutProps> = ({
    title,
@@ -46,11 +46,11 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
 }) => (
    <div
       style={{ position: "relative" }}
-      className={
+      className={`${containers["page-layout"]} ${
          variant === "menu"
             ? "w-full max-w-[1030px] mx-auto p-9 pb-[120px] box-border mt-5 mb-5 bg-transparent"
             : containers["content-border-container"]
-      }
+      }`}
    >
       <Navbar />
       <AccountSettings />
@@ -60,13 +60,27 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
          exit={{ opacity: 0, y: 12 }}
          transition={{ duration: 0.25, ease: "easeOut" }}
          className={`flex flex-col items-center justify-center ${
-            hideTitleBlock ? "mt-2 sm:mt-6" : "mt-[50px] sm:mt-[140px]"
+            hideTitleBlock ? "mt-2 sm:mt-6" : containers["page-content"]
          } ${contentClassName ?? ""}`.trim()}
       >
          {!hideTitleBlock && (
-            <div className={containers["title-container"]}>
-               <EuchreLogo size={212} />
-               <h1>{title}</h1>
+            <div
+               className={`${containers["title-container"]} ${containers["page-title-container"]}`}
+            >
+               <EuchreLogo
+                  size={212}
+                  style={{
+                     width: "var(--page-logo-size, 212px)",
+                     height: "var(--page-logo-size, 212px)",
+                  }}
+               />
+               <h1
+                  className={
+                     title.length > 8 ? containers["long-title"] : undefined
+                  }
+               >
+                  {title}
+               </h1>
             </div>
          )}
          <div

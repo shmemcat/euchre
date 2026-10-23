@@ -7,7 +7,7 @@ export type Preferences = {
 };
 const DEFAULTS: Preferences = {
    hardLevel: "hard",
-   cardStyle: "celestial",
+   cardStyle: "classic",
 };
 function loadPreferences(): Preferences {
    const value = readStorage<Partial<Preferences> | null>(
@@ -19,7 +19,8 @@ function loadPreferences(): Preferences {
          value && ["hard", "harder", "hardest"].includes(value.hardLevel ?? "")
             ? value.hardLevel!
             : "hard",
-      cardStyle: value?.cardStyle === "classic" ? "classic" : "celestial",
+      cardStyle:
+         value?.cardStyle === "celestial" ? "celestial" : DEFAULTS.cardStyle,
    };
 }
 const Context = createContext<{

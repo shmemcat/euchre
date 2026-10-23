@@ -753,12 +753,12 @@ describe.each(["single", "multiplayer"])(
 );
 
 describe("Quiet Table game controls", () => {
-   it("shows single-player names with B1, B2 and B3 compact bot badges", () => {
+   it("shows single-player bot initials in compact seat badges", () => {
       const game = fixture({ seatNames: ["You", "Mary", "Duffy", "Tim"] });
       board(game);
       expect(
          Array.from(document.querySelectorAll(".seat-badge"), (badge) => badge.textContent).sort()
-      ).toEqual(["B1", "B2", "B3", "Y"]);
+      ).toEqual(["D", "M", "T", "Y"]);
       for (const name of ["Mary", "Duffy", "Tim"])
          expect(screen.getByText(name, { selector: ".seat-full-name" })).toBeInTheDocument();
    });

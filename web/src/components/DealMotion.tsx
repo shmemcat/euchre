@@ -60,12 +60,18 @@ export function DealMotion({
       };
       const seatBox = dealerSeat.getBoundingClientRect();
       const stockOnRight = dealer === 1 || dealer === 2;
+      // Clear the top player's card fan when a side seat deals on mobile.
+      const stockOffsetY =
+         (dealer === 1 || dealer === 3) &&
+         window.matchMedia?.("(max-width: 768px)").matches
+            ? 16
+            : 0;
       // Keep the stock beside the label: top/west right, bottom/east left.
       const source = {
          x:
             window.scrollX +
             (stockOnRight ? seatBox.right + 10 + 17 : seatBox.left - 10 - 17),
-         y: window.scrollY + seatBox.top + seatBox.height / 2,
+         y: window.scrollY + seatBox.top + seatBox.height / 2 + stockOffsetY,
       };
       const deck = overlay.querySelector<HTMLElement>(".deal-stock")!;
       Object.assign(deck.style, {
