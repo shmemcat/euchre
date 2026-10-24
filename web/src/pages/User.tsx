@@ -66,9 +66,9 @@ export default function User() {
    return (
       <>
          <Helmet>
-            <title>User | Euchre</title>
+            <title>{user ? "User" : "Sign in"} | Euchre</title>
          </Helmet>
-         <PageLayout title="USER">
+         <PageLayout title={user ? "USER" : "SIGN IN"}>
             <div className="account-body">
                {user ? (
                   <div className="account-dashboard">

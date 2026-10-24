@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { Button, MenuLink } from "@/components/Buttons";
+import { LoginWarning } from "@/components/LoginWarning";
 import { useGame } from "@/context/GameContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePreferences } from "@/context/PreferencesContext";
@@ -151,6 +152,7 @@ export default function CreateGame() {
                            : void createSolo()
                      }
                   />
+                  <LoginWarning />
                   <MenuLink to="/" name="Home" />
                </div>
                {checking && !session && (

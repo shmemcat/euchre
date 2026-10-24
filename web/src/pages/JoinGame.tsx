@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { Button, MenuLink } from "@/components/Buttons";
+import { LoginWarning } from "@/components/LoginWarning";
 
 export default function JoinGame() {
    const [code, setCode] = useState("");
@@ -46,6 +47,7 @@ export default function JoinGame() {
                         }
                      />
                   </label>
+                  <LoginWarning />
                   <div className="button-stack">
                      <Button
                         name="Join!"
@@ -55,9 +57,6 @@ export default function JoinGame() {
                      <MenuLink to="/" name="Home" />
                   </div>
                </form>
-               <p className="quiet-text">
-                  Sign in before joining to keep your multiplayer stats.
-               </p>
             </div>
          </PageLayout>
       </>
