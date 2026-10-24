@@ -92,7 +92,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
    );
    useEffect(() => {
       const audio = new Audio(
-         asset("sounds/abstraction-sketchbook-2025-11-26.ogg")
+         asset("music/sonican-jazzy-lofi-calm-background-loop-541849.mp3")
       );
       audio.loop = true;
       track.current = audio;

@@ -50,11 +50,11 @@ export default function About() {
                   goes to{" "}
                   <a
                      className="link"
-                     href="https://tallbeard.itch.io/"
+                     href="https://pixabay.com/music/smooth-jazz-jazzy-lofi-calm-background-loop-541849/"
                      target="_blank"
                      rel="noreferrer"
                   >
-                     Abstraction (Tallbeard Studios)
+                     Sonican
                   </a>
                   !
                </p>
