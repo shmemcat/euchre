@@ -50,7 +50,7 @@ export default function About() {
                   goes to{" "}
                   <a
                      className="link"
-                     href="https://pixabay.com/music/smooth-jazz-jazzy-lofi-calm-background-loop-541849/"
+                     href="https://pixabay.com/users/sonican-38947841/"
                      target="_blank"
                      rel="noreferrer"
                   >

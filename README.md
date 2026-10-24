@@ -158,7 +158,7 @@ save recovery, result deduplication, and the shared-account adapter.
 - EB Garamond: [Google Fonts](https://github.com/google/fonts/tree/main/ofl/ebgaramond), SIL Open Font License; bundled locally with `OFL.txt`.
 - Icons: the same licensed Font Awesome Pro packages as Hearts.
 - Selected sounds and layout styles reused from the user's Hearts project.
-- Background music: ["Jazzy Lofi - Calm background Loop" by Sonican](https://pixabay.com/music/smooth-jazz-jazzy-lofi-calm-background-loop-541849/),
+- Background music: ["Jazzy Lofi - Calm background Loop"](https://pixabay.com/music/smooth-jazz-jazzy-lofi-calm-background-loop-541849/) by [Sonican](https://pixabay.com/users/sonican-38947841/),
   used under the [Pixabay Content License](https://pixabay.com/service/license-summary/).
   The user-supplied MP3 is bundled as `web/public/music/sonican-jazzy-lofi-calm-background-loop-541849.mp3`.
 
