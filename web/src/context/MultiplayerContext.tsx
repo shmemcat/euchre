@@ -38,6 +38,7 @@ export type Lobby = {
    }[];
    isHost: boolean;
    revision: number;
+   actionToken?: string | null;
    gameId: string | null;
    teams: { name: string; named: boolean; canName: boolean }[];
    difficulty: Difficulty;
@@ -55,6 +56,7 @@ type Command = {
    difficulty?: Difficulty;
    action?: Action;
    revision?: number;
+   actionToken?: string;
    gameId?: string;
    handNumber?: number;
 };
@@ -93,15 +95,19 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
       const reply = await new Promise<Reply>((resolve, reject) => {
          current
             .timeout(10000)
-            .emit("command", request, (error: Error | null, reply: Reply) => {
-               if (error)
-                  reject(
-                     new Error(
-                        "The table didn’t respond. Reconnect before trying again."
-                     )
-                  );
-               else resolve(reply);
-            });
+            .emit(
+               "command",
+               { ...request, utcOffsetMinutes: new Date().getTimezoneOffset() },
+               (error: Error | null, reply: Reply) => {
+                  if (error)
+                     reject(
+                        new Error(
+                           "The table didn’t respond. Reconnect before trying again."
+                        )
+                     );
+                  else resolve(reply);
+               }
+            );
       });
       if (socket.current !== current)
          throw new Error("Your account changed. Please rejoin the table.");

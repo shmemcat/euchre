@@ -20,6 +20,7 @@ def test_fresh_schema_owns_only_euchre_and_preserves_account_fk(app):
             "euchre_account_deletions",
             "euchre_account_schema_version",
             "euchre_alembic_version",
+            "euchre_achievement_state",
         }
         assert "users" not in db.metadata.tables
         assert schema_ready()

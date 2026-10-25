@@ -14,6 +14,9 @@ vi.mock("@/context/AuthContext", () => ({
 vi.mock("@/context/PreferencesContext", () => ({
    usePreferences: () => ({ preferences: { hardLevel: "hardest" } }),
 }));
+vi.mock("@/context/SoundContext", () => ({
+   useSound: () => ({ play: vi.fn() }),
+}));
 vi.mock("@/components/Navbar", () => ({ Navbar: () => null }));
 const command = vi.fn();
 let lobby: Lobby;

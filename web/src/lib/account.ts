@@ -1,3 +1,4 @@
+import type { GameTurnSoundOptions, TurnSoundUpdate } from "@/lib/turnSound";
 export function accountApiBase() {
    return (
       import.meta.env.VITE_ACCOUNT_API_URL ||
@@ -14,6 +15,7 @@ export type AccountUser = {
    email_verified?: boolean;
    profile_icon?: string;
    turn_sound?: Partial<Record<"golf" | "euchre" | "hearts", boolean>>;
+   turn_sound_options?: GameTurnSoundOptions;
 };
 export type AccountSession = {
    user: AccountUser | null;
@@ -40,8 +42,8 @@ export function createAccountClient(
             typeof data?.error === "string"
                ? data.error
                : response.status === 401
-               ? "Check your username and password."
-               : "Unable to connect to your account. Please try again."
+                 ? "Check your username and password."
+                 : "Unable to connect to your account. Please try again."
          );
       if (
          !data ||
@@ -76,9 +78,8 @@ export function createAccountClient(
          data: {
             profile_icon?: string;
             email?: string;
-            turn_sound?: {
+            turn_sound?: TurnSoundUpdate & {
                game: "golf" | "euchre" | "hearts";
-               enabled: boolean;
             };
          },
          csrf: string

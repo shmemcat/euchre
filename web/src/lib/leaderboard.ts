@@ -103,6 +103,7 @@ export function createLeaderboardClient(
                   "The account service could not confirm your saved results."
                );
             onSaved(data.saved_ids);
+            window.dispatchEvent(new Event("euchre:achievements"));
          }
       },
    };

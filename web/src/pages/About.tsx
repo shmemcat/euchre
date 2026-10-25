@@ -56,6 +56,33 @@ export default function About() {
                   >
                      Sonican
                   </a>
+                  ,{" "}
+                  <a
+                     className="link"
+                     href="https://pixabay.com/users/zephiramusic-54643547/"
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     ZephiraMusic
+                  </a>
+                  ,{" "}
+                  <a
+                     className="link"
+                     href="https://pixabay.com/users/alex-morgan-54692529/"
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     Alex Morgan
+                  </a>
+                  , and{" "}
+                  <a
+                     className="link"
+                     href="https://pixabay.com/users/velariomusic-54515099/"
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     VelarioMusic
+                  </a>
                   !
                </p>
             </article>

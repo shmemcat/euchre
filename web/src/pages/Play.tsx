@@ -108,9 +108,9 @@ export default function Play() {
                leaveLabel={session.type === "solo" ? "Concede" : "Leave"}
                confirmMessage={
                   session.type === "solo"
-                     ? "Are you sure you wish to concede? This game will count as a loss."
+                     ? "Are you sure you wish to concede? Only finished games count toward your statistics."
                      : session.playing
-                     ? "Are you sure you want to leave the game? A bot will take your seat, and this game will count as a loss."
+                     ? "Are you sure you want to leave the game? A bot will take your seat. Only finished games count toward your statistics."
                      : "Are you sure you want to leave the lobby?"
                }
                busy={busy}

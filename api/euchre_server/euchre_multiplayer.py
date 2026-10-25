@@ -7,6 +7,7 @@ snapshots never contain seat credentials, account IDs, kitty or opponents' cards
 from euchre_server.runtime import runtime_state
 
 import copy
+import hashlib
 import json
 import secrets
 import time
@@ -25,6 +26,7 @@ from euchre_server.account_contracts import AccountsUnavailable
 from euchre_server.extensions import db
 from euchre_server.models import EuchreTable, EuchreGameResult
 from euchre_server.euchre_engine import new_game, apply_action, bot_action
+from euchre_server.achievements import multiplayer_evidence
 
 NS = "/euchre"
 GRACE_SECONDS = 120
@@ -153,6 +155,43 @@ def migrate_host(table):
         )
 
 
+def action_token(table, token):
+    """Presence and lobby updates do not change a player's game decision."""
+    index = seat_for(table, token)
+    g = table["game"]
+    if index is None or not g:
+        return None
+    context = [
+        table["code"],
+        token,
+        table["status"],
+        bool(table["seats"][index].get("bot")),
+        g["id"],
+        g["handNumber"],
+        g["phase"],
+        g["turn"],
+        g["passes"],
+        len(g["completedTricks"]),
+        g["trick"],
+        g["hands"][index],
+        g["trump"],
+        g["maker"],
+        g["alone"],
+    ]
+    return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
+
+
+def action_is_current(table, token, data):
+    revision = data.get("revision")
+    if type(revision) is not int or not 0 <= revision <= table["revision"]:
+        return False
+    if "actionToken" in data:
+        return isinstance(data["actionToken"], str) and data[
+            "actionToken"
+        ] == action_token(table, token)
+    return revision == table["revision"]
+
+
 def public(table, token):
     mine = seat_for(table, token)
     seats = []
@@ -188,6 +227,7 @@ def public(table, token):
         ],
         isHost=bool(token and table["host"] == token),
         revision=table["revision"],
+        actionToken=action_token(table, token),
         teams=[
             dict(
                 name=t["name"],
@@ -238,6 +278,10 @@ def game_view(table, token):
             p["seat"] = rotate(p["seat"])
     for r in g["results"]:
         r["maker"] = rotate(r["maker"])
+        for trick in r.get("completedTricks", []):
+            trick["winner"] = rotate(trick["winner"])
+            for play in trick["plays"]:
+                play["seat"] = rotate(play["seat"])
         for key in ("tricks", "points", "scores"):
             r[key] = [r[key][side], r[key][1 - side]]
     for key in ("scores", "tricks"):
@@ -259,7 +303,7 @@ def game_view(table, token):
     participant = next((p for p in table["participants"] if p["token"] == token), None)
     if g["phase"] == "game_over" and participant and participant["conceded"]:
         g["conceded"] = True
-        g["message"] = "Your seat was replaced by a bot. This game counts as a loss."
+        g["message"] = "Your seat was replaced by a bot. Only finished games count toward your statistics."
     if g["message"].startswith("Seat "):
         for i, s in enumerate(table["seats"]):
             g["message"] = g["message"].replace(f"Seat {i + 1} ", s["name"] + " ")
@@ -293,7 +337,7 @@ def record_results(table):
                     for r in g["results"]
                 ),
                 loners=sum(
-                    r["maker"] % 2 == side and r["alone"] and r["tricks"][side] == 5
+                    r["maker"] == p["seat"] and r["alone"] and r["tricks"][side] == 5
                     for r in g["results"]
                 ),
                 euchres=sum(
@@ -303,6 +347,7 @@ def record_results(table):
                 completed_at=datetime.fromisoformat(g["finishedAt"]).replace(
                     tzinfo=None
                 ),
+                achievement_data=multiplayer_evidence(table, p),
             )
         )
     if table["status"] != "closed":
@@ -323,7 +368,13 @@ def start_match(table, difficulty):
             table["seats"][i] = dict(name=f"Bot {bot_number}", icon="robot", bot=True)
             bot_number += 1
     table["participants"] = [
-        dict(token=s["token"], userId=s.get("userId"), seat=i, conceded=False)
+        dict(
+            token=s["token"],
+            userId=s.get("userId"),
+            seat=i,
+            conceded=False,
+            utcOffsetMinutes=s.get("utcOffsetMinutes"),
+        )
         for i, s in enumerate(table["seats"])
         if s.get("token")
     ]
@@ -345,7 +396,7 @@ def register_euchre_socket(socketio, app):
                     namespace=NS,
                 )
 
-    def changed(table, close_empty=False):
+    def changed(table):
         if table["status"] == "playing" and not any(
             s and s.get("token") and not s.get("bot") for s in table["seats"]
         ):
@@ -371,7 +422,7 @@ def register_euchre_socket(socketio, app):
         table["revision"] += 1
         record_results(table) if table["game"] else None
         # Preserve the final result before closing the last human's lobby.
-        if close_empty and not any(not s.get("bot") for s in members(table)):
+        if not any(not s.get("bot") for s in members(table)):
             table["status"] = "closed"
         save(table)
         sync_idle(table)
@@ -611,6 +662,11 @@ def register_euchre_socket(socketio, app):
                     raise ValueError("Please slow down and try again.")
                 client["events"].append(now)
                 kind = data.get("type")
+                offset = data.get("utcOffsetMinutes")
+                if offset is not None and (
+                    type(offset) is not int or abs(offset) > 840
+                ):
+                    raise ValueError("Invalid local time offset.")
                 if kind == "create":
                     if client.get("token"):
                         try:
@@ -664,6 +720,7 @@ def register_euchre_socket(socketio, app):
                                 icon=client["icon"],
                                 token=token,
                                 userId=client["userId"],
+                                utcOffsetMinutes=offset,
                                 joined=0,
                                 lobbyJoined=0,
                                 bot=False,
@@ -754,6 +811,7 @@ def register_euchre_socket(socketio, app):
                     captains(table)
                     migrate_host(table)
                     if s is not None:
+                        s["utcOffsetMinutes"] = offset
                         changed(table)
                     else:
                         socketio.emit(
@@ -841,6 +899,12 @@ def register_euchre_socket(socketio, app):
                 if member is None:
                     raise ValueError("Choose a seat in this lobby first.")
                 is_host = table["host"] == token
+                if (
+                    kind in ("rematch", "play_again")
+                    and "actionToken" in data
+                    and not action_is_current(table, token, data)
+                ):
+                    raise ValueError("The table changed. Please try again.")
                 if kind == "unseat":
                     if table["status"] != "waiting" or index is None:
                         raise ValueError(
@@ -899,7 +963,7 @@ def register_euchre_socket(socketio, app):
                         ready[index] = True
                         changed(table)
                         return dict(ok=True)
-                    elif data.get("revision") != table["revision"]:
+                    elif not action_is_current(table, token, data):
                         raise ValueError("The table changed. Please try again.")
                     elif (
                         g["turn"] != index
@@ -953,7 +1017,7 @@ def register_euchre_socket(socketio, app):
                             c["token"] = None
                 else:
                     raise ValueError("Unknown lobby action.")
-                changed(table, close_empty=kind == "leave")
+                changed(table)
                 return dict(ok=True)
             except ValueError as error:
                 return dict(ok=False, error=str(error))

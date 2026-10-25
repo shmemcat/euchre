@@ -65,7 +65,7 @@
 
 .achievementsPanel {
    margin: 16px auto 0;
-   width: fit-content;
+   width: calc(7 * 70px + 6 * 14px);
    max-width: 100%;
 }
 
@@ -81,11 +81,11 @@
 }
 
 .achievementsGrid {
-   display: flex;
-   flex-wrap: wrap;
+   display: grid;
+   grid-template-columns: repeat(7, minmax(0, 1fr));
    gap: 14px;
    justify-content: center;
-   max-width: calc(7 * 56px + 6 * 14px);
+   width: 100%;
    margin: 0 auto;
 }
 
@@ -94,26 +94,72 @@
    flex-direction: column;
    align-items: center;
    gap: 5px;
-   width: 56px;
+   min-width: 0;
 }
 
 .achievementLabel {
+   width: 100%;
+   overflow-wrap: anywhere;
    font-family: "appFont";
    font-size: 10px;
    font-weight: 700;
-   letter-spacing: 0.5px;
+   letter-spacing: 0;
    text-transform: uppercase;
    color: var(--achievement-label);
    text-align: center;
    line-height: 1.2;
    min-height: 22px;
-   display: flex;
-   align-items: flex-start;
-   justify-content: center;
+   display: block;
 }
 
 .achievementLabel_locked {
    color: var(--achievement-locked);
+}
+
+.badge_locked .badgeIcon {
+   color: var(--achievement-locked);
+}
+
+.badgeIcon_bronze {
+   color: var(--achievement-bronze);
+}
+.badgeIcon_silver {
+   color: var(--achievement-silver);
+}
+.badgeIcon_gold {
+   color: var(--achievement-gold);
+}
+:global(html[data-theme="dark"]) .badge_unlocked {
+   border-color: color-mix(in srgb, var(--hoverpink) 88%, black);
+}
+:global(html[data-theme="dark"]) .badge_locked {
+   border-color: color-mix(in srgb, var(--trickslotempty) 85%, transparent);
+}
+.toast {
+   position: fixed;
+   bottom: 24px;
+   left: 50%;
+   transform: translateX(-50%);
+   z-index: 10000;
+   width: min(360px, calc(100vw - 32px));
+   padding: 16px;
+   border-radius: 10px;
+   background: var(--tooltipbackground);
+   color: var(--tooltiptext);
+   display: flex;
+   align-items: center;
+   gap: 12px;
+}
+.toast p {
+   margin: 0;
+   font-size: 13px;
+}
+.toast button {
+   margin-left: auto;
+   background: transparent;
+   border: 0;
+   color: inherit;
+   cursor: pointer;
 }
 
 .tooltipContent {
@@ -141,10 +187,11 @@
 
 @media (max-width: 768px) {
    .achievementsPanel {
-      width: 280px;
+      width: 300px;
    }
 
    .achievementsGrid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
    }
 }

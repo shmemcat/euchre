@@ -45,6 +45,7 @@ it("explains inactivity removal and lets the player leave the old table", async 
       <Route path="/play" element={<p>Play menu</p>} />
    </Routes></MemoryRouter>);
    expect(screen.getByRole("alert")).toHaveTextContent("removed for inactivity");
+   expect(screen.getByRole("alert")).toHaveTextContent("Only finished games count toward your statistics.");
    expect(screen.queryByRole("button", { name: "Next Hand" })).not.toBeInTheDocument();
    fireEvent.click(screen.getByRole("button", { name: "Back to Play" }));
    expect(await screen.findByText("Play menu")).toBeInTheDocument();
@@ -64,6 +65,7 @@ it("binds a ready click to the displayed game and hand", async () => {
          status: "playing",
          seat: 1,
          revision: 9,
+         actionToken: "displayed-hand-token",
          isHost: false,
       } as Lobby,
       game,
@@ -90,6 +92,7 @@ it("binds a ready click to the displayed game and hand", async () => {
       action: { type: "advance" },
       code: "ABC234",
       revision: 9,
+      actionToken: "displayed-hand-token",
       gameId: game.id,
       handNumber: 4,
    });
@@ -132,6 +135,7 @@ it("goes back to Play after leaving even when the server removes the seat before
    );
    const view = render(page());
    fireEvent.click(screen.getByRole("button", { name: "Leave Game" }));
+   expect(screen.getByRole("dialog")).toHaveTextContent("Only finished games count toward your statistics.");
    fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
          name: "Leave Game",

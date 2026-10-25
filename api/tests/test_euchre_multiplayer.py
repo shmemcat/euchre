@@ -400,8 +400,9 @@ def test_host_departure_transfers_in_join_order_skipping_bots_and_empty_seats(
 
 
 @pytest.mark.parametrize("lobby_status", ["waiting", "finished"])
+@pytest.mark.parametrize("departure", ["leave", "disconnect"])
 def test_last_human_leaving_closes_lobby_without_changing_finished_result(
-    tables, accounts, existing_user, lobby_status
+    tables, accounts, existing_user, lobby_status, departure
 ):
     from euchre_server.models import EuchreGameResult
 
@@ -419,13 +420,19 @@ def test_last_human_leaving_closes_lobby_without_changing_finished_result(
         )
         mp.record_results(table)
         mp.save(table)
-    assert cmd(host, "leave")["ok"]
+    if departure == "leave":
+        assert cmd(host, "leave")["ok"]
+    else:
+        host.disconnect(namespace=mp.NS)
+        assert mp.get_table(code)["status"] == lobby_status
+        tasks[-1]()
     mp._tables.clear()
     table = mp.get_table(code)
     assert table["status"] == "closed" and table["host"] is None
-    assert cmd(host, "watch", code=code)["ok"]
-    assert state(host)["lobby"]["status"] == "closed"
-    assert not cmd(host, "join", seat=0, name="Host")["ok"]
+    visitor = connect()
+    assert cmd(visitor, "watch", code=code)["ok"]
+    assert state(visitor)["lobby"]["status"] == "closed"
+    assert not cmd(visitor, "join", seat=0, name="Host")["ok"]
     if lobby_status == "finished":
         result = EuchreGameResult.query.one()
         assert result.won and not result.conceded
@@ -521,6 +528,123 @@ def test_private_rotated_game_views_and_action_validation(tables):
     assert not cmd(clients[(turn + 1) % 4], "action", action=action, revision=rev)["ok"]
     assert cmd(clients[turn], "action", action=action, revision=rev)["ok"]
     assert not cmd(clients[turn], "action", action=action, revision=rev)["ok"]
+
+
+def test_game_actions_survive_unrelated_watch_updates_but_not_duplicate_moves(tables):
+    connect, tasks, mp = tables
+    clients = [connect() for _ in range(4)]
+    code = cmd(clients[0], "create", name="Host")["code"]
+    for i in range(1, 4):
+        join(clients[i], code, i, f"Player {i}")
+    assert cmd(clients[0], "start")["ok"]
+    table = mp.get_table(code)
+    turn = table["game"]["turn"]
+    displayed = state(clients[turn])["lobby"]
+    payload = dict(
+        action=dict(type="pass"),
+        revision=displayed["revision"],
+        actionToken=displayed["actionToken"],
+    )
+    other = (turn + 1) % 4
+    assert cmd(
+        clients[other], "watch", code=code, token=table["seats"][other]["token"]
+    )["ok"]
+    spectator = connect()
+    assert cmd(spectator, "watch", code=code)["ok"]
+    assert table["revision"] > displayed["revision"]
+    # Legacy clients remain protected by their exact revision.
+    assert not cmd(
+        clients[turn], "action", action=payload["action"], revision=payload["revision"]
+    )["ok"]
+    assert cmd(clients[turn], "action", **payload)["ok"]
+    after = copy.deepcopy(table)
+    assert not cmd(clients[turn], "action", **payload)["ok"]
+    assert table == after
+
+
+def test_action_tokens_survive_reload_and_reject_an_earlier_bidding_round(tables):
+    connect, tasks, mp = tables
+    clients = [connect() for _ in range(4)]
+    code = cmd(clients[0], "create", name="Host")["code"]
+    for i in range(1, 4):
+        join(clients[i], code, i)
+    assert cmd(clients[0], "start")["ok"]
+    table = mp.get_table(code)
+    turn = table["game"]["turn"]
+    displayed = state(clients[turn])["lobby"]
+    payload = dict(
+        action=dict(type="pass"),
+        revision=displayed["revision"],
+        actionToken=displayed["actionToken"],
+    )
+    mp._tables.pop(code)
+    table = mp.get_table(code)
+    assert (
+        mp.action_token(table, table["seats"][turn]["token"])
+        == displayed["actionToken"]
+    )
+    assert cmd(clients[turn], "action", **payload)["ok"]
+    for _ in range(3):
+        seat = table["game"]["turn"]
+        assert cmd(
+            clients[seat],
+            "action",
+            revision=table["revision"],
+            action=dict(type="pass"),
+        )["ok"]
+    assert table["game"]["turn"] == turn
+    assert table["game"]["phase"] == "bidding2"
+    after = copy.deepcopy(table)
+    assert not cmd(clients[turn], "action", **payload)["ok"]
+    assert table == after
+    assert cmd(
+        clients[turn],
+        "action",
+        action=dict(type="pass"),
+        revision=table["revision"],
+        actionToken=mp.action_token(table, table["seats"][turn]["token"]),
+    )["ok"]
+
+
+@pytest.mark.parametrize("bad_token", [None, "wrong", "♥", 12, []])
+def test_invalid_action_tokens_do_not_bypass_move_checks(tables, bad_token):
+    connect, tasks, mp = tables
+    host = connect()
+    code = cmd(host, "create", name="Host")["code"]
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    table["game"].update(phase="bidding1", turn=0, passes=0)
+    before = copy.deepcopy(table)
+    assert not cmd(
+        host,
+        "action",
+        action=dict(type="pass"),
+        revision=table["revision"],
+        actionToken=bad_token,
+    )["ok"]
+    assert table == before
+
+
+def test_replay_commands_cannot_restart_a_later_game(tables):
+    connect, tasks, mp = tables
+    host = connect()
+    code = cmd(host, "create", name="Host")["code"]
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    table["game"].update(
+        phase="game_over", finishedAt=datetime.now(timezone.utc).isoformat()
+    )
+    table["status"] = "finished"
+    token = table["seats"][0]["token"]
+    replay = dict(revision=table["revision"], actionToken=mp.action_token(table, token))
+    assert cmd(host, "play_again", **replay)["ok"]
+    table["game"].update(
+        phase="game_over", finishedAt=datetime.now(timezone.utc).isoformat()
+    )
+    table["status"] = "finished"
+    before = copy.deepcopy(table)
+    assert not cmd(host, "play_again", **replay)["ok"]
+    assert table == before
 
 
 @pytest.mark.parametrize("dealer", range(4))
@@ -756,6 +880,44 @@ def test_last_player_leaving_finishes_as_loss(tables, accounts, existing_user):
     assert mp.get_table(created["code"])["status"] == "closed"
     result = EuchreGameResult.query.one()
     assert result.conceded and not result.won
+
+
+@pytest.mark.parametrize("unseated", [False, True])
+def test_every_waiting_member_must_expire_before_the_lobby_closes(tables, unseated):
+    connect, tasks, mp = tables
+    host, guest = connect(), connect()
+    code = cmd(host, "create", name="Host")["code"]
+    join(guest, code, 1)
+    if unseated:
+        assert cmd(guest, "unseat")["ok"]
+    host.disconnect(namespace=mp.NS)
+    tasks[-1]()
+    assert mp.get_table(code)["status"] == "waiting"
+    guest.disconnect(namespace=mp.NS)
+    tasks[-1]()
+    mp._tables.clear()
+    assert mp.get_table(code)["status"] == "closed"
+
+
+def test_last_disconnected_player_closes_a_started_table_with_bots(
+    tables, accounts, existing_user
+):
+    from euchre_server.models import EuchreGameResult
+
+    connect, tasks, mp = tables
+    sign_in(accounts)
+    host = connect(accounts)
+    created = cmd(host, "create")
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(created["code"])
+    host.disconnect(namespace=mp.NS)
+    assert table["status"] == "playing"
+    tasks[-1]()
+    assert table["status"] == "closed"
+    assert table["game"]["phase"] == "game_over"
+    assert all(s["bot"] for s in table["seats"])
+    assert EuchreGameResult.query.one().conceded
+    assert not EuchreGameResult.query.one().won
 
 
 def test_bot_runner_advances_automatically_after_human_action(tables):

@@ -3,8 +3,17 @@ export const SUITS = ["c", "d", "s", "h"] as const;
 export const RANKS = ["9", "10", "J", "Q", "K", "A"] as const;
 // The same single-player bot name pool used by Hearts.
 export const BOT_NAMES = [
-   "Mary", "Cindy", "Greg", "Theresa", "Kevin", "Nelson", "Brendan",
-   "Emily", "Maddie", "Bill", "Tim",
+   "Mary",
+   "Cindy",
+   "Greg",
+   "Theresa",
+   "Kevin",
+   "Nelson",
+   "Brendan",
+   "Emily",
+   "Maddie",
+   "Bill",
+   "Tim",
 ] as const;
 export type Suit = (typeof SUITS)[number];
 export type Rank = (typeof RANKS)[number];
@@ -30,6 +39,8 @@ export type RoundResult = {
    tricks: [number, number];
    points: [number, number];
    scores: [number, number];
+   upCard?: Card;
+   completedTricks?: Trick[];
 };
 export type Action =
    | { type: "pass" }
@@ -64,6 +75,8 @@ export type Game = {
    target: 10;
    message: string;
    finishedAt: string | null;
+   startedAt?: string;
+   utcOffsetMinutes?: number;
    conceded: boolean;
    seatNames?: string[];
    seatIcons?: string[];
@@ -164,7 +177,10 @@ export function shuffle<T>(
    return shuffled;
 }
 
-export function seatName(game: Pick<Game, "playerName" | "seatNames">, seat: Seat): string {
+export function seatName(
+   game: Pick<Game, "playerName" | "seatNames">,
+   seat: Seat
+): string {
    if (seat === 0) return game.playerName || "You";
    if (game.seatNames) return game.seatNames[seat];
    return [game.playerName || "You", "West", "Partner", "East"][seat];
@@ -257,6 +273,8 @@ export function newGame(
          target: 10,
          message: "",
          finishedAt: null,
+         startedAt: new Date().toISOString(),
+         utcOffsetMinutes: new Date().getTimezoneOffset(),
          conceded: false,
       },
       rng
@@ -412,6 +430,8 @@ export function applyAction(
             tricks: [...game.tricks],
             points,
             scores: [...game.scores],
+            upCard: game.upCard,
+            completedTricks: structuredClone(game.completedTricks),
          });
          game.phase = game.scores.some((score) => score >= game.target)
             ? "game_over"
@@ -575,6 +595,12 @@ export function isGame(value: unknown): value is Game {
       typeof g.message !== "string" ||
       g.target !== 10 ||
       !(g.finishedAt === null || typeof g.finishedAt === "string") ||
+      (g.startedAt !== undefined &&
+         (typeof g.startedAt !== "string" ||
+            !Number.isFinite(Date.parse(g.startedAt)))) ||
+      (g.utcOffsetMinutes !== undefined &&
+         (!Number.isInteger(g.utcOffsetMinutes) ||
+            Math.abs(g.utcOffsetMinutes) > 840)) ||
       !Array.isArray(g.results) ||
       !g.results.every(
          (r) =>
@@ -585,7 +611,19 @@ export function isGame(value: unknown): value is Game {
             Number.isInteger(r.hand) &&
             pair(r.tricks) &&
             pair(r.points) &&
-            pair(r.scores)
+            pair(r.scores) &&
+            (r.upCard === undefined || isCard(r.upCard)) &&
+            (r.completedTricks === undefined ||
+               (Array.isArray(r.completedTricks) &&
+                  r.completedTricks.length === 5 &&
+                  r.completedTricks.every(
+                     (t) =>
+                        t &&
+                        seat(t.winner) &&
+                        Array.isArray(t.plays) &&
+                        t.plays.length === (r.alone ? 3 : 4) &&
+                        t.plays.every(play)
+                  )))
       )
    )
       return false;

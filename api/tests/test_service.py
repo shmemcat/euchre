@@ -28,7 +28,11 @@ def cleanup(client, uid=42, key=CALLBACK_KEY, request_id=None):
 def test_only_euchre_routes_sockets_and_models_are_registered(app):
     assert set(app.blueprints) == {"euchre_stats", "private_game_accounts"}
     assert set(app.extensions["socketio"].server.handlers) == {"/euchre"}
-    assert set(db.metadata.tables) == {"euchre_tables", "euchre_game_results"}
+    assert set(db.metadata.tables) == {
+        "euchre_tables",
+        "euchre_game_results",
+        "euchre_achievement_state",
+    }
     client = app.test_client()
     for path in [
         "/login",

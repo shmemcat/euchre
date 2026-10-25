@@ -262,7 +262,7 @@ describe("Multiplayer game end", () => {
       expect(onLobby).toHaveBeenCalledOnce();
       fireEvent.click(dialog.getByRole("button", { name: "Leave Lobby" }));
       expect(onLeave).toHaveBeenCalledOnce();
-      expect(dialog.getByRole("link", { name: "Home" })).toBeInTheDocument();
+      expect(dialog.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
       expect(
          dialog.queryByRole("link", { name: "Leaderboard" })
       ).not.toBeInTheDocument();
@@ -305,6 +305,7 @@ describe("Multiplayer game end", () => {
       expect(onLobby).not.toHaveBeenCalled();
       const leaveLobby = screen.getByRole("button", { name: "Leave Lobby" });
       expect(leaveLobby).toBeEnabled();
+      expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
       fireEvent.click(leaveLobby);
       expect(onLeave).toHaveBeenCalledOnce();
       expect(
@@ -469,7 +470,7 @@ describe("Leaving from match details", () => {
       const dialog = within(
          screen.getByRole("dialog", { name: "Leave the game?" })
       );
-      expect(dialog.getByText("This game will count as a loss.")).toBeVisible();
+      expect(dialog.getByText("Only finished games count toward your statistics.")).toBeVisible();
       expect(screen.getByRole("main")).toHaveAttribute(
          "data-opening-paused", "true"
       );

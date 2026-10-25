@@ -23,6 +23,7 @@ class EuchreGameResult(db.Model):
     marches = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     loners = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     euchres = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    achievement_data = db.Column(db.JSON, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -40,3 +41,10 @@ class EuchreTable(db.Model):
     code = db.Column(db.String(6), primary_key=True)
     snapshot = db.Column(db.Text, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class EuchreAchievementState(db.Model):
+    __tablename__ = "euchre_achievement_state"
+
+    user_id = db.Column(db.Integer, primary_key=True)
+    unlocks = db.Column(db.JSON, nullable=False, default=list)

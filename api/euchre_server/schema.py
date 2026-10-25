@@ -9,11 +9,15 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from euchre_server.extensions import db
 
-REVISION = "euchre_001"
+REVISION = "euchre_002"
 
 
 def schema_ready():
-    from euchre_server.models import EuchreGameResult, EuchreTable
+    from euchre_server.models import (
+        EuchreGameResult,
+        EuchreTable,
+        EuchreAchievementState,
+    )
     from euchre_server.game_accounts import receipts, versions
 
     try:
@@ -24,12 +28,14 @@ def schema_ready():
             "euchre_account_deletions",
             "euchre_account_schema_version",
             "euchre_alembic_version",
+            "euchre_achievement_state",
         }
         if not required <= set(inspector.get_table_names()):
             return False
         for table in (
             EuchreGameResult.__table__,
             EuchreTable.__table__,
+            EuchreAchievementState.__table__,
             receipts["euchre"],
             versions["euchre"],
         ):

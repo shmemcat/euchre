@@ -1,50 +1,69 @@
-# Euchre
+# E U C H R E
 
-A sister to [Hearts](https://hearts.shmem.dev), preserving its layout with a
-navy, dusty-peach, and cream celestial deck, EB Garamond, and Font Awesome icons.
+A full-stack, real-time implementation of the classic partnership card game with
+single-player AI, online multiplayer, achievements, and a polished, responsive UI.
 
-## Play locally
+**Live at [cards.shmem.dev/euchre](https://cards.shmem.dev/euchre/)**
 
-Keep `cards`, `hearts` and `euchre` beside each other and install Node.js 22.12+,
-Python 3.11 and uv. Follow Cards' [local setup](../cards/README.md#run-locally)
-to install the three backend environments and both frontends. In this checkout,
-copy `.env.example` to `.env`, set the Font Awesome package token, and run
-`npm run web:install`. Keep the token out of Git.
+Part of [Cards](https://cards.shmem.dev/), alongside
+[Hearts](https://cards.shmem.dev/hearts/), with shared accounts and an independent
+[Euchre game server](api/README.md).
 
-```powershell
-npm run dev
-```
+## Features
 
-This starts the shared Cards split stack once: hub 3000, Hearts/Euchre web apps
-3001/3002, and accounts/Hearts/Euchre servers 5100/5101/5102. Open
-<http://localhost:3000/>. Shared accounts and file-only mail use
-`cards/.local/split-dev/`; existing databases and browser saves are not imported.
-Ctrl+C stops the processes this runner launched. Local verification/recovery
-mail is available at `/__dev/mail/`; no provider credentials are needed.
+- **Single-player vs. AI** -- five difficulty settings, from relaxed play to Monte Carlo simulation
+- **Online multiplayer** -- create a lobby, share a code or invitation link, and play with friends in real time
+- **Partnership lobbies** -- choose seats, name your team, fill empty seats with bots, and play again with the same group
+- **Achievements & statistics** -- track progress across games, with monthly and all-time leaderboards
+- **Shared accounts** -- one Cards account for both games, with email verification, password recovery, and saved results
+- **Auto-save & resume** -- solo games save after every action and wait for you without turn timers
+- **Sound & music** -- shuffle and gameplay effects, volume controls, and a shuffled ten-track lo-fi playlist
+- **Animations** -- face-down dealing, a revealed upcard, and hands that fan into place before bidding
+- **Theming & responsive design** -- dark and light themes, card styles, and a mobile-friendly table with a celestial deck
 
-`npm run dev:web` preserves the frontend-only preview with separately configured
-backend destinations. Existing `up`, `up:build`, `down`, `up-prod` and `down-prod`
-remain explicit Docker frontend previews. Stop previews using the same ports
-before starting the default stack. No Docker volumes are removed by this change.
+## Tech Stack
 
-## Releases
+### Frontend
 
-`game-vMAJOR.MINOR.PATCH` publishes the independent Euchre game API and `web-v*`
-publishes only the frontend. Both publish immutable candidate records, without
-deploying or promoting `latest`. The [legacy workflow](docs/legacy-releases.md)
-is manual-only, requires acknowledgement, and refuses existing image versions.
-The main integration includes the reviewed development and release policy.
-Historical tags retain their original workflow definitions.
+- **React 18 + TypeScript** -- UI and browser game engine
+- **Vite** -- development server and production builds
+- **Tailwind CSS 4 + CSS Modules** -- styling and responsive layouts
+- **React Router 7 + Socket.IO Client** -- navigation and real-time multiplayer
+- **Framer Motion, Howler.js, Radix UI, and Font Awesome Pro** -- animations, audio, tooltips, and icons
+- **Web Workers** -- solo AI simulations without blocking the UI
 
-Production already uses the independent Euchre server and shared Cards accounts.
-Current production pins and the guarded combined rollback remain unchanged.
+### Backend
+
+- **Flask + Flask-SocketIO** -- REST endpoints and authoritative multiplayer over Socket.IO
+- **Gunicorn + Eventlet** -- serving requests, bot jobs, and multiplayer timers
+- **SQLAlchemy + PostgreSQL** -- production game results and recoverable table snapshots
+- **Alembic** -- explicit game-owned schema migrations
+- **Shared Cards accounts service** -- identity, sessions, email verification, and password recovery
+
+### Infrastructure
+
+- **Docker + Nginx** -- container builds, static hosting, and gateway routing
+- **GitHub Actions + GHCR** -- checks and independent, immutable frontend and game-server releases
+
+## Architecture
+
+Solo games run in the browser using the TypeScript rules engine, with bot
+simulations in a Web Worker and saves in browser storage. Online games use the
+Flask server over REST and Socket.IO; the server deals cards, validates moves,
+runs bots, and records results. Each player receives only their own hand and
+public table information.
+
+The Euchre API owns its gameplay, tables, timers, results, and leaderboards.
+The separate Cards accounts service owns identities and sessions. The production
+gateway serves Euchre at `/euchre/`, routes game requests independently, and
+shares sign-in with Hearts through an HttpOnly cookie.
+
+See the [game server README](api/README.md) for service configuration, schema
+ownership, and recovery details.
 
 ## Gameplay
 
-- Four players, fixed partnerships, a 24-card deck, five cards per hand.
-- Solo and multiplayer hands open with a short shuffle sound, then two clockwise
-  passes of face-down cards from the dealer's seat. The kitty flips up before
-  your hand fans face up; bidding waits until the animation finishes.
+- Four players in fixed partnerships, a 24-card deck, and five cards per hand.
 - [Bicycle rules](https://bicyclecards.com/how-to-play/euchre): two bidding rounds,
   dealer pickup/discard, right/left bowers, following suit, and optional lone hands.
 - After everyone passes in both bidding rounds, the same dealer redeals. A second
@@ -54,110 +73,184 @@ Current production pins and the guarded combined rollback remain unchanged.
   showing unchanged totals. In multiplayer, every human clicks Next Hand before
   the next deal begins; bots are ready automatically.
 - First partnership to 10 wins; no rubber points.
-- Single-player decisions have no time limit. Bidding, discarding, playing a
-  card, and choosing Next Hand wait indefinitely; saved solo games do not expire.
-- Easy: loose bidding, mostly sensible card play and discards, and occasional
-  random legal choices.
-- Medium: heuristic bidding, discards, and cooperative card play.
-- Hard, Harder, Hardest: 32, 128, and 384 sampled deals per decision. All three
-  simulate passing through the remaining auction and use card-aware simulated
-  play. Hard keeps the Medium choice when the estimated gain is small; Harder
-  and Hardest use smaller margins and search the final two and three tricks of
-  each hypothetical deal respectively.
-- Simulations run in a Web Worker and receive only the bot's own hand and public
-  information. Sampling accounts for public voids, the upcard, and the dealer's
-  own discard. Late search solves hypothetical deals, not the actual hidden
-  hands. See [AI benchmarks](docs/ai-benchmarks.md) for strength measurements,
-  methodology, and difficulty tuning.
-- Games auto-save after every action. Leaving the table pauses bots. Local
-  statistics and achievements are recorded once when a game finishes or is conceded.
-- Sound effects, optional music, dark/light themes, and card styles.
+- Every hand opens with a shuffle sound and two clockwise passes of face-down
+  cards from the dealer. The upcard flips before your hand fans face up, and
+  bidding begins once the deal animation finishes.
 
-Browser storage is local to the browser and origin. Using `localhost` consistently
-keeps your local saves together; `127.0.0.1` is a different origin. Clearing site
-data removes local progress. The app reports when storage is unavailable.
+## AI Strategy
 
-## Shared Cards home
+The five difficulty settings adjust bidding, discarding, and card play:
 
-The app is prepared for `cards.shmem.dev/euchre/`:
+- **Easy** -- loose bidding, mostly sensible play and discards, and occasional random legal choices
+- **Medium** -- heuristic bidding, discards, and cooperative card play
+- **Hard** -- 32 sampled deals per decision; keeps the Medium choice when the estimated gain is small
+- **Harder** -- 128 sampled deals, a smaller decision margin, and a search of the final two tricks
+- **Hardest** -- 384 sampled deals, a smaller decision margin, and a search of the final three tricks
 
-- All app routes use React Router's configurable base path.
-- Assets and the bot worker resolve beneath the configured Vite base.
-- Set `VITE_BASE_PATH=/euchre/` when building for the future hub.
-- The hub and both games share the Hearts account service through an HttpOnly
-  cookie. Start `npm run dev:accounts` in the sibling Cards repo and use localhost
-  consistently. The runner initializes a fresh local database.
-- Euchre links to the hub for registration, verification, and password recovery.
-  Production builds need `VITE_ACCOUNT_API_URL=/api/account` and API routing.
-- Existing live Hearts identities and passwords are preserved when deploying
-  migration017 against the existing database. No live deployment has been done.
-- Solo saves and achievements remain browser-local. Account-owned solo results
-  sync to the shared service; multiplayer games and results are server-owned.
+Solo Hard levels simulate the remaining auction and use card-aware simulated
+play. Samples account for public voids, the upcard, and the dealer's own discard.
+Bots receive their own hand and public information; late-hand searches solve
+hypothetical deals without access to the actual opponents' hands.
+
+Online Easy and Medium follow the browser's policies. Online Hard levels use the
+same 32/128/384 sampling budgets with Medium rollouts; the strategic rollout
+policy and late-hand search are specific to solo play. Online bots also keep
+opponents' hands hidden.
+
+See [AI benchmarks](docs/ai-benchmarks.md) for strength measurements, methodology,
+and difficulty tuning. Run `npm run benchmark:ai` to compare difficulties or
+`npm run benchmark:easy` for the Easy rebalance study.
 
 ## Multiplayer
 
-- Play offers the same Create Game and Join Game choices as Hearts. Choose
-  Online to create a lobby, then share its six-character code or invitation URL.
-- Entering Play with an unfinished game opens a Continue/Concede prompt.
-  Online groups offer Rejoin/Leave instead. Conceding or leaving requires
-  confirmation and returns to the Play choices before a new game is selected.
-  Waiting lobbies and groups between games never show a forfeit warning;
-  leaving a seat in a game that is still running warns about the loss and bot takeover.
-- Choose any open seat. Partners sit opposite one another. The first human on
-  each team can save a name of up to 24 characters; everyone sees saved names
-  immediately, including at the table and in hand results.
-- The host starts the game and can choose a bot difficulty for empty seats.
-  The popup starts on Easy. Its Hard choice uses the signed-in creator's Hard
-  strength from Options (Hard, Harder or Hardest); guests get regular Hard.
-  That Hard setting stays with the lobby across host changes and later games.
-  Replacement bots use the current game's difficulty; a game starting with
-  four humans uses the creator's Hard setting for any later replacements.
-  Online Easy and Medium follow the browser's bidding/discard/play policies;
-  Hard levels compare 32/128/384 hypothetical deals using Medium rollouts.
-  The browser's strategic rollout policy and late-hand search are specific to
-  solo Hard levels. Online bots never use the actual opponents' hands.
-- Multiplayer matches Hearts: a sound and shake after 15 seconds when a decision
-  is available, a warning at 9 minutes, and removal with bot takeover at 10 minutes.
-  Bidding, discarding, playing and Next Hand all count; waiting for other players
-  does not. Making a move clears the warning. Disconnects have a 2-minute grace
-  period. Reconnecting before it expires keeps the seat; removed seats cannot
-  be reclaimed during that game. Leaving explicitly forfeits the game and gives the
-  seat to a bot. Hosting passes to the earliest remaining lobby arrival,
-  regardless of seat changes. Team naming transfers to the remaining teammates.
-  Hosts can Leave Lobby to keep the group together or Close Lobby to end it.
-- At game end the host can Play Again immediately with the same partners and
-  difficulty, or choose Back to Lobby to rearrange the group. Invitations,
-  seats and team names carry over.
-- Leave Seat frees your spot while keeping you in the group, so a full table
-  can trade seats. Your place stays reserved while you rearrange, and the host
-  waits until those players are seated before starting.
-- Anyone viewing the lobby without a seat appears in its waiting room, which
-  disappears when empty. Guests can enter a name there; signed-in arrivals use
-  their account name. Additional visitors can wait for the next game without
-  blocking the current group or taking a place reserved during a seat swap.
-- Signed-in players get server-recorded multiplayer results, deduplicated by
-  account and game. Multiplayer wins have monthly and all-time leaderboards and
-  appear in User → Separate → Multiplayer, independently of Hearts statistics.
-- Lobby/game snapshots survive service restarts and expire after 20 minutes
-  without activity. The independent Euchre API uses one worker for multiplayer timers.
-  Its explicit owned migration follows the retained legacy **019** schema;
-  service startup performs no migrations. Local setup does not deploy.
+1. **Create** an online lobby from Play and receive a six-character code and invitation link.
+2. **Share** the invitation with friends, who can join as guests or with a Cards account.
+3. **Choose seats** opposite your partner, name your team, and select a bot difficulty for empty seats.
+4. **Play** in real time, then start another game with the same group or return to the lobby to rearrange seats.
 
-See [account and hosting notes](docs/shared-accounts.md) for local setup,
-existing-account migration, routing, and result-validation boundaries.
-No extra GitHub repository is needed to run or finish the local Euchre site.
+### Lobbies and teams
 
-## Verification
+- The first human on each team can save a name of up to 24 characters. Names
+  update immediately in the lobby, at the table, and in hand results.
+- The bot picker starts on Easy. Its Hard option uses the signed-in creator's
+  Hard setting from Options (Hard, Harder, or Hardest); guests use regular Hard.
+  That setting stays with the lobby across host changes and later games.
+  Replacement bots use the current game's difficulty; games starting with four
+  humans use the creator's Hard setting for later replacements.
+- Leave Seat lets players swap seats while staying in the group. Their places
+  remain reserved while rearranging, and the host waits for them to sit before
+  starting. Other visitors can wait for the next game in the waiting room;
+  guests enter a name, while signed-in players use their account name.
+- Hosting passes to the earliest remaining lobby arrival, regardless of seat
+  changes. Team naming passes to the remaining teammates. Hosts can leave the
+  lobby to keep the group together or close it to end the group.
+- Play Again keeps partners, difficulty, invitations, seats, and team names.
+  Back to Lobby lets the group rearrange before the next game.
+
+### Rejoining and timeouts
+
+Opening Play with an unfinished solo game offers Continue/Concede; online groups
+offer Rejoin/Leave. Conceding or leaving requires confirmation. Leaving a seat
+during an active game warns about the loss and bot takeover; waiting lobbies
+and groups between games have no forfeit warning.
+
+When a decision is available, a sound and shake remind the player after
+15 seconds. A warning appears at 9 minutes, followed by removal and bot takeover
+at 10 minutes. Bidding, discarding, playing, and Next Hand all count; waiting for
+other players does not. Making a move clears the warning.
+
+Disconnects have a two-minute grace period. Rejoining in time keeps the seat;
+removed seats cannot be reclaimed during that game. Leaving explicitly forfeits
+the game and hands the seat to a bot. Lobby and game snapshots survive service
+restarts and expire after 20 minutes without activity.
+
+## Getting Started
+
+Install Node.js 22.12+, Python 3.11, and uv. Keep `cards`, `hearts`, and `euchre`
+as sibling checkouts, then follow Cards' [local setup](../cards/README.md#run-locally)
+to install the three backend environments and both frontends. For this frontend,
+copy `.env.example` to `.env`, set the Font Awesome package token, and run
+`npm run web:install`. Keep the token out of Git.
+
+```powershell
+npm run dev
+```
+
+This delegates to Cards' split runner: hub on port 3000, Hearts/Euchre frontends
+on 3001/3002, and accounts/Hearts/Euchre servers on 5100/5101/5102. Start the
+shared stack once and open [localhost:3000](http://localhost:3000/).
+
+Local accounts, stable keys, and file-only verification/recovery mail live in
+`cards/.local/split-dev/`. Read mail at
+[localhost:3000/__dev/mail/](http://localhost:3000/__dev/mail/); no provider
+credentials are needed. Existing databases and browser saves are not imported.
+Ctrl+C stops the processes this runner launched.
+
+`npm run dev:web` starts a frontend-only preview with separately configured
+backend destinations. `up`, `up:build`, `down`, `up-prod`, and `down-prod` retain
+the explicit Docker frontend previews. Stop previews using the same ports
+before starting the default stack; existing Docker volumes are retained.
+
+## Accounts and Saves
+
+Solo games save after every action. Leaving the table pauses bots, and bidding,
+discarding, playing, and Next Hand have no time limit. Saved solo games do not
+expire. Results are recorded once when a game finishes or is conceded. Only
+finished, non-conceded games count toward games played, win rates, score
+statistics, win streaks, and game-completion achievements.
+
+Solo saves and achievements remain browser-local; account-owned solo results
+sync to the service. Signed-in players receive server-recorded multiplayer
+results, deduplicated by account and game. Monthly and all-time multiplayer win
+leaderboards and User → Separate → Multiplayer keep Euchre results separate
+from Hearts statistics.
+
+Browser storage belongs to the browser and origin. Use `localhost` consistently
+for local saves; `127.0.0.1` is a different origin. Clearing site data removes
+local progress. The app reports when storage is unavailable.
+
+Production frontend builds use `VITE_BASE_PATH=/euchre/` and
+`VITE_ACCOUNT_API_URL=/api/account`. Routes, assets, and the bot worker resolve
+beneath the configured base. Registration, verification, and password recovery
+link to the Cards hub. See [account and hosting notes](docs/shared-accounts.md)
+for account integration, routing, and result-validation boundaries.
+
+## Releases and Migrations
+
+- **`game-vMAJOR.MINOR.PATCH`** publishes only the independent `euchre-game-api`.
+- **`web-vMAJOR.MINOR.PATCH`** publishes only the `euchre-web` frontend, built for the Cards hub.
+- Both publish immutable images and source/digest records. Production uses
+  reviewed image pins; publishing a candidate does not deploy it or promote `latest`.
+- Frontend builds require the repository's Font Awesome Actions secret; backend builds do not.
+
+The [legacy release workflow](docs/legacy-releases.md) is manual-only, requires
+acknowledgement, and refuses existing image versions. Historical tags retain
+their original workflow definitions. The combined implementation remains
+available for guarded rollback; run only one owner against live Euchre tables.
+
+Production uses the independent Euchre server and shared Cards accounts.
+Migrations run as explicit jobs, never during service startup. See the
+[game server README](api/README.md) for schema ownership and the transition from
+legacy revision **019**.
+
+## Testing
+
+### Frontend
 
 ```powershell
 npm test
 npm run build
-npm run test:multiplayer-rules
 ```
 
-Tests cover card ranking, left-bower following suit, all scoring cases, lone hands,
-redealing, seeded games to completion, simulation legality, hidden information,
-save recovery, result deduplication, and the shared-account adapter.
+Uses Vitest, Testing Library, and jsdom. Tests cover card ranking, left-bower
+following suit, scoring, lone hands, redealing, seeded games to completion,
+simulation legality, hidden information, save recovery, result deduplication,
+and the shared-account adapter. `npm --prefix web test` runs in watch mode;
+`npm --prefix web run test:coverage` produces coverage.
+
+### Backend
+
+```powershell
+cd api
+uv sync --locked --extra dev
+uv run --locked --extra dev pytest -q
+```
+
+Uses pytest with disposable in-memory databases. The independent server can be
+tested without either sibling repository.
+
+### Rules Parity and Releases
+
+From the repository root, with Node.js 22.13+ and the backend environment installed:
+
+```powershell
+npm run test:multiplayer-rules
+npm run test:release
+```
+
+The parity check compares browser TypeScript and server Python rules through
+legal games. Release tests check component tags, image records, and legacy
+publishing safeguards.
 
 ## Assets
 
@@ -169,10 +262,11 @@ save recovery, result deduplication, and the shared-account adapter.
 - Background music: ["Jazzy Lofi - Calm background Loop"](https://pixabay.com/music/smooth-jazz-jazzy-lofi-calm-background-loop-541849/) by [Sonican](https://pixabay.com/users/sonican-38947841/),
   used under the [Pixabay Content License](https://pixabay.com/service/license-summary/).
   The user-supplied MP3 is bundled as `web/public/music/sonican-jazzy-lofi-calm-background-loop-541849.mp3`.
-
-## Independent game server
-
-The [standalone Euchre API](api/README.md) owns Euchre gameplay and uses the
-shared Cards account service. Tests, dependencies, schema jobs, images and
-component releases are independent of Hearts. The original combined copy is
-retained for guarded rollback; never run both owners against live tables.
+  The playlist also includes nine user-supplied tracks in `web/public/music/`:
+  [ZephiraMusic](https://pixabay.com/users/zephiramusic-54643547/)'s “Jazzy Lofi” (613380), “Lofi Beats” (580208),
+  “Lofi Focus” (606303), “Chill Lofi” (585360), “Lofi Soul” (588903),
+  and “Tokyo Lofi” (604786); [Alex Morgan](https://pixabay.com/users/alex-morgan-54692529/)'s “Lofi Coffee Shop” (568150)
+  and “Lofi Restaurant” (568157); and [VelarioMusic](https://pixabay.com/users/velariomusic-54515099/)'s “Lofi Relaxing” (598427).
+  Each shuffled round plays all ten tracks once, then reshuffles without
+  repeating the previous round's last song first. The music toggle pauses and
+  resumes the current track without resetting the rotation.

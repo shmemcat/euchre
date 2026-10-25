@@ -15,6 +15,7 @@ import { useSound } from "@/context/SoundContext";
 import { EuchreLogo } from "./EuchreLogo";
 import styles from "@/styles/buttons.module.css";
 import { getProfileIcon } from "@/lib/profileIcons";
+import { recordMusicOff } from "@/lib/achievements";
 export function Navbar() {
    const { pathname } = useLocation();
    return (
@@ -52,6 +53,7 @@ function NavActions() {
       sound.setMuted(!sound.muted);
    };
    const toggleMusic = () => {
+      if (sound.music && user) recordMusicOff(user.id);
       if (!sound.music && sound.musicVolume === 0) sound.setMusicVolume(0.15);
       sound.setMusic(!sound.music);
    };
@@ -60,6 +62,7 @@ function NavActions() {
       if ((value === 0) !== sound.muted) sound.setMuted(value === 0);
    };
    const changeMusicVolume = (value: number) => {
+      if (value === 0 && sound.music && user) recordMusicOff(user.id);
       sound.setMusicVolume(value);
       if (value > 0 !== sound.music) sound.setMusic(value > 0);
    };

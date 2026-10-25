@@ -198,7 +198,7 @@ it("requires confirmation before conceding, then lets the player choose a new ga
    );
    expect(
       screen.getByRole("dialog", { name: "Are you sure?" })
-   ).toHaveTextContent("count as a loss");
+   ).toHaveTextContent("Only finished games count toward your statistics.");
    expect(mocks.concedeGame).not.toHaveBeenCalled();
    await user.click(screen.getByRole("button", { name: "No", exact: true }));
    expect(

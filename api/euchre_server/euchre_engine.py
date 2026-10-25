@@ -96,6 +96,7 @@ def new_game(difficulty="easy", rng=None):
             results=[],
             target=10,
             finishedAt=None,
+            startedAt=datetime.now(timezone.utc).isoformat(),
             conceded=False,
         ),
         rng,
@@ -219,6 +220,8 @@ def apply_action(original, action, rng=None):
                     tricks=list(g["tricks"]),
                     points=points,
                     scores=list(g["scores"]),
+                    upCard=g["upCard"],
+                    completedTricks=copy.deepcopy(g["completedTricks"]),
                 )
             )
             g["phase"] = "game_over" if max(g["scores"]) >= 10 else "round_complete"
@@ -382,7 +385,9 @@ def sample_game(g, rng):
         if picked_up and g["upCard"] not in own and g["upCard"] not in played:
             if any(g["upCard"] in hands[i] for i in range(4) if i != g["dealer"]):
                 continue
-        sampled = copy.deepcopy(g)
+        # Completed hands cannot affect a rollout of the current hand. Avoid
+        # copying its growing achievement history at every simulated action.
+        sampled = copy.deepcopy({**g, "results": []})
         sampled["hands"] = hands
         sampled["kitty"] = unknown[offset:] + list(dead)
         return sampled

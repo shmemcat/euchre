@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -15,6 +15,7 @@ import { Button, MenuLink } from "@/components/Buttons";
 import { Modal } from "@/components/Modal";
 import { useAuth } from "@/context/AuthContext";
 import { usePreferences } from "@/context/PreferencesContext";
+import { useSound } from "@/context/SoundContext";
 import { useMultiplayer, type Lobby } from "@/context/MultiplayerContext";
 import { getProfileIcon } from "@/lib/profileIcons";
 import styles from "@/styles/lobby.module.css";
@@ -191,6 +192,7 @@ export default function LobbyPage() {
    const { code: rawCode = "" } = useParams();
    const code = rawCode.toUpperCase();
    const multi = useMultiplayer();
+   const { play } = useSound();
    const { user } = useAuth();
    const { preferences } = usePreferences();
    const navigate = useNavigate();
@@ -206,12 +208,27 @@ export default function LobbyPage() {
    const lobby = multi.lobby?.code === code ? multi.lobby : null;
    const inGroup = !!lobby && (lobby.isMember ?? lobby.seat !== null);
    const choosingSeats = lobby?.unseated ?? [];
+   const humanCount =
+      (lobby?.seats.filter((seat) => seat.status === "human").length ?? 0) +
+      choosingSeats.length;
+   const previousPlayers = useRef<{ code: string; count: number } | null>(null);
    const botCount =
       lobby?.seats.filter((seat) => seat.status !== "human").length ?? 0;
    const hardDifficulty =
       lobby?.defaultDifficulty ?? (user ? preferences.hardLevel : "hard");
    const rearranging = choosingSeats.some((member) => member.reserved ?? true);
    const needsSwitch = !!multi.resumeCode && multi.resumeCode !== code;
+   useEffect(() => {
+      const previous = previousPlayers.current;
+      previousPlayers.current =
+         lobby?.status === "waiting" ? { code, count: humanCount } : null;
+      if (
+         lobby?.status === "waiting" &&
+         previous?.code === code &&
+         humanCount > previous.count
+      )
+         play("playerJoin");
+   }, [code, humanCount, lobby?.status, play]);
    useEffect(() => {
       setError("");
    }, [lobby?.revision]);

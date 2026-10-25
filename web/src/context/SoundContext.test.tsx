@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SoundProvider, useSound } from "./SoundContext";
 import { writeStorage } from "@/lib/storage";
 import type { HowlOptions } from "howler";
+import { installMusicLocks } from "@/test/musicLocks";
 
 vi.mock("howler", () => ({
    Howl: class {
@@ -21,11 +22,14 @@ vi.mock("howler", () => ({
          this.level = value;
       });
       playing = () => this.active;
-      unload = vi.fn();
+      unload = vi.fn(() => {
+         this.active = false;
+      });
       once = vi.fn((_event: string, callback: () => void) => {
          this.unlock = callback;
       });
       constructor(public options: HowlOptions) {
+         this.level = options.volume ?? 1;
          tracks.push(this);
       }
    },
@@ -57,6 +61,24 @@ const renderSound = () =>
          <SoundProvider>{children}</SoundProvider>
       ),
    });
+const musicSources = [
+   "/music/sonican-jazzy-lofi-calm-background-loop-541849.mp3",
+   "/music/zephiramusic-jazzy-lofi-613380.mp3",
+   "/music/alex-morgan-lofi-coffee-shop-568150.mp3",
+   "/music/zephiramusic-lofi-beats-580208.mp3",
+   "/music/zephiramusic-lofi-focus-606303.mp3",
+   "/music/zephiramusic-chill-lofi-585360.mp3",
+   "/music/alex-morgan-lofi-restaurant-568157.mp3",
+   "/music/velariomusic-lofi-relaxing-598427.mp3",
+   "/music/zephiramusic-lofi-soul-588903.mp3",
+   "/music/zephiramusic-tokyo-lofi-604786.mp3",
+];
+const finishTrack = () => {
+   const current = tracks.at(-1)!;
+   current.active = false;
+   act(() => current.options.onend?.(1));
+};
+const trackSource = () => (tracks.at(-1)!.options.src as string[])[0];
 
 it("plays Hearts’ notification clip for inactivity reminders", () => {
    const { result } = renderSound();
@@ -68,8 +90,56 @@ beforeEach(() => {
    players = [];
    tracks = [];
    vi.stubGlobal("Audio", TestAudio);
+   installMusicLocks();
 });
 afterEach(() => vi.unstubAllGlobals());
+
+describe("Music across tabs", () => {
+   it("plays in one tab and hands off when its music is disabled", async () => {
+      writeStorage("euchre.music.v1", true);
+      const first = renderSound();
+      renderSound();
+      expect(tracks[0].active).toBe(true);
+      expect(tracks[1].play).not.toHaveBeenCalled();
+      await act(async () => first.result.current.setMusic(false));
+      expect(tracks[0].active).toBe(false);
+      expect(tracks[1].active).toBe(true);
+   });
+
+   it("hands off when the owner closes and skips a closed waiting tab", async () => {
+      writeStorage("euchre.music.v1", true);
+      const first = renderSound();
+      const waiting = renderSound();
+      renderSound();
+      waiting.unmount();
+      await act(async () => first.unmount());
+      expect(tracks[1].play).not.toHaveBeenCalled();
+      expect(tracks[2].active).toBe(true);
+   });
+
+   it("keeps queued track and unlock callbacks silent after losing ownership", () => {
+      writeStorage("euchre.music.v1", true);
+      renderSound();
+      const first = tracks[0];
+      first.active = false;
+      act(() => first.options.onplayerror?.(1, "Autoplay blocked"));
+      act(() => window.dispatchEvent(new Event("pagehide")));
+      act(() => first.unlock?.());
+      expect(first.play).toHaveBeenCalledOnce();
+      finishTrack();
+      expect(tracks.at(-1)!.play).not.toHaveBeenCalled();
+   });
+
+   it("pauses a delayed play event after the page leaves", () => {
+      writeStorage("euchre.music.v1", true);
+      renderSound();
+      const current = tracks[0];
+      act(() => window.dispatchEvent(new Event("pagehide")));
+      current.active = true;
+      act(() => current.options.onplay?.(1));
+      expect(current.active).toBe(false);
+   });
+});
 
 describe("Independent audio controls", () => {
    it("randomly chooses the short single-tap clips for deal groups", () => {
@@ -141,16 +211,129 @@ describe("Independent audio controls", () => {
    });
 });
 
-describe("Buffered music loop", () => {
-   it("loads a looping buffer and releases it when the provider unmounts", () => {
+describe("Shuffled music playlist", () => {
+   it("starts with a shuffled track and releases it when the provider unmounts", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
       const { unmount } = renderSound();
       expect(tracks[0].options).toMatchObject({
-         src: ["/music/sonican-jazzy-lofi-calm-background-loop-541849.mp3"],
-         loop: true,
+         src: [musicSources[1]],
+         loop: false,
          preload: true,
       });
+      expect(tracks[0].play).not.toHaveBeenCalled();
       unmount();
       expect(tracks[0].unload).toHaveBeenCalledOnce();
+   });
+
+   it("plays all ten tracks once per round, then reshuffles and keeps playing", () => {
+      const random = vi.spyOn(Math, "random").mockReturnValue(0.999);
+      writeStorage("euchre.music.v1", true);
+      renderSound();
+      const firstRound = [trackSource()];
+      for (let index = 1; index < musicSources.length; index++) {
+         finishTrack();
+         firstRound.push(trackSource());
+      }
+      random.mockReturnValue(0);
+      finishTrack();
+      const secondRound = [trackSource()];
+      for (let index = 1; index < musicSources.length; index++) {
+         finishTrack();
+         secondRound.push(trackSource());
+      }
+      expect([...firstRound].sort()).toEqual([...musicSources].sort());
+      expect([...secondRound].sort()).toEqual([...musicSources].sort());
+      expect(secondRound).not.toEqual(firstRound);
+      expect(secondRound[0]).not.toBe(firstRound.at(-1));
+      expect(tracks).toHaveLength(musicSources.length * 2);
+      for (const track of tracks) expect(track.play).toHaveBeenCalledOnce();
+      for (const track of tracks.slice(0, -1)) {
+         expect(track.unload).toHaveBeenCalledOnce();
+         expect(track.active).toBe(false);
+      }
+      expect(tracks.at(-1)!.active).toBe(true);
+   });
+
+   it("avoids an immediate repeat when the next shuffle starts with the last song", () => {
+      const random = vi.spyOn(Math, "random").mockReturnValue(0.999);
+      writeStorage("euchre.music.v1", true);
+      renderSound();
+      for (let index = 1; index < musicSources.length; index++) finishTrack();
+      const lastSong = trackSource();
+      random.mockReturnValueOnce(0).mockReturnValue(0.999);
+      finishTrack();
+      expect(trackSource()).not.toBe(lastSong);
+      const nextRound = [trackSource()];
+      for (let index = 1; index < musicSources.length; index++) {
+         finishTrack();
+         nextRound.push(trackSource());
+      }
+      expect([...nextRound].sort()).toEqual([...musicSources].sort());
+   });
+
+   it("pauses and resumes the current song without resetting the rotation", async () => {
+      writeStorage("euchre.music.v1", true);
+      const { result } = renderSound();
+      finishTrack();
+      const current = tracks.at(-1)!;
+      act(() => result.current.setMusic(false));
+      expect(current.pause).toHaveBeenCalledOnce();
+      await act(async () => result.current.setMusic(true));
+      expect(tracks).toHaveLength(2);
+      expect(current.play).toHaveBeenCalledTimes(2);
+      finishTrack();
+      expect(
+         new Set(tracks.map((track) => (track.options.src as string[])[0])).size
+      ).toBe(3);
+   });
+
+   it("uses the latest music volume for subsequent songs without changing effects", () => {
+      writeStorage("euchre.music.v1", true);
+      const { result } = renderSound();
+      act(() => {
+         result.current.setMusicVolume(0.6);
+         result.current.setVolume(0.3);
+      });
+      finishTrack();
+      expect(tracks.at(-1)!.level).toBe(0.6);
+      act(() => result.current.play("deal"));
+      expect(players.at(-1)!.volume).toBe(0.3);
+      act(() => result.current.setMusicVolume(0.2));
+      expect(tracks.at(-1)!.level).toBe(0.2);
+   });
+
+   it("keeps music paused if a queued end event arrives after disabling it", async () => {
+      writeStorage("euchre.music.v1", true);
+      const { result } = renderSound();
+      act(() => result.current.setMusic(false));
+      finishTrack();
+      expect(tracks.at(-1)!.play).not.toHaveBeenCalled();
+      await act(async () => result.current.setMusic(true));
+      expect(tracks.at(-1)!.play).toHaveBeenCalledOnce();
+   });
+
+   it("ignores stale end and unlock callbacks after changing tracks or unmounting", () => {
+      writeStorage("euchre.music.v1", true);
+      const { unmount } = renderSound();
+      const first = tracks[0];
+      act(() => first.options.onplayerror?.(1, "Autoplay blocked"));
+      finishTrack();
+      act(() => {
+         first.options.onend?.(1);
+         first.unlock?.();
+      });
+      expect(tracks).toHaveLength(2);
+      expect(first.play).toHaveBeenCalledOnce();
+      const current = tracks.at(-1)!;
+      act(() => current.options.onplayerror?.(1, "Autoplay blocked"));
+      unmount();
+      act(() => {
+         current.options.onend?.(1);
+         current.unlock?.();
+      });
+      expect(tracks).toHaveLength(2);
+      expect(current.unload).toHaveBeenCalledOnce();
+      expect(current.play).toHaveBeenCalledOnce();
    });
 
    it("retries blocked playback after unlocking without layering music", () => {

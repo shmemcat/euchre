@@ -10,8 +10,10 @@ import {
 import { Howl } from "howler";
 import { asset } from "@/lib/assets";
 import { readStorage, writeStorage } from "@/lib/storage";
+import { requestMusicPlayback } from "@/lib/musicPlayback";
 type Sound =
    | "turn"
+   | "playerJoin"
    | "notification"
    | "deal"
    | "shuffle"
@@ -24,6 +26,7 @@ type Sound =
    | "win";
 const FILES: Record<Sound, string[]> = {
    turn: ["sound-on"],
+   playerJoin: ["join-ding"],
    notification: ["notification"],
    deal: ["card-fan-1"],
    // Short single taps keep adjacent deal packets from sounding like extra cards.
@@ -45,6 +48,31 @@ const FILES: Record<Sound, string[]> = {
    round: ["round-end"],
    win: ["game-end"],
 };
+const MUSIC_FILES = [
+   "sonican-jazzy-lofi-calm-background-loop-541849.mp3",
+   "zephiramusic-jazzy-lofi-613380.mp3",
+   "alex-morgan-lofi-coffee-shop-568150.mp3",
+   "zephiramusic-lofi-beats-580208.mp3",
+   "zephiramusic-lofi-focus-606303.mp3",
+   "zephiramusic-chill-lofi-585360.mp3",
+   "alex-morgan-lofi-restaurant-568157.mp3",
+   "velariomusic-lofi-relaxing-598427.mp3",
+   "zephiramusic-lofi-soul-588903.mp3",
+   "zephiramusic-tokyo-lofi-604786.mp3",
+];
+function shuffleMusic(previous?: string): string[] {
+   const files = [...MUSIC_FILES];
+   for (let index = files.length - 1; index > 0; index--) {
+      const other = Math.floor(Math.random() * (index + 1));
+      [files[index], files[other]] = [files[other], files[index]];
+   }
+   // Avoid repeating the last song when a new round begins.
+   if (files[0] === previous) {
+      const other = 1 + Math.floor(Math.random() * (files.length - 1));
+      [files[0], files[other]] = [files[other], files[0]];
+   }
+   return files;
+}
 const MUSIC_VOLUME_KEY = "euchre.music-volume.v1";
 const clampVolume = (value: number) =>
    Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.15;
@@ -84,8 +112,18 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       return readVolume(MUSIC_VOLUME_KEY, fallback);
    });
    const track = useRef<Howl | null>(null);
+   const ownsMusic = useRef(false);
+   const musicId = useRef<number | undefined>(undefined);
+   const resumeMusic = useCallback(() => {
+      const audio = track.current;
+      if (audio && !audio.playing()) {
+         musicId.current = audio.play(musicId.current);
+      }
+   }, []);
    const musicEnabled = useRef(music);
    musicEnabled.current = music;
+   const musicLevel = useRef(musicVolume);
+   musicLevel.current = musicVolume;
    const play = useCallback(
       (sound: Sound) => {
          if (muted) return;
@@ -98,22 +136,53 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       [muted, volume]
    );
    useEffect(() => {
-      // Decode once and loop the audio buffer without a media-element restart.
-      const audio = new Howl({
-         src: [
-            asset("music/sonican-jazzy-lofi-calm-background-loop-541849.mp3"),
-         ],
-         loop: true,
-         preload: true,
-         onplayerror: () => {
-            audio.once("unlock", () => {
-               if (musicEnabled.current && !audio.playing()) audio.play();
-            });
-         },
-      });
-      track.current = audio;
+      let remaining: string[] = [];
+      let previous: string | undefined;
+      const loadNextTrack = (): Howl => {
+         if (remaining.length === 0) remaining = shuffleMusic(previous);
+         const file = remaining.shift()!;
+         previous = file;
+         musicId.current = undefined;
+         const audio = new Howl({
+            src: [asset(`music/${file}`)],
+            loop: false,
+            preload: true,
+            volume: musicLevel.current,
+            onplay: () => {
+               if (
+                  track.current !== audio ||
+                  !ownsMusic.current ||
+                  !musicEnabled.current
+               ) {
+                  audio.pause();
+               }
+            },
+            onend: () => {
+               if (track.current !== audio) return;
+               audio.unload();
+               const next = loadNextTrack();
+               if (musicEnabled.current && ownsMusic.current) {
+                  musicId.current = next.play();
+               }
+            },
+            onplayerror: () => {
+               audio.once("unlock", () => {
+                  if (
+                     track.current === audio &&
+                     musicEnabled.current &&
+                     ownsMusic.current &&
+                     !audio.playing()
+                  )
+                     musicId.current = audio.play(musicId.current);
+               });
+            },
+         });
+         track.current = audio;
+         return audio;
+      };
+      loadNextTrack();
       return () => {
-         audio.unload();
+         track.current?.unload();
          track.current = null;
       };
    }, []);
@@ -121,11 +190,13 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       track.current?.volume(musicVolume);
    }, [musicVolume]);
    useEffect(() => {
-      const audio = track.current;
-      if (!audio) return;
-      if (music) audio.play();
-      else audio.pause();
-   }, [music]);
+      if (!music) return;
+      return requestMusicPlayback((owner) => {
+         ownsMusic.current = owner;
+         if (owner) resumeMusic();
+         else track.current?.pause();
+      });
+   }, [music, resumeMusic]);
    useEffect(() => {
       // Persist the migrated music level before the effects slider changes.
       writeStorage(MUSIC_VOLUME_KEY, musicVolume);

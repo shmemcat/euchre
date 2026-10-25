@@ -28,7 +28,12 @@ export default function MultiplayerGame() {
       setBusy(true);
       setError("");
       void multi
-         .command({ ...data, code, revision: lobby?.revision })
+         .command({
+            ...data,
+            code,
+            revision: lobby?.revision,
+            ...(lobby?.actionToken ? { actionToken: lobby.actionToken } : {}),
+         })
          .catch((e) => setError(e.message))
          .finally(() => setBusy(false));
    };
@@ -56,7 +61,7 @@ export default function MultiplayerGame() {
    if (lobby.removedReason)
       return (
          <PageLayout title="REMOVED FROM GAME">
-            <p role="alert">You were removed {lobby.removedReason === "idle" ? "for inactivity" : "after disconnecting for 2 minutes"}. A bot has taken your seat. This game counts as a loss.</p>
+            <p role="alert">You were removed {lobby.removedReason === "idle" ? "for inactivity" : "after disconnecting for 2 minutes"}. A bot has taken your seat. Only finished games count toward your statistics.</p>
             {error && <p role="alert" className="inline-error">{error}</p>}
             <Button name="Back to Play" onClick={leaveLobby} disabled={busy || !multi.connected} />
          </PageLayout>
@@ -96,7 +101,7 @@ export default function MultiplayerGame() {
          />
          {leaving && !finished && (
             <Modal title="Leave the game?" onClose={() => setLeaving(false)}>
-               <p>A bot will take your seat. This game will count as a loss.</p>
+               <p>A bot will take your seat. Only finished games count toward your statistics.</p>
                {error && (
                   <p role="alert" className="inline-error">
                      {error}

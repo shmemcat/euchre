@@ -360,7 +360,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 .options-body section {
    margin-bottom: 32px;
 }
-.options-body button {
+.options-body button:not([class*="menu-button"]) {
    color: var(--text);
 }
 .stats-tabs {

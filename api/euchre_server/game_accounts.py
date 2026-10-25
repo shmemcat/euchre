@@ -152,7 +152,11 @@ def _scrub_euchre(snapshot, user_id):
 
 
 def _cleanup_euchre(user_id):
-    from euchre_server.models import EuchreGameResult, EuchreTable
+    from euchre_server.models import (
+        EuchreGameResult,
+        EuchreTable,
+        EuchreAchievementState,
+    )
     from euchre_server import euchre_multiplayer as mp
 
     socketio = current_app.extensions.get("socketio")
@@ -185,6 +189,9 @@ def _cleanup_euchre(user_id):
             if socketio:
                 socketio.server.disconnect(sid, namespace="/euchre")
     EuchreGameResult.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    EuchreAchievementState.query.filter_by(user_id=user_id).delete(
+        synchronize_session=False
+    )
     return True
 
 
@@ -276,7 +283,10 @@ def install_runtime(app):
             return jsonify(error="Game schema is not ready"), 503
         db.session.rollback()
         user = _prime_identity()
-        if request.endpoint == "euchre_stats.save_results":
+        if request.endpoint in {
+            "euchre_stats.save_results",
+            "euchre_stats.achievement_state",
+        }:
             gate = app.extensions["game_account_gate"]
             gate.__enter__()
             request.environ["cards.game_gate"] = gate

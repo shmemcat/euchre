@@ -9,7 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from euchre_server.account_http import body, no_store, protect_account
 from euchre_server.account_access import session_user, accounts
 from euchre_server.extensions import db, limiter
-from euchre_server.models import EuchreGameResult
+from euchre_server.models import EuchreGameResult, EuchreAchievementState
+from euchre_server.achievements import HAND_UNLOCKS
 
 euchre_bp = Blueprint("euchre_stats", __name__, url_prefix="/account/euchre")
 euchre_bp.before_request(protect_account)
@@ -53,6 +54,59 @@ def parse_result(value, now):
         raise ValueError("Invalid completion date.") from None
     if completed < datetime(1970, 1, 1) or completed > now + timedelta(minutes=5):
         raise ValueError("Invalid completion date.")
+    counters = {key: value.get(key, 0) for key in ("marches", "loners", "euchres")}
+    if (
+        any(type(n) is not int or not 0 <= n <= 19 for n in counters.values())
+        or sum(counters.values()) > 19
+    ):
+        raise ValueError("Invalid hand counters.")
+    evidence = value.get("achievementData")
+    if evidence is not None:
+        if not isinstance(evidence, dict) or set(evidence) - {
+            "unlocks",
+            "calledSuits",
+            "startedAt",
+            "utcOffsetMinutes",
+        }:
+            raise ValueError("Invalid achievement evidence.")
+        unlocks, suits = evidence.get("unlocks"), evidence.get("calledSuits")
+        if (
+            not isinstance(unlocks, list)
+            or len(unlocks) > len(HAND_UNLOCKS)
+            or any(not isinstance(i, str) or i not in HAND_UNLOCKS for i in unlocks)
+        ):
+            raise ValueError("Invalid achievement unlocks.")
+        if (
+            not isinstance(suits, list)
+            or len(suits) > 4
+            or any(
+                not isinstance(s, str) or s not in {"c", "d", "s", "h"} for s in suits
+            )
+        ):
+            raise ValueError("Invalid called suits.")
+        start, offset = evidence.get("startedAt"), evidence.get("utcOffsetMinutes")
+        if start is not None:
+            try:
+                started = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if (
+                    started.tzinfo is None
+                    or not datetime(1970, 1, 1)
+                    <= started.astimezone(timezone.utc).replace(tzinfo=None)
+                    <= completed
+                ):
+                    raise ValueError()
+            except (AttributeError, ValueError, OverflowError, TypeError):
+                raise ValueError("Invalid game start date.") from None
+        if offset is not None and (type(offset) is not int or abs(offset) > 840):
+            raise ValueError("Invalid local time offset.")
+        evidence = {
+            "unlocks": sorted(set(unlocks)) if not conceded else [],
+            "calledSuits": sorted(set(suits)) if not conceded else [],
+        }
+        if start is not None:
+            evidence["startedAt"] = start
+        if offset is not None:
+            evidence["utcOffsetMinutes"] = offset
     return dict(
         game_id=game_id,
         difficulty=difficulty,
@@ -61,6 +115,8 @@ def parse_result(value, now):
         score=scores[0],
         opponent_score=scores[1],
         completed_at=completed,
+        **counters,
+        achievement_data=evidence,
     )
 
 
@@ -96,9 +152,28 @@ def save_results():
     for game_id, result in parsed.items():
         previous = existing.get(game_id)
         if previous:
-            if any(getattr(previous, key) != value for key, value in result.items()):
+            base_keys = {
+                "game_id",
+                "difficulty",
+                "won",
+                "conceded",
+                "score",
+                "opponent_score",
+                "completed_at",
+            }
+            compare = base_keys | (
+                {"marches", "loners", "euchres", "achievement_data"}
+                if previous.achievement_data is not None
+                and result["achievement_data"] is not None
+                else set()
+            )
+            if any(getattr(previous, key) != result[key] for key in compare):
                 db.session.rollback()
                 return jsonify(error="That game already has a saved result."), 409
+            if previous.achievement_data is None:
+                for key in ("marches", "loners", "euchres"):
+                    setattr(previous, key, max(getattr(previous, key), result[key]))
+                previous.achievement_data = result["achievement_data"]
     for game_id, result in parsed.items():
         if game_id not in existing:
             db.session.add(EuchreGameResult(user_id=user.id, **result))
@@ -165,19 +240,47 @@ def multiplayer_results():
         .order_by(EuchreGameResult.completed_at)
         .all()
     )
+    return jsonify(results=[serialize_result(r) for r in rows])
+
+
+def serialize_result(row):
+    return dict(
+        id=row.game_id,
+        difficulty=row.difficulty,
+        won=row.won,
+        conceded=row.conceded,
+        scores=[row.score, row.opponent_score],
+        finishedAt=row.completed_at.isoformat() + "Z",
+        marches=row.marches,
+        loners=row.loners,
+        euchres=row.euchres,
+        achievementData=row.achievement_data,
+    )
+
+
+@euchre_bp.route("/achievements", methods=["GET", "POST"])
+@limiter.limit("120 per minute")
+def achievement_state():
+    user = session_user()
+    if not user:
+        return jsonify(error="Sign in to view your achievements."), 401
+    state = db.session.get(EuchreAchievementState, user.id)
+    if request.method == "POST":
+        if body().get("id") != "geezer":
+            return jsonify(error="This achievement must be earned in a game."), 400
+        if not state:
+            state = EuchreAchievementState(user_id=user.id, unlocks=["geezer"])
+            db.session.add(state)
+        elif "geezer" not in state.unlocks:
+            state.unlocks = [*state.unlocks, "geezer"]
+        db.session.commit()
+        return jsonify(unlocks=state.unlocks)
+    rows = (
+        EuchreGameResult.query.filter_by(user_id=user.id)
+        .order_by(EuchreGameResult.completed_at, EuchreGameResult.game_id)
+        .all()
+    )
     return jsonify(
-        results=[
-            dict(
-                id=r.game_id,
-                difficulty="multiplayer",
-                won=r.won,
-                conceded=r.conceded,
-                scores=[r.score, r.opponent_score],
-                finishedAt=r.completed_at.isoformat() + "Z",
-                marches=r.marches,
-                loners=r.loners,
-                euchres=r.euchres,
-            )
-            for r in rows
-        ]
+        results=[serialize_result(row) for row in rows],
+        unlocks=state.unlocks if state else [],
     )

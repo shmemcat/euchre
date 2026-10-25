@@ -185,12 +185,12 @@
    color: var(--buttontext);
    text-align: center;
 }
-.inactivity-shake { animation: inactivity-nudge .4s ease-in-out 5; }
+.inactivity-shake .phase-hint { animation: inactivity-nudge .4s ease-in-out 5; }
 @keyframes inactivity-nudge {
    0%, 100% { translate: 0; }
    25%, 75% { translate: -4px; }
    50% { translate: 4px; }
 }
 @media (prefers-reduced-motion: reduce) {
-   .inactivity-shake { animation: none; }
+   .inactivity-shake .phase-hint { animation: none; }
 }

@@ -82,6 +82,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       ) {
          const stored = recordResult(next, user.id);
          setResultSaved(stored);
+         if (stored) window.dispatchEvent(new Event("euchre:achievements"));
          if (stored) void syncLeaderboardResults(user.id).catch(() => {});
       }
       setGame(next);

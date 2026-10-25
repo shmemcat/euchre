@@ -134,7 +134,12 @@ it("restores the same private seat after reconnecting without exposing it in the
    await waitFor(() =>
       expect(clients[0].emit).toHaveBeenLastCalledWith(
          "command",
-         { type: "watch", code: "ABC234", token: "private-seat" },
+         {
+            type: "watch",
+            code: "ABC234",
+            token: "private-seat",
+            utcOffsetMinutes: new Date().getTimezoneOffset(),
+         },
          expect.any(Function)
       )
    );

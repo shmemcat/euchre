@@ -10,6 +10,23 @@ delegates to the sibling Cards split stack. The original combined Euchre code
 remains available only for guarded rollback/compatibility work; never run both
 owners against live Euchre tables. Existing production pins are unchanged.
 
+Empty multiplayer groups close when their last human leaves or their last
+disconnected member's two-minute reconnect window expires. Bots cannot keep
+waiting, playing, or finished tables open. Reconnecting before expiry keeps the
+group, and closure preserves completed results; abandoning a started match
+still records the existing conceded result.
+
+Only completed, non-conceded games count toward games played, win rate, score
+statistics, and game-completion achievements. Conceded results remain in history
+but do not count as losses or break win streaks, including previously saved results.
+
+Multiplayer game commands echo the displayed lobby's per-player `actionToken`
+and `revision`. The token binds the move to its game, hand, bidding decision or
+trick, while unrelated lobby and connection updates can advance the revision.
+Turn and legal-move checks still apply, and duplicate or outdated moves cannot
+apply again. Next Hand remains an idempotent readiness choice bound to its game
+and hand. Clients without tokens retain the exact-revision check.
+
 ## Independent installation and checks
 
 From `api/`, install with `uv sync --locked --extra dev` and run
@@ -71,8 +88,14 @@ same explicit configuration, before starting the runtime image. Runtime startup
 never migrates or runs the old shared `flask db upgrade` chain. Verify with
 `python -m euchre_server.schema check` and `/ready`.
 
-The migration owns `euchre_game_results`, `euchre_tables`, and
-`euchre_alembic_version=euchre_001`. It reuses the phase-3 deletion receipts
+The migration owns `euchre_game_results`, `euchre_tables`,
+`euchre_achievement_state`, and `euchre_alembic_version=euchre_002`.
+Revision 002 adds per-game achievement evidence and account settings unlocks;
+run the upgrade before starting the updated game service. Existing result
+history continues to count toward progression. Card and bidding achievements
+require the detailed history recorded by updated games. Holiday badges use the
+game's start date and the player's local offset at that time, and unlock when
+the game is completed without conceding. It reuses the phase-3 deletion receipts
 `euchre_account_deletions` and
 `euchre_account_schema_version=game_accounts_001`, preserving existing fences.
 Existing game tables require verified legacy revision **019**, compatible
@@ -106,3 +129,13 @@ also passes with real split containers, restricted PostgreSQL roles, and a
 synthetic legacy backup/restore with preserved record fingerprints. Restoring
 the actual production backup and checking published image pins remain separate
 steps before deployment; see [component releases](../../cards/docs/component-releases.md).
+# Achievement schema rollout
+
+The achievement release adopts `euchre_002` and adds achievement evidence and
+account unlock state. Deploy the dedicated compatibility image from the previous
+production code first. During the explicit maintenance procedure, stop admission
+and writers, take a fresh backup, run the new image's migration as the schema
+owner, and grant CRUD on `euchre_achievement_state` only to `euchre_runtime`.
+Existing table grants cover the added result column. Resume the compatible image
+and verify health before promoting the final `euchre_002` release. Runtime
+credentials never migrate, and rollback retains the additive schema and data.

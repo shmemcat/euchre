@@ -1,18 +1,14 @@
 import { useEffect, useState } from "react";
-import {
-   faCardsBlank,
-   faTrophy,
-   faMoon,
-   faCrown,
-   faShield,
-   faStars,
-} from "@fortawesome/pro-solid-svg-icons";
 import { ToggleButtonGroup } from "./ToggleButtonGroup";
 import { AchievementBadge } from "./AchievementBadge";
 import { readResults } from "@/lib/persistence";
-import { accountApiBase } from "@/lib/account";
-import { gameApiBase } from "@/lib/gameApi";
-import type { StoredResult } from "@/lib/persistence";
+import {
+   ACHIEVEMENT_EVENT,
+   computeAchievements,
+   loadAchievements,
+   settingsAchievements,
+   type AchievementResult,
+} from "@/lib/achievements";
 import containers from "@/styles/containers.module.css";
 import achievements from "@/styles/achievements.module.css";
 
@@ -95,48 +91,54 @@ export function HardTabs({
 }
 
 export function AccountSummary({ userId }: { userId: string }) {
-   const [multiplayer, setMultiplayer] = useState<
-      (Omit<StoredResult, "difficulty"> & { difficulty: "multiplayer" })[]
-   >([]);
+   const [remote, setRemote] = useState<AchievementResult[]>([]);
+   const [unlocks, setUnlocks] = useState<string[]>([]);
    const [statsError, setStatsError] = useState("");
    const [retry, setRetry] = useState(0);
    const [loading, setLoading] = useState(false);
    useEffect(() => {
-      const base = accountApiBase();
-      if (!base) return;
       const controller = new AbortController();
       setLoading(true);
       setStatsError("");
-      void fetch(`${gameApiBase(base)}/multiplayer-results`, {
-         credentials: "include",
-         cache: "no-store",
-         signal: controller.signal,
-      })
-         .then(async (response) => {
-            const data = await response.json();
-            if (!response.ok || !Array.isArray(data.results)) throw new Error();
-            return data.results;
-         })
-         .then((results) => {
-            if (!controller.signal.aborted) setMultiplayer(results);
+      void loadAchievements(userId, controller.signal)
+         .then((data) => {
+            if (!controller.signal.aborted) {
+               setRemote(data.results);
+               setUnlocks(data.unlocks);
+            }
          })
          .catch(() => {
             if (!controller.signal.aborted)
-               setStatsError("Your multiplayer statistics couldn’t be loaded.");
+               setStatsError(
+                  "Your statistics and achievements couldn’t be loaded."
+               );
          })
          .finally(() => {
             if (!controller.signal.aborted) setLoading(false);
          });
       return () => controller.abort();
    }, [userId, retry]);
-   const all = [...readResults(userId), ...multiplayer];
+   useEffect(() => {
+      const refresh = () => setRetry((value) => value + 1);
+      window.addEventListener(ACHIEVEMENT_EVENT, refresh);
+      return () => window.removeEventListener(ACHIEVEMENT_EVENT, refresh);
+   }, []);
+   const all = [
+      ...new Map(
+         [...readResults(userId), ...remote].map((result) => [
+            result.id,
+            result,
+         ])
+      ).values(),
+   ];
    const [mode, setMode] = useState("all_time");
    const [category, setCategory] = useState("easy");
    const [hard, setHard] = useState("hard");
+   const completed = all.filter((result) => !result.conceded);
    const selected =
       mode === "all_time"
-         ? all
-         : all.filter(
+         ? completed
+         : completed.filter(
               (result) =>
                  result.difficulty === (category === "hard" ? hard : category)
            );
@@ -171,57 +173,15 @@ export function AccountSummary({ userId }: { userId: string }) {
          ],
       ],
    ];
-   const badges = [
-      {
-         name: "Newcomer",
-         desc: "Finish your first game",
-         icon: faCardsBlank,
-         earned: all.length > 0,
-      },
-      {
-         name: "First Light",
-         desc: "Win your first game",
-         icon: faTrophy,
-         earned: all.some((result) => result.won),
-      },
-      {
-         name: "Written in the Stars",
-         desc: "Win ten games",
-         icon: faStars,
-         earned: all.filter((result) => result.won).length >= 10,
-      },
-      {
-         name: "Lone Star",
-         desc: "Sweep a hand going alone",
-         icon: faMoon,
-         earned: all.some((result) => result.loners > 0),
-      },
-      {
-         name: "A Clean Sweep",
-         desc: "March with your partner",
-         icon: faCrown,
-         earned: all.some((result) => result.marches > 0),
-      },
-      {
-         name: "Turn the Tables",
-         desc: "Euchre the opposing team",
-         icon: faShield,
-         earned: all.some((result) => result.euchres > 0),
-      },
-      {
-         name: "Stargazer",
-         desc: "Win on Hardest",
-         icon: faStars,
-         earned: all.some(
-            (result) => result.won && result.difficulty === "hardest"
-         ),
-      },
-   ];
+   const badges = computeAchievements(all, [
+      ...unlocks,
+      ...settingsAchievements(userId),
+   ]);
    return (
       <>
          {loading && (
             <p role="status" className="quiet-text">
-               Loading multiplayer statistics…
+               Loading statistics and achievements…
             </p>
          )}
          {statsError && (
@@ -280,7 +240,7 @@ export function AccountSummary({ userId }: { userId: string }) {
             </h2>
             <div className={achievements.achievementsGrid}>
                {badges.map((badge) => (
-                  <AchievementBadge key={badge.name} achievement={badge} />
+                  <AchievementBadge key={badge.id} achievement={badge} />
                ))}
             </div>
          </section>

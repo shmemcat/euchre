@@ -1,14 +1,27 @@
-import { isGame, singlePlayerSeatNames, type Difficulty, type Game } from "@/game/engine";
+import {
+   isGame,
+   singlePlayerSeatNames,
+   type Difficulty,
+   type Game,
+} from "@/game/engine";
 import { readStorage, removeStorage, writeStorage } from "./storage";
+import {
+   gameAchievementEvidence,
+   type AchievementEvidence,
+} from "./achievementEvents";
 
 export const GAME_KEY = "euchre.game.v1";
 const resultsKey = (userId: string) =>
    `euchre.results.v2:${encodeURIComponent(userId)}`;
 const syncedKey = (userId: string) =>
-   `euchre.synced-results.v1:${encodeURIComponent(userId)}`;
+   `euchre.synced-results.v2:${encodeURIComponent(userId)}`;
 export const clearResults = (userId: string) => {
    removeStorage(resultsKey(userId));
    removeStorage(syncedKey(userId));
+   removeStorage(
+      `euchre.achievement-settings.v1:${encodeURIComponent(userId)}`
+   );
+   removeStorage(`euchre.achievements-seen.v1:${encodeURIComponent(userId)}`);
 };
 export function readSyncedResultIds(userId: string): string[] {
    const value = readStorage<unknown>(syncedKey(userId), []);
@@ -31,6 +44,7 @@ export type StoredResult = {
    marches: number;
    loners: number;
    euchres: number;
+   achievementData?: AchievementEvidence;
 };
 export function loadGame(): Game | null {
    const value = readStorage<unknown>(GAME_KEY, null);
@@ -49,26 +63,45 @@ export function readResults(userId?: string | null): StoredResult[] {
    if (!userId) return [];
    const value = readStorage<unknown>(resultsKey(userId), []);
    if (!Array.isArray(value)) return [];
-   return value.filter(
-      (r): r is StoredResult =>
-         r &&
-         typeof r.id === "string" &&
-         typeof r.won === "boolean" &&
-         typeof r.conceded === "boolean" &&
-         ["easy", "medium", "hard", "harder", "hardest"].includes(
-            r.difficulty
-         ) &&
-         Array.isArray(r.scores) &&
-         r.scores.length === 2 &&
-         r.scores.every(
-            (n: unknown) =>
-               typeof n === "number" && Number.isFinite(n) && n >= 0
-         ) &&
-         typeof r.finishedAt === "string" &&
-         [r.marches, r.loners, r.euchres].every(
-            (n) => Number.isInteger(n) && n >= 0
-         )
-   );
+   return value
+      .filter(
+         (r): r is StoredResult =>
+            r &&
+            typeof r.id === "string" &&
+            typeof r.won === "boolean" &&
+            typeof r.conceded === "boolean" &&
+            ["easy", "medium", "hard", "harder", "hardest"].includes(
+               r.difficulty
+            ) &&
+            Array.isArray(r.scores) &&
+            r.scores.length === 2 &&
+            r.scores.every(
+               (n: unknown) =>
+                  typeof n === "number" && Number.isFinite(n) && n >= 0
+            ) &&
+            typeof r.finishedAt === "string" &&
+            [r.marches, r.loners, r.euchres].every(
+               (n) => Number.isInteger(n) && n >= 0
+            )
+      )
+      .map((result) => {
+         const data = result.achievementData;
+         if (
+            data !== undefined &&
+            (!data ||
+               !Array.isArray(data.unlocks) ||
+               !data.unlocks.every((id: unknown) => typeof id === "string") ||
+               !Array.isArray(data.calledSuits) ||
+               !data.calledSuits.every(
+                  (suit: unknown) =>
+                     typeof suit === "string" &&
+                     ["c", "d", "s", "h"].includes(suit)
+               ))
+         ) {
+            return { ...result, achievementData: undefined };
+         }
+         return result;
+      });
 }
 export function recordResult(game: Game, userId?: string | null): boolean {
    if (!userId) return true;
@@ -90,6 +123,7 @@ export function recordResult(game: Game, userId?: string | null): boolean {
       ).length,
       euchres: game.results.filter((r) => r.maker % 2 === 1 && r.tricks[1] < 3)
          .length,
+      achievementData: gameAchievementEvidence(game),
    });
    return writeStorage(resultsKey(userId), results);
 }

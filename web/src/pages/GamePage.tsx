@@ -718,7 +718,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          </main>
          {leaving && !online && (
             <Modal title="Leave the game?" onClose={() => setLeaving(false)}>
-               <p>This game will count as a loss.</p>
+               <p>Only finished games count toward your statistics.</p>
                <div className="button-stack">
                   <Button
                      name="Leave Game"
@@ -942,7 +942,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                            {error}
                         </p>
                      )}
-                     <MenuLink to="/" name="Home" />
+                     {!online && <MenuLink to="/" name="Home" />}
                   </div>
                )}
             </Modal>

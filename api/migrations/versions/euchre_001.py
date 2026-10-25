@@ -50,7 +50,7 @@ def upgrade():
         table = model.__table__
         if table.name in existing:
             columns = {column["name"] for column in inspector.get_columns(table.name)}
-            if not set(table.columns.keys()) <= columns:
+            if not (set(table.columns.keys()) - {"achievement_data"}) <= columns:
                 raise RuntimeError(
                     "Existing Euchre columns are incompatible; no data was replaced"
                 )
