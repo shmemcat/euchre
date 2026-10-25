@@ -1,3 +1,4 @@
+import { useTurnIndicator } from "@/context/TurnSoundContext";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
@@ -53,8 +54,7 @@ import containers from "@/styles/containers.module.css";
 function seatBadge(game: Game, seat: Seat): string {
    const name = seatName(game, seat);
    const botNumber = name.match(/^Bot\s+(\d+)$/i)?.[1];
-   if (game.humanSeats?.[seat] === false && botNumber)
-      return `B${botNumber}`;
+   if (game.humanSeats?.[seat] === false && botNumber) return `B${botNumber}`;
    return name.trim().charAt(0).toUpperCase();
 }
 
@@ -122,18 +122,39 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    useEffect(() => {
       // Keep the mini-hand opacity transitions on the opening's pause clock.
       boardRef.current?.querySelectorAll(".hidden-hand").forEach((hand) => {
-         hand.getAnimations?.().forEach((animation) =>
-            paused ? animation.pause() : animation.play()
-         );
+         hand
+            .getAnimations?.()
+            .forEach((animation) =>
+               paused ? animation.pause() : animation.play()
+            );
       });
    }, [paused, game?.phase]);
-   const inputBlocked = paused || opening.busy || game !== currentGame || !!online?.disabled;
+   const inputBlocked =
+      paused || opening.busy || game !== currentGame || !!online?.disabled;
    const nudge = useInactivityNudge(
-      !!online && !online.disabled && !inputBlocked && !!game &&
+      !!online &&
+         !online.disabled &&
+         !inputBlocked &&
+         !!game &&
          (game.phase === "round_complete"
             ? !game.nextHandReady?.[0]
-            : game.turn === 0 && ["bidding1", "bidding2", "discard", "playing"].includes(game.phase)),
-      game ? `${game.id}:${game.handNumber}:${game.phase}:${game.trick.length}:${game.passes}` : ""
+            : game.turn === 0 &&
+              ["bidding1", "bidding2", "discard", "playing"].includes(
+                 game.phase
+              )),
+      game
+         ? `${game.id}:${game.handNumber}:${game.phase}:${game.trick.length}:${game.passes}`
+         : ""
+   );
+   useTurnIndicator(
+      !!game &&
+         !inputBlocked &&
+         game.turn === 0 &&
+         game.sittingOut !== 0 &&
+         ["bidding1", "bidding2", "discard", "playing"].includes(game.phase),
+      game
+         ? `${game.id}:${game.handNumber}:${game.phase}:${game.completedTricks.length}:${game.trick.length}:${game.passes}`
+         : ""
    );
    const canPremove =
       game &&
@@ -446,7 +467,9 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             data-dealing={dealing}
             data-phase={game.phase}
             style={dealTimingStyle}
-            className={`${containers["content-border-container"]} game-container${nudge.shaking ? " inactivity-shake" : ""}`}
+            className={`${
+               containers["content-border-container"]
+            } game-container${nudge.shaking ? " inactivity-shake" : ""}`}
             onPointerDown={nudge.reset}
             onKeyDown={nudge.reset}
          >
@@ -455,7 +478,10 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             </div>
             <div id="page-content" tabIndex={-1} className="game-content">
                {online?.idleWarning && !online.disabled && (
-                  <p role="alert" className="inactivity-warning">You’ll be removed for inactivity in 1 minute. Make a move to stay in the game.</p>
+                  <p role="alert" className="inactivity-warning">
+                     You’ll be removed for inactivity in 1 minute. Make a move
+                     to stay in the game.
+                  </p>
                )}
                <div className="play-board">
                   <div className="game-top-row">
@@ -869,10 +895,14 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                   ) : (
                      <Button
                         name={
-                           nextHandReady ? "Waiting for players..." : "Next Hand"
+                           nextHandReady
+                              ? "Waiting for players..."
+                              : "Next Hand"
                         }
                         className="next-hand-button"
-                        aria-label={nextHandReady ? "Waiting for players" : undefined}
+                        aria-label={
+                           nextHandReady ? "Waiting for players" : undefined
+                        }
                         disabled={
                            nextHandReady || (!!online && online.disabled)
                         }

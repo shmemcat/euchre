@@ -11,6 +11,7 @@ import { Howl } from "howler";
 import { asset } from "@/lib/assets";
 import { readStorage, writeStorage } from "@/lib/storage";
 type Sound =
+   | "turn"
    | "notification"
    | "deal"
    | "shuffle"
@@ -22,6 +23,7 @@ type Sound =
    | "round"
    | "win";
 const FILES: Record<Sound, string[]> = {
+   turn: ["sound-on"],
    notification: ["notification"],
    deal: ["card-fan-1"],
    // Short single taps keep adjacent deal packets from sounding like extra cards.
@@ -98,7 +100,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
    useEffect(() => {
       // Decode once and loop the audio buffer without a media-element restart.
       const audio = new Howl({
-         src: [asset("music/sonican-jazzy-lofi-calm-background-loop-541849.mp3")],
+         src: [
+            asset("music/sonican-jazzy-lofi-calm-background-loop-541849.mp3"),
+         ],
          loop: true,
          preload: true,
          onplayerror: () => {

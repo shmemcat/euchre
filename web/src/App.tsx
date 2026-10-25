@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { PreferencesProvider } from "@/context/PreferencesContext";
+import { GearOverlay } from "@/components/SettingsGear";
+import { TurnSoundProvider } from "@/context/TurnSoundContext";
 import { SoundProvider } from "@/context/SoundContext";
 import { GameProvider } from "@/context/GameContext";
 import Home from "@/pages/Home";
@@ -29,50 +31,60 @@ export default function App() {
       <ThemeProvider>
          <AuthProvider>
             <PreferencesProvider>
-               <SoundProvider>
-                  <GameProvider>
-                     <MultiplayerProvider>
-                        <a className="skip-link" href="#page-content">
-                           Skip to content
-                        </a>
-                        <Routes>
-                           <Route path="/" element={<Home />} />
-                           <Route path="/play" element={<Play />} />
-                           <Route
-                              path="/game/create"
-                              element={<CreateGame />}
-                           />
-                           <Route path="/game/join" element={<JoinGame />} />
-                           <Route
-                              path="/game/lobby/:code"
-                              element={<LobbyPage />}
-                           />
-                           <Route
-                              path="/game/multi-play/:code"
-                              element={<MultiplayerGame />}
-                           />
-                           <Route
-                              path="/game/single-play"
-                              element={<GamePage />}
-                           />
-                           <Route path="/rules" element={<Rules />} />
-                           <Route path="/options" element={<Options />} />
-                           <Route
-                              path="/stats"
-                              element={<Navigate to="/leaderboard" replace />}
-                           />
-                           <Route
-                              path="/leaderboard"
-                              element={<Leaderboard />}
-                           />
-                           <Route path="/profile" element={<Profile />} />
-                           <Route path="/user" element={<User />} />
-                           <Route path="/about" element={<About />} />
-                           <Route path="*" element={<NotFound />} />
-                        </Routes>
-                     </MultiplayerProvider>
-                  </GameProvider>
-               </SoundProvider>
+               <TurnSoundProvider>
+                  <SoundProvider>
+                     <GameProvider>
+                        <MultiplayerProvider>
+                           <div style={{ position: "relative" }}>
+                              <a className="skip-link" href="#page-content">
+                                 Skip to content
+                              </a>
+                              <Routes>
+                                 <Route path="/" element={<Home />} />
+                                 <Route path="/play" element={<Play />} />
+                                 <Route
+                                    path="/game/create"
+                                    element={<CreateGame />}
+                                 />
+                                 <Route
+                                    path="/game/join"
+                                    element={<JoinGame />}
+                                 />
+                                 <Route
+                                    path="/game/lobby/:code"
+                                    element={<LobbyPage />}
+                                 />
+                                 <Route
+                                    path="/game/multi-play/:code"
+                                    element={<MultiplayerGame />}
+                                 />
+                                 <Route
+                                    path="/game/single-play"
+                                    element={<GamePage />}
+                                 />
+                                 <Route path="/rules" element={<Rules />} />
+                                 <Route path="/options" element={<Options />} />
+                                 <Route
+                                    path="/stats"
+                                    element={
+                                       <Navigate to="/leaderboard" replace />
+                                    }
+                                 />
+                                 <Route
+                                    path="/leaderboard"
+                                    element={<Leaderboard />}
+                                 />
+                                 <Route path="/profile" element={<Profile />} />
+                                 <Route path="/user" element={<User />} />
+                                 <Route path="/about" element={<About />} />
+                                 <Route path="*" element={<NotFound />} />
+                              </Routes>
+                              <GearOverlay />
+                           </div>
+                        </MultiplayerProvider>
+                     </GameProvider>
+                  </SoundProvider>
+               </TurnSoundProvider>
             </PreferencesProvider>
          </AuthProvider>
       </ThemeProvider>

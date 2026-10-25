@@ -1,4 +1,5 @@
 import { Navigate } from "react-router-dom";
+import { TurnSoundOption } from "@/context/TurnSoundContext";
 import { Helmet } from "react-helmet-async";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { MenuLink } from "@/components/Buttons";
@@ -84,6 +85,7 @@ export default function Options() {
                      ))}
                   </div>
                </section>
+               <TurnSoundOption />
                {!saved && (
                   <p role="alert">
                      Your browser couldn’t save your preferences.

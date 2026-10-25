@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+   act,
+   fireEvent,
+   render,
+   screen,
+   waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
@@ -179,8 +185,12 @@ describe("Sign in", () => {
       expect(
          screen.queryByRole("button", { name: "Settings menu" })
       ).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Options" })).toBeInTheDocument();
+      expect(
+         screen.queryByRole("link", { name: "Profile" })
+      ).not.toBeInTheDocument();
+      expect(
+         screen.queryByRole("link", { name: "Options" })
+      ).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Sign Out" }));
       expect(auth.logout).toHaveBeenCalledOnce();
       auth.user = null;

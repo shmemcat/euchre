@@ -77,8 +77,6 @@ export default function User() {
                      </div>
                      <AccountSummary key={user.id} userId={user.id} />
                      <div className="button-stack account-navigation">
-                        <MenuLink to="/profile" name="Profile" />
-                        <MenuLink to="/options" name="Options" />
                         <Button
                            name={loading ? "Signing out…" : "Sign Out"}
                            onClick={() => void logout()}
