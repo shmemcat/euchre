@@ -41,7 +41,7 @@ def schema_ready():
             db.session.execute(
                 text("SELECT version_num FROM euchre_alembic_version")
             ).scalar()
-            == REVISION
+            in ("euchre_001", "euchre_002")
             and db.session.execute(select(versions["euchre"].c.version)).scalar()
             == "game_accounts_001"
         )
