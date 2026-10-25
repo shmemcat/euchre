@@ -42,6 +42,8 @@ export type Lobby = {
    teams: { name: string; named: boolean; canName: boolean }[];
    difficulty: Difficulty;
    defaultDifficulty?: "hard" | "harder" | "hardest";
+   idleWarning?: boolean;
+   removedReason?: "idle" | "disconnected" | null;
 };
 type Reply = { ok: boolean; error?: string; code?: string; token?: string };
 type Command = {

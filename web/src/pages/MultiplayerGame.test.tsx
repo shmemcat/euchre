@@ -34,6 +34,23 @@ vi.mock("./GamePage", () => ({
    ),
 }));
 
+it("explains inactivity removal and lets the player leave the old table", async () => {
+   const command = vi.fn().mockResolvedValue({ ok: true });
+   vi.mocked(useMultiplayer).mockReturnValue({
+      lobby: { code: "ABC234", status: "playing", seat: 0, revision: 9, isHost: false, removedReason: "idle" } as Lobby,
+      game: newGame("easy", "You"), connected: true, error: "", resumeCode: "ABC234", command,
+   });
+   render(<MemoryRouter initialEntries={["/game/multi-play/ABC234"]}><Routes>
+      <Route path="/game/multi-play/:code" element={<MultiplayerGame />} />
+      <Route path="/play" element={<p>Play menu</p>} />
+   </Routes></MemoryRouter>);
+   expect(screen.getByRole("alert")).toHaveTextContent("removed for inactivity");
+   expect(screen.queryByRole("button", { name: "Next Hand" })).not.toBeInTheDocument();
+   fireEvent.click(screen.getByRole("button", { name: "Back to Play" }));
+   expect(await screen.findByText("Play menu")).toBeInTheDocument();
+   expect(command).toHaveBeenCalledExactlyOnceWith({ type: "leave", code: "ABC234" });
+});
+
 it("binds a ready click to the displayed game and hand", async () => {
    const game = {
       ...newGame("easy", "You"),

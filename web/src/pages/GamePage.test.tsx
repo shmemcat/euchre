@@ -359,6 +359,16 @@ describe("Multiplayer opening animations", () => {
       onLeave: vi.fn(),
    });
 
+   it("shows and clears the server inactivity warning", () => {
+      const connection = { ...online(), idleWarning: true };
+      const game = fixture();
+      const view = board(game, connection);
+      expect(screen.getByRole("alert")).toHaveTextContent("removed for inactivity in 1 minute");
+      connection.idleWarning = false;
+      view.update({ ...game });
+      expect(screen.queryByText(/removed for inactivity/)).not.toBeInTheDocument();
+   });
+
    it("shows a remote order, flies the upcard into your hand, and animates your discard", () => {
       vi.useFakeTimers();
       const game = {

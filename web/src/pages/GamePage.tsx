@@ -20,6 +20,7 @@ import {
    useOpeningSequence,
 } from "@/hooks/useOpeningSequence";
 import { useMultiplayerOpeningSequence } from "@/hooks/useMultiplayerOpeningSequence";
+import { useInactivityNudge } from "@/hooks/useInactivityNudge";
 import { useGame } from "@/context/GameContext";
 import { useSound } from "@/context/SoundContext";
 import { mediumAction } from "@/game/ai";
@@ -82,6 +83,7 @@ export type OnlineGame = {
    error: string;
    isHost: boolean;
    disabled: boolean;
+   idleWarning?: boolean;
    onRematch: () => void;
    onLobby: () => void;
    onLeave: () => void;
@@ -125,7 +127,14 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          );
       });
    }, [paused, game?.phase]);
-   const inputBlocked = paused || opening.busy || game !== currentGame;
+   const inputBlocked = paused || opening.busy || game !== currentGame || !!online?.disabled;
+   const nudge = useInactivityNudge(
+      !!online && !online.disabled && !inputBlocked && !!game &&
+         (game.phase === "round_complete"
+            ? !game.nextHandReady?.[0]
+            : game.turn === 0 && ["bidding1", "bidding2", "discard", "playing"].includes(game.phase)),
+      game ? `${game.id}:${game.handNumber}:${game.phase}:${game.trick.length}:${game.passes}` : ""
+   );
    const canPremove =
       game &&
       game.sittingOut !== 0 &&
@@ -437,12 +446,17 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             data-dealing={dealing}
             data-phase={game.phase}
             style={dealTimingStyle}
-            className={`${containers["content-border-container"]} game-container`}
+            className={`${containers["content-border-container"]} game-container${nudge.shaking ? " inactivity-shake" : ""}`}
+            onPointerDown={nudge.reset}
+            onKeyDown={nudge.reset}
          >
             <div className="game-header">
                <Navbar />
             </div>
             <div id="page-content" tabIndex={-1} className="game-content">
+               {online?.idleWarning && !online.disabled && (
+                  <p role="alert" className="inactivity-warning">You’ll be removed for inactivity in 1 minute. Make a move to stay in the game.</p>
+               )}
                <div className="play-board">
                   <div className="game-top-row">
                      {seat(2)}

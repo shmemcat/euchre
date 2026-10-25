@@ -53,6 +53,14 @@ export default function MultiplayerGame() {
             <MenuLink to={`/game/lobby/${code}`} name="Return to Lobby" />
          </PageLayout>
       );
+   if (lobby.removedReason)
+      return (
+         <PageLayout title="REMOVED FROM GAME">
+            <p role="alert">You were removed {lobby.removedReason === "idle" ? "for inactivity" : "after disconnecting for 2 minutes"}. A bot has taken your seat. This game counts as a loss.</p>
+            {error && <p role="alert" className="inline-error">{error}</p>}
+            <Button name="Back to Play" onClick={leaveLobby} disabled={busy || !multi.connected} />
+         </PageLayout>
+      );
    return (
       <>
          <GamePage
@@ -73,10 +81,11 @@ export default function MultiplayerGame() {
                error:
                   error ||
                   (!multi.connected
-                     ? "Connection lost. Reconnecting… A bot takes over after 30 seconds."
+                     ? "Connection lost. Reconnecting… A bot takes over after 2 minutes."
                      : ""),
                isHost: lobby.isHost,
                disabled: busy || !multi.connected,
+               idleWarning: lobby.idleWarning,
                onRematch: () => send({ type: "play_again" }),
                onLobby: () => send({ type: "rematch" }),
                onLeave: () => {

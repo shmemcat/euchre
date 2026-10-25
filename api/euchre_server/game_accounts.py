@@ -169,6 +169,7 @@ def _cleanup_euchre(user_id):
         snapshot["revision"] += 1
         for token in tokens:
             mp._disconnections.pop(token, None)
+            mp.cancel_idle(token)
         for sid, client in list(mp._clients.items()):
             if client.get("userId") == user_id or client.get("token") in tokens:
                 mp._clients.pop(sid, None)

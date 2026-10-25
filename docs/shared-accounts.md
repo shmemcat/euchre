@@ -96,7 +96,10 @@ verify bot decisions. Multiplayer uses server-generated deals and server-validat
 moves. Only the service records multiplayer outcomes for the accounts that joined
 each seat; both winning teammates receive a win. Private snapshots expose only
 the requesting player's hand and public card counts. Explicit departures count
-as losses; a disconnected player has 30 seconds to reconnect before bot takeover.
+as losses; a disconnected player has 2 minutes to reconnect before bot takeover.
+Inactivity reminders match Hearts: a sound and shake after 15 seconds when input
+is available, a warning at 9 minutes, and removal at 10 minutes. Removed seats
+cannot be reclaimed during the current game.
 
 ## Source repositories
 

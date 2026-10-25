@@ -27,6 +27,7 @@ def tables(accounts, monkeypatch):
     mp._clients.clear()
     mp._jobs.clear()
     mp._disconnections.clear()
+    mp._idle.clear()
     tasks = []
     monkeypatch.setattr(
         socketio, "start_background_task", lambda fn: tasks.append(fn) or fn
@@ -54,6 +55,7 @@ def tables(accounts, monkeypatch):
     mp._clients.clear()
     mp._jobs.clear()
     mp._disconnections.clear()
+    mp._idle.clear()
 
 
 def cmd(client, kind, **data):
@@ -94,6 +96,85 @@ def state(client):
     ]
     assert events
     return events[-1]
+
+
+def idle_tasks(tasks, mp, token):
+    import inspect
+
+    timer = mp._idle[token]
+    callbacks = {}
+    for task in tasks:
+        captures = inspect.getclosurevars(task).nonlocals
+        if captures.get("timer") is timer:
+            callbacks[task.__name__] = task
+    return callbacks["warn"], callbacks["expire"]
+
+
+def test_idle_warning_move_cancellation_stale_callbacks_and_bot_takeover(
+    tables, monkeypatch
+):
+    from euchre_server import socketio
+
+    connect, tasks, mp = tables
+    host, guest = connect(), connect()
+    created = cmd(host, "create", name="Host")
+    code, token = created["code"], created["token"]
+    join(guest, code, 1)
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    table["game"].update(phase="bidding1", turn=0, passes=0)
+    assert cmd(host, "watch", code=code, token=token)["ok"]
+    warn, expire = idle_tasks(tasks, mp, token)
+    delays = []
+    monkeypatch.setattr(socketio, "sleep", delays.append)
+    warn()
+    assert delays == [540]
+    assert state(host)["lobby"]["idleWarning"]
+    assert not state(guest)["lobby"]["idleWarning"]
+    timer = mp._idle[token]
+    assert not cmd(host, "action", revision=-1, action=dict(type="pass"))["ok"]
+    assert mp._idle[token] is timer
+    assert cmd(host, "action", revision=table["revision"], action=dict(type="pass"))[
+        "ok"
+    ]
+    assert not state(host)["lobby"]["idleWarning"]
+    expire()
+    assert delays[-1] == 600
+    assert not table["seats"][0]["bot"]
+    guest_token = table["seats"][1]["token"]
+    _, expire_guest = idle_tasks(tasks, mp, guest_token)
+    expire_guest()
+    assert table["seats"][1]["bot"]
+    assert state(guest)["lobby"]["removedReason"] == "idle"
+    assert not cmd(
+        guest, "action", revision=table["revision"], action=dict(type="pass")
+    )["ok"]
+    assert cmd(guest, "watch", code=code, token=guest_token)["ok"]
+    assert table["seats"][1]["bot"]
+
+
+def test_idle_expiry_pauses_during_account_outage(tables, accounts, existing_user):
+    from euchre_server import app
+
+    connect, tasks, mp = tables
+    sign_in(accounts)
+    host, guest = connect(accounts), connect()
+    created = cmd(host, "create")
+    join(guest, created["code"], 1)
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(created["code"])
+    table["game"].update(phase="bidding1", turn=0, passes=0)
+    assert cmd(host, "watch", code=created["code"], token=created["token"])["ok"]
+    _, expire = idle_tasks(tasks, mp, created["token"])
+    peer = app.extensions["accounts"]
+    peer.unavailable = True
+    expire()
+    assert not table["seats"][0]["bot"]
+    peer.unavailable = False
+    tasks[-1]()
+    assert not table["seats"][0]["bot"]
+    tasks[-1]()
+    assert table["seats"][0]["bot"]
 
 
 def join(client, code, seat, name="Guest"):
@@ -538,8 +619,9 @@ def test_disconnect_grace_bot_takeover_reconnect_and_host_migration(tables):
     assert table["participants"][0]["conceded"]
     recovered = connect()
     assert cmd(recovered, "watch", code=code, token=token)["ok"]
-    assert not table["seats"][0]["bot"]
-    assert not table["participants"][0]["conceded"]
+    assert table["seats"][0]["bot"]
+    assert table["participants"][0]["conceded"]
+    assert state(recovered)["lobby"]["removedReason"] == "disconnected"
 
 
 def test_explicit_departure_cannot_reclaim_or_name_team(tables):

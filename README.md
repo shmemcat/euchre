@@ -116,8 +116,12 @@ The app is prepared for `cards.shmem.dev/euchre/`:
   Hard levels compare 32/128/384 hypothetical deals using Medium rollouts.
   The browser's strategic rollout policy and late-hand search are specific to
   solo Hard levels. Online bots never use the actual opponents' hands.
-- Disconnects have a 30-second grace period, then a bot takes over. A reconnect
-  can reclaim that seat. Leaving explicitly forfeits the game and gives the
+- Multiplayer matches Hearts: a sound and shake after 15 seconds when a decision
+  is available, a warning at 9 minutes, and removal with bot takeover at 10 minutes.
+  Bidding, discarding, playing and Next Hand all count; waiting for other players
+  does not. Making a move clears the warning. Disconnects have a 2-minute grace
+  period. Reconnecting before it expires keeps the seat; removed seats cannot
+  be reclaimed during that game. Leaving explicitly forfeits the game and gives the
   seat to a bot. Hosting passes to the earliest remaining lobby arrival,
   regardless of seat changes. Team naming transfers to the remaining teammates.
   Hosts can Leave Lobby to keep the group together or Close Lobby to end it.

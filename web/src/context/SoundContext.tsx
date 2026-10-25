@@ -11,6 +11,7 @@ import { Howl } from "howler";
 import { asset } from "@/lib/assets";
 import { readStorage, writeStorage } from "@/lib/storage";
 type Sound =
+   | "notification"
    | "deal"
    | "shuffle"
    | "trump"
@@ -21,6 +22,7 @@ type Sound =
    | "round"
    | "win";
 const FILES: Record<Sound, string[]> = {
+   notification: ["notification"],
    deal: ["card-fan-1"],
    // Short single taps keep adjacent deal packets from sounding like extra cards.
    shuffle: ["card-deal-group-1", "card-deal-group-2"],
