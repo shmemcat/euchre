@@ -629,7 +629,10 @@ def register_euchre_socket(socketio, app):
                             joined=max((m["joined"] for m in members(table)), default=0)
                             + 1,
                             lobbyJoined=max(
-                                (m.get("lobbyJoined", m["joined"]) for m in members(table)),
+                                (
+                                    m.get("lobbyJoined", m["joined"])
+                                    for m in members(table)
+                                ),
                                 default=0,
                             )
                             + 1,
@@ -709,7 +712,10 @@ def register_euchre_socket(socketio, app):
                             old.get("lobbyJoined", old["joined"])
                             if old
                             else max(
-                                (s.get("lobbyJoined", s["joined"]) for s in members(table)),
+                                (
+                                    s.get("lobbyJoined", s["joined"])
+                                    for s in members(table)
+                                ),
                                 default=0,
                             )
                             + 1

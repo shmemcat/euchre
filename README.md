@@ -116,7 +116,9 @@ The app is prepared for `cards.shmem.dev/euchre/`:
   solo Hard levels. Online bots never use the actual opponents' hands.
 - Disconnects have a 30-second grace period, then a bot takes over. A reconnect
   can reclaim that seat. Leaving explicitly forfeits the game and gives the
-  seat to a bot. Hosting and team naming transfer to the remaining humans.
+  seat to a bot. Hosting passes to the earliest remaining lobby arrival,
+  regardless of seat changes. Team naming transfers to the remaining teammates.
+  Hosts can Leave Lobby to keep the group together or Close Lobby to end it.
 - At game end the host can Play Again immediately with the same partners and
   difficulty, or choose Back to Lobby to rearrange the group. Invitations,
   seats and team names carry over.

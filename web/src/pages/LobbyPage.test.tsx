@@ -414,25 +414,28 @@ it("rejoins the waiting room when returning to a lobby after leaving", () => {
    expect(command).toHaveBeenCalledWith({ type: "watch", code: "ABC234" });
 });
 
-it("does not rejoin the waiting room while leaving the lobby", async () => {
-   lobby = { ...lobby, isHost: false };
-   let finishLeaving: (value: { ok: boolean }) => void;
-   command.mockImplementation(
-      () =>
-         new Promise((resolve) => {
-            finishLeaving = resolve;
-         })
-   );
-   const user = userEvent.setup();
-   const view = render(page());
-   await user.click(screen.getByRole("button", { name: "Leave Lobby" }));
-   lobby = { ...lobby, seat: null, isMember: false, memberName: "" };
-   view.rerender(page());
-   expect(command).toHaveBeenCalledOnce();
-   expect(command).toHaveBeenCalledWith({ type: "leave", code: "ABC234" });
-   finishLeaving!({ ok: true });
-   expect(await screen.findByText("Choose a game")).toBeInTheDocument();
-});
+it.each([false, true])(
+   "does not rejoin the waiting room while leaving the lobby (host: %s)",
+   async (isHost) => {
+      lobby = { ...lobby, isHost };
+      let finishLeaving: (value: { ok: boolean }) => void;
+      command.mockImplementation(
+         () =>
+            new Promise((resolve) => {
+               finishLeaving = resolve;
+            })
+      );
+      const user = userEvent.setup();
+      const view = render(page());
+      await user.click(screen.getByRole("button", { name: "Leave Lobby" }));
+      lobby = { ...lobby, seat: null, isMember: false, memberName: "" };
+      view.rerender(page());
+      expect(command).toHaveBeenCalledOnce();
+      expect(command).toHaveBeenCalledWith({ type: "leave", code: "ABC234" });
+      finishLeaving!({ ok: true });
+      expect(await screen.findByText("Choose a game")).toBeInTheDocument();
+   }
+);
 
 it("shows new arrivals without blocking the seated host from starting", () => {
    lobby = {

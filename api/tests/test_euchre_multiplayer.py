@@ -294,7 +294,8 @@ def test_host_departure_transfers_in_join_order_skipping_bots_and_empty_seats(
     table = mp.get_table(code)
     if lobby_status == "finished":
         table["game"].update(
-            phase="game_over", scores=[10, 4],
+            phase="game_over",
+            scores=[10, 4],
             finishedAt=datetime.now(timezone.utc).isoformat(),
         )
         mp.record_results(table)
@@ -331,7 +332,8 @@ def test_last_human_leaving_closes_lobby_without_changing_finished_result(
         assert cmd(host, "start")["ok"]
         table = mp.get_table(code)
         table["game"].update(
-            phase="game_over", scores=[10, 4],
+            phase="game_over",
+            scores=[10, 4],
             finishedAt=datetime.now(timezone.utc).isoformat(),
         )
         mp.record_results(table)

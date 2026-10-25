@@ -541,7 +541,7 @@ export default function LobbyPage() {
                               onClick={() => fire({ type: "close" })}
                            />
                         )}
-                        {inGroup && !lobby.isHost && (
+                        {inGroup && (
                            <Button
                               name="Leave Lobby"
                               disabled={busy}
