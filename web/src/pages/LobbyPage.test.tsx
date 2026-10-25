@@ -2,7 +2,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useMultiplayer, type Lobby } from "@/context/MultiplayerContext";
 import { useAuth } from "@/context/AuthContext";
 import LobbyPage from "./LobbyPage";
@@ -17,6 +17,17 @@ vi.mock("@/context/PreferencesContext", () => ({
 vi.mock("@/components/Navbar", () => ({ Navbar: () => null }));
 const command = vi.fn();
 let lobby: Lobby;
+function mobileViewport() {
+   vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+         matches: true,
+         addEventListener: vi.fn(),
+         removeEventListener: vi.fn(),
+      }))
+   );
+}
+afterEach(() => vi.unstubAllGlobals());
 function page() {
    return (
       <HelmetProvider>
@@ -180,26 +191,133 @@ it("keeps the edited name after a failed save and closes after retrying", async 
    expect(command).toHaveBeenCalledTimes(2);
 });
 
-it("asks the host for bot difficulty before starting", async () => {
+it("opens the mobile name popup only when requested and saves with Enter", async () => {
+   mobileViewport();
    const user = userEvent.setup();
    render(page());
-   await user.click(screen.getByRole("button", { name: "Start Game" }));
-   expect(command).not.toHaveBeenCalled();
-   const dialog = screen.getByRole("dialog");
+   const trigger = screen.getByRole("button", { name: "Edit Team 1 name" });
+   expect(screen.queryByLabelText("Team 1 name")).not.toBeInTheDocument();
    expect(
-      within(dialog).getByRole("radio", { name: "easy", exact: true })
-   ).toBeChecked();
-   expect(dialog).toHaveTextContent("3 seats will be filled with bots");
-   await user.click(
-      within(dialog).getByRole("radio", { name: "hardest", exact: true })
+      within(screen.getByRole("region", { name: "Team 2" })).getByRole("button")
+   ).toBeDisabled();
+
+   await user.click(trigger);
+   const dialog = screen.getByRole("dialog", { name: "Team 1 Name" });
+   const input = within(dialog).getByLabelText("Team 1 name");
+   expect(dialog).toContainElement(document.activeElement as HTMLElement);
+   expect(
+      within(dialog).getByRole("button", { name: "Save Team Name" })
+   ).toBeDisabled();
+   await user.type(input, "Moon Cats{Enter}");
+   await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
    );
-   await user.click(within(dialog).getByRole("button", { name: "Start!" }));
-   expect(command).toHaveBeenCalledWith({
-      type: "start",
+   expect(command).toHaveBeenCalledExactlyOnceWith({
+      type: "name",
       code: "ABC234",
-      difficulty: "hardest",
+      name: "Moon Cats",
    });
+   expect(trigger).toHaveFocus();
 });
+
+it("discards a mobile name draft on Cancel or Escape without saving", async () => {
+   mobileViewport();
+   lobby.teams[0] = { name: "Moon Cats", named: true, canName: true };
+   const user = userEvent.setup();
+   render(page());
+   const trigger = screen.getByRole("button", { name: "Edit Team 1 name" });
+   await user.click(trigger);
+   await user.clear(screen.getByLabelText("Team 1 name"));
+   await user.type(screen.getByLabelText("Team 1 name"), "Sun Cats");
+   await user.click(screen.getByRole("button", { name: "Cancel" }));
+   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+   expect(trigger).toHaveFocus();
+   await user.click(trigger);
+   expect(screen.getByLabelText("Team 1 name")).toHaveValue("Moon Cats");
+   await user.keyboard("{Escape}");
+   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+   expect(trigger).toHaveFocus();
+   expect(command).not.toHaveBeenCalled();
+});
+
+it("keeps a failed mobile name draft and shows the error inside the popup", async () => {
+   mobileViewport();
+   command.mockRejectedValueOnce(
+      new Error("The team name could not be saved.")
+   );
+   const user = userEvent.setup();
+   render(page());
+   await user.click(screen.getByRole("button", { name: "Edit Team 1 name" }));
+   const dialog = screen.getByRole("dialog");
+   await user.type(within(dialog).getByLabelText("Team 1 name"), "Moon Cats");
+   await user.click(
+      within(dialog).getByRole("button", { name: "Save Team Name" })
+   );
+   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "could not be saved"
+   );
+   expect(within(dialog).getByLabelText("Team 1 name")).toHaveValue(
+      "Moon Cats"
+   );
+   await user.click(
+      within(dialog).getByRole("button", { name: "Save Team Name" })
+   );
+   await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+   );
+   expect(command).toHaveBeenCalledTimes(2);
+});
+
+it("closes the mobile popup if another teammate takes naming rights", async () => {
+   mobileViewport();
+   const user = userEvent.setup();
+   const view = render(page());
+   await user.click(screen.getByRole("button", { name: "Edit Team 1 name" }));
+   await user.type(screen.getByLabelText("Team 1 name"), "Moon Cats");
+   lobby = {
+      ...lobby,
+      revision: lobby.revision + 1,
+      teams: [
+         { name: "Star Cats", named: true, canName: false },
+         lobby.teams[1],
+      ],
+   };
+   view.rerender(page());
+   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+   expect(
+      within(screen.getByRole("region", { name: "Team 1" })).getByRole("button")
+   ).toBeDisabled();
+   expect(command).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+   "asks the host for bot difficulty before starting (mobile=%s)",
+   async (mobile) => {
+      if (mobile) mobileViewport();
+      const user = userEvent.setup();
+      render(page());
+      await user.click(screen.getByRole("button", { name: "Start Game" }));
+      expect(command).not.toHaveBeenCalled();
+      const dialog = screen.getByRole("dialog");
+      expect(
+         within(dialog).getByRole("radio", { name: "easy", exact: true })
+      ).toBeChecked();
+      if (mobile) {
+         expect(dialog).not.toHaveTextContent("filled with bots");
+         expect(within(dialog).getByText("Bot difficulty")).toBeVisible();
+      } else
+         expect(dialog).toHaveTextContent("3 seats will be filled with bots");
+      await user.click(
+         within(dialog).getByRole("radio", { name: "hardest", exact: true })
+      );
+      await user.click(within(dialog).getByRole("button", { name: "Start!" }));
+      expect(command).toHaveBeenCalledWith({
+         type: "start",
+         code: "ABC234",
+         difficulty: "hardest",
+      });
+   }
+);
 
 it("offers regular Hard to guests rather than a previous account's Hard preference", async () => {
    vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<
@@ -457,38 +575,47 @@ it("shows new arrivals without blocking the seated host from starting", () => {
    expect(screen.getByRole("button", { name: "Start Game" })).toBeEnabled();
 });
 
-it("lets a new guest enter a name and take a seat with one click", async () => {
-   vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<
-      typeof useAuth
-   >);
-   lobby = {
-      ...lobby,
-      seat: null,
-      isHost: false,
-      memberName: "Guest",
-      needsName: true,
-      unseated: [
-         {
-            name: "Guest",
-            mine: true,
-            host: false,
-            connected: true,
-            reserved: false,
-         },
-      ],
-   };
-   const user = userEvent.setup();
-   render(page());
-   await user.type(screen.getByRole("textbox", { name: "Your name" }), "Sam");
-   await user.click(screen.getAllByRole("button", { name: "Select Seat" })[0]);
-   expect(command).toHaveBeenCalledOnce();
-   expect(command).toHaveBeenCalledWith({
-      type: "join",
-      code: "ABC234",
-      seat: 1,
-      name: "Sam",
-   });
-});
+it.each([false, true])(
+   "lets a new guest enter a name and take a seat with one click (mobile=%s)",
+   async (mobile) => {
+      if (mobile) mobileViewport();
+      vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<
+         typeof useAuth
+      >);
+      lobby = {
+         ...lobby,
+         seat: null,
+         isHost: false,
+         memberName: "Guest",
+         needsName: true,
+         unseated: [
+            {
+               name: "Guest",
+               mine: true,
+               host: false,
+               connected: true,
+               reserved: false,
+            },
+         ],
+      };
+      const user = userEvent.setup();
+      render(page());
+      await user.type(
+         screen.getByRole("textbox", { name: "Your name" }),
+         "Sam"
+      );
+      await user.click(
+         screen.getAllByRole("button", { name: "Select Seat" })[0]
+      );
+      expect(command).toHaveBeenCalledOnce();
+      expect(command).toHaveBeenCalledWith({
+         type: "join",
+         code: "ABC234",
+         seat: 1,
+         name: "Sam",
+      });
+   }
+);
 
 it("saves an unseated guest's name in the waiting room on blur", async () => {
    vi.mocked(useAuth).mockReturnValue({ user: null } as ReturnType<

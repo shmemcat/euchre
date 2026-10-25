@@ -14,6 +14,21 @@ describe("Local game persistence", () => {
       expect(saveGame(game)).toBe(true);
       expect(loadGame()).toEqual(game);
    });
+   it("does not expire a single-player save after a long absence", () => {
+      vi.useFakeTimers();
+      try {
+         vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+         const game = newGame();
+         expect(saveGame(game)).toBe(true);
+
+         vi.setSystemTime(new Date("2126-01-01T00:00:00Z"));
+
+         expect(loadGame()).toEqual(game);
+         expect(localStorage.getItem(GAME_KEY)).not.toBeNull();
+      } finally {
+         vi.useRealTimers();
+      }
+   });
    it("gives older saved games stable bot names without changing the hand", () => {
       const legacy = newGame();
       delete legacy.seatNames;

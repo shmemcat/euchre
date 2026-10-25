@@ -54,6 +54,8 @@ Current production pins and the guarded combined rollback remain unchanged.
   showing unchanged totals. In multiplayer, every human clicks Next Hand before
   the next deal begins; bots are ready automatically.
 - First partnership to 10 wins; no rubber points.
+- Single-player decisions have no time limit. Bidding, discarding, playing a
+  card, and choosing Next Hand wait indefinitely; saved solo games do not expire.
 - Easy: loose bidding, mostly sensible card play and discards, and occasional
   random legal choices.
 - Medium: heuristic bidding, discards, and cooperative card play.

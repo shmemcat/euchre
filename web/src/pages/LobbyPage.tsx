@@ -7,6 +7,8 @@ import {
    faCheck,
    faCrown,
    faRobot,
+   faUser,
+   faPencil,
 } from "@fortawesome/pro-solid-svg-icons";
 import { PageLayout } from "@/components/ui/PageLayout";
 import { Button, MenuLink } from "@/components/Buttons";
@@ -17,34 +19,139 @@ import { useMultiplayer, type Lobby } from "@/context/MultiplayerContext";
 import { getProfileIcon } from "@/lib/profileIcons";
 import styles from "@/styles/lobby.module.css";
 
+const MOBILE_LOBBY_QUERY = "(max-width: 768px)";
+
+function useMobileLobby() {
+   const [mobile, setMobile] = useState(
+      () => window.matchMedia?.(MOBILE_LOBBY_QUERY).matches ?? false
+   );
+   useEffect(() => {
+      const query = window.matchMedia?.(MOBILE_LOBBY_QUERY);
+      if (!query) return;
+      const update = () => setMobile(query.matches);
+      update();
+      query.addEventListener?.("change", update);
+      return () => query.removeEventListener?.("change", update);
+   }, []);
+   return mobile;
+}
+
 function TeamName({
    side,
    team,
    members,
    busy,
+   mobile,
    save,
 }: {
    side: number;
    team: Lobby["teams"][number];
    members: string[];
    busy: boolean;
+   mobile: boolean;
    save: (name: string) => Promise<void>;
 }) {
-   const [editing, setEditing] = useState(!team.named);
+   const [editing, setEditing] = useState(!mobile && !team.named);
    const [name, setName] = useState(team.named ? team.name : "");
+   const [saveError, setSaveError] = useState("");
    useEffect(() => {
       setName(team.named ? team.name : "");
-      setEditing(!team.named);
-   }, [team.name, team.named]);
+      setEditing(!mobile && !team.named);
+      setSaveError("");
+   }, [team.name, team.named, mobile]);
    const submit = async (e: FormEvent) => {
       e.preventDefault();
+      setSaveError("");
       try {
          await save(name);
          setEditing(false);
-      } catch {
-         // The lobby shows the error; keep the draft open for another try.
+      } catch (e) {
+         // Keep the draft open; mobile errors must also be visible in the popup.
+         setSaveError((e as Error).message);
       }
    };
+   const editor = (
+      <form
+         className={mobile ? styles.teamNameForm : "lobby-team-form"}
+         onSubmit={submit}
+      >
+         <label
+            className={mobile ? undefined : "sr-only"}
+            htmlFor={`team-name-${side}`}
+         >
+            Team {side + 1} name
+         </label>
+         <input
+            id={`team-name-${side}`}
+            placeholder="Name your team"
+            value={name}
+            maxLength={24}
+            required
+            onChange={(e) => setName(e.target.value)}
+         />
+         {mobile ? (
+            <>
+               {saveError && (
+                  <p className="inline-error" role="alert">
+                     {saveError}
+                  </p>
+               )}
+               <div className={styles.teamNameActions}>
+                  <Button
+                     name="Save Team Name"
+                     type="submit"
+                     disabled={busy || !name.trim()}
+                  />
+                  <Button
+                     name="Cancel"
+                     variant="secondary"
+                     disabled={busy}
+                     onClick={() => setEditing(false)}
+                  />
+               </div>
+            </>
+         ) : (
+            <button disabled={busy || !name.trim()} type="submit">
+               Save
+            </button>
+         )}
+      </form>
+   );
+   if (mobile)
+      return (
+         <section className={styles.mobileTeam} aria-label={`Team ${side + 1}`}>
+            <Button
+               name={team.name}
+               size="compact"
+               variant="secondary"
+               className={styles.teamNameButton}
+               aria-label={
+                  team.canName
+                     ? `Edit Team ${side + 1} name`
+                     : `Team ${side + 1}: ${team.name}`
+               }
+               aria-describedby={`team-current-name-${side}`}
+               disabled={busy || !team.canName}
+               onClick={() => {
+                  setName(team.named ? team.name : "");
+                  setSaveError("");
+                  setEditing(true);
+               }}
+            >
+               <span id={`team-current-name-${side}`}>{team.name}</span>
+               <FontAwesomeIcon icon={faPencil} />
+            </Button>
+            {editing && team.canName && (
+               <Modal
+                  title={`Team ${side + 1} Name`}
+                  className={styles.teamNameModal}
+                  onClose={() => setEditing(false)}
+               >
+                  {editor}
+               </Modal>
+            )}
+         </section>
+      );
    return (
       <section
          className={`lobby-team lobby-team-${side}`}
@@ -58,22 +165,7 @@ function TeamName({
             {members.length ? members.join(" & ") : "Waiting for teammates"}
          </span>
          {team.canName && editing ? (
-            <form className="lobby-team-form" onSubmit={submit}>
-               <label className="sr-only" htmlFor={`team-name-${side}`}>
-                  Team {side + 1} name
-               </label>
-               <input
-                  id={`team-name-${side}`}
-                  placeholder="Name your team"
-                  value={name}
-                  maxLength={24}
-                  required
-                  onChange={(e) => setName(e.target.value)}
-               />
-               <button disabled={busy || !name.trim()} type="submit">
-                  Save
-               </button>
-            </form>
+            editor
          ) : team.canName ? (
             <button
                className="link lobby-team-edit"
@@ -102,6 +194,7 @@ export default function LobbyPage() {
    const { user } = useAuth();
    const { preferences } = usePreferences();
    const navigate = useNavigate();
+   const mobile = useMobileLobby();
    const [name, setName] = useState("");
    const [error, setError] = useState("");
    const [busy, setBusy] = useState(false);
@@ -192,6 +285,19 @@ export default function LobbyPage() {
       /\/$/,
       ""
    )}/game/lobby/${code}`;
+   const leaveLobbyButton = inGroup ? (
+      <Button
+         name="Leave Lobby"
+         variant={mobile ? "secondary" : "primary"}
+         disabled={busy}
+         onClick={() => {
+            setLeaving(true);
+            void run({ type: "leave" })
+               .then(() => navigate("/play"))
+               .catch(() => setLeaving(false));
+         }}
+      />
+   ) : null;
    return (
       <>
          <Helmet>
@@ -276,28 +382,47 @@ export default function LobbyPage() {
                                              : ""
                                        }`}
                                     >
+                                       {mobile && (
+                                          <span className={styles.seatIcon}>
+                                             <FontAwesomeIcon
+                                                icon={
+                                                   s.status === "empty"
+                                                      ? faUser
+                                                      : s.status === "ai"
+                                                      ? faRobot
+                                                      : getProfileIcon(s.icon)
+                                                }
+                                             />
+                                          </span>
+                                       )}
                                        <span className={styles.seatName}>
                                           {s.status === "empty" ? (
-                                             <>
-                                                Waiting
-                                                <span
-                                                   className={
-                                                      styles.waitingDots
-                                                   }
-                                                   aria-hidden="true"
-                                                />
-                                             </>
+                                             mobile ? (
+                                                "Open seat"
+                                             ) : (
+                                                <>
+                                                   Waiting
+                                                   <span
+                                                      className={
+                                                         styles.waitingDots
+                                                      }
+                                                      aria-hidden="true"
+                                                   />
+                                                </>
+                                             )
                                           ) : (
                                              <>
-                                                <FontAwesomeIcon
-                                                   icon={
-                                                      s.status === "ai"
-                                                         ? faRobot
-                                                         : getProfileIcon(
-                                                              s.icon
-                                                           )
-                                                   }
-                                                />{" "}
+                                                {!mobile && (
+                                                   <FontAwesomeIcon
+                                                      icon={
+                                                         s.status === "ai"
+                                                            ? faRobot
+                                                            : getProfileIcon(
+                                                                 s.icon
+                                                              )
+                                                      }
+                                                   />
+                                                )}{" "}
                                                 {s.name}{" "}
                                              </>
                                           )}
@@ -309,17 +434,34 @@ export default function LobbyPage() {
                                           )}
                                        </span>
                                        <span className={styles.seatLabel}>
-                                          {s.mine
-                                             ? "You"
-                                             : s.status === "empty"
-                                             ? "Open"
-                                             : s.status === "ai"
-                                             ? "Bot"
-                                             : s.connected
-                                             ? "Player"
-                                             : "Reconnecting…"}
+                                          {s.mine ? (
+                                             "You"
+                                          ) : s.status === "empty" ? (
+                                             mobile ? (
+                                                <>
+                                                   Waiting
+                                                   <span
+                                                      className={
+                                                         styles.waitingDots
+                                                      }
+                                                      aria-hidden="true"
+                                                   />
+                                                </>
+                                             ) : (
+                                                "Open"
+                                             )
+                                          ) : s.status === "ai" ? (
+                                             "Bot"
+                                          ) : s.connected ? (
+                                             "Player"
+                                          ) : (
+                                             "Reconnecting…"
+                                          )}
                                        </span>
-                                       <span className="lobby-seat-team">
+                                       <span
+                                          className="lobby-seat-team"
+                                          title={lobby.teams[i % 2].name}
+                                       >
                                           {lobby.teams[i % 2].name}
                                        </span>
                                        {lobby.status === "waiting" &&
@@ -341,6 +483,7 @@ export default function LobbyPage() {
                                           s.status !== "human" && (
                                              <button
                                                 className={styles.selectSeatBtn}
+                                                data-seat-choice
                                                 disabled={
                                                    busy || !multi.connected
                                                 }
@@ -487,13 +630,18 @@ export default function LobbyPage() {
                                     ))}
                                  </div>
                               )}
-                              <div className="lobby-teams">
+                              <div
+                                 className={`lobby-teams ${
+                                    mobile ? styles.mobileTeams : ""
+                                 }`}
+                              >
                                  {lobby.teams.map((t, i) => (
                                     <TeamName
                                        key={`${i}:${t.canName}`}
                                        side={i}
                                        team={t}
                                        busy={busy || !multi.connected}
+                                       mobile={mobile}
                                        members={lobby.seats
                                           .filter(
                                              (s) =>
@@ -517,7 +665,7 @@ export default function LobbyPage() {
                      {error}
                   </p>
                )}
-               <div className="button-stack">
+               <div className={`button-stack ${styles.lobbyActions}`}>
                   {error && !lobby && !needsSwitch && (
                      <Button
                         name="Try Again"
@@ -534,6 +682,7 @@ export default function LobbyPage() {
                               onClick={() => fire({ type: "rematch" })}
                            />
                         )}
+                        {mobile && leaveLobbyButton}
                         {lobby.isHost && (
                            <Button
                               name="Close Lobby"
@@ -541,18 +690,7 @@ export default function LobbyPage() {
                               onClick={() => fire({ type: "close" })}
                            />
                         )}
-                        {inGroup && (
-                           <Button
-                              name="Leave Lobby"
-                              disabled={busy}
-                              onClick={() => {
-                                 setLeaving(true);
-                                 void run({ type: "leave" })
-                                    .then(() => navigate("/play"))
-                                    .catch(() => setLeaving(false));
-                              }}
-                           />
-                        )}
+                        {!mobile && leaveLobbyButton}
                      </>
                   )}
                   <MenuLink to="/" name="Home" />
@@ -565,12 +703,16 @@ export default function LobbyPage() {
                className="lobby-start-modal"
                onClose={() => setStarting(false)}
             >
-               <p>
-                  {botCount} {botCount === 1 ? "seat" : "seats"} will be filled
-                  with bots
-               </p>
+               {!mobile && (
+                  <p>
+                     {botCount} {botCount === 1 ? "seat" : "seats"} will be
+                     filled with bots
+                  </p>
+               )}
                <fieldset className="lobby-difficulty">
-                  <legend className="sr-only">Bot difficulty</legend>
+                  <legend className={mobile ? undefined : "sr-only"}>
+                     Bot difficulty
+                  </legend>
                   {["easy", "medium", "hard"].map((d) => (
                      <label key={d}>
                         <input

@@ -7,6 +7,7 @@ import { PreferencesProvider } from "@/context/PreferencesContext";
 import { useGame } from "@/context/GameContext";
 import {
    applyAction,
+   cardName,
    legalActions,
    newGame,
    seatName,
@@ -78,6 +79,43 @@ function board(game: Game, online?: Omit<OnlineGame, "game">) {
       },
    };
 }
+
+describe("Unlimited single-player thinking time", () => {
+   it.each([
+      "bidding1", "bidding2", "discard", "playing", "round_complete",
+   ] as const)("waits for your input during %s, even after a month", (phase) => {
+      vi.useFakeTimers();
+      let game = newGame("easy", "You", () => phase === "discard" ? 0 : 0.84);
+      if (phase === "bidding2") {
+         for (let i = 0; i < 4; i++)
+            game = applyAction(game, { type: "pass" });
+      } else if (phase !== "bidding1") {
+         game = applyAction(game, {
+            type: "call", suit: suitOf(game.upCard), alone: false,
+         });
+         while (game.phase !== phase)
+            game = applyAction(game, legalActions(game)[0]);
+      }
+      const action = legalActions(game)[0];
+      const name = action.type === "play" || action.type === "discard"
+         ? cardName(action.card)
+         : action.type === "advance" ? "Next Hand" : "Pass";
+      board(game);
+      act(() => vi.advanceTimersByTime(OPENING_DEAL_MS));
+      const control = screen.getByRole("button", { name });
+      expect(control).toBeEnabled();
+
+      act(() => vi.advanceTimersByTime(30 * 24 * 60 * 60 * 1000));
+
+      expect(takeAction).not.toHaveBeenCalled();
+      expect(concedeGame).not.toHaveBeenCalled();
+      expect(workers).toHaveLength(0);
+      expect(control).toBeEnabled();
+      fireEvent.click(control);
+      act(() => vi.advanceTimersByTime(400));
+      expect(takeAction).toHaveBeenCalledExactlyOnceWith(action);
+   });
+});
 
 describe.each(["single", "host", "guest"])(
    "No-calls summary for %s",
