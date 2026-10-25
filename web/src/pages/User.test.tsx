@@ -176,7 +176,9 @@ describe("Sign in", () => {
       expect(
          screen.getByRole("heading", { name: "Achievements" })
       ).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Settings menu" }));
+      expect(
+         screen.queryByRole("button", { name: "Settings menu" })
+      ).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Options" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Sign Out" }));

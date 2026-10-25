@@ -26,6 +26,7 @@ const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("@/context/SoundContext", () => ({ useSound: () => sound }));
 
 const takeAction = vi.fn();
+const concedeGame = vi.fn();
 const workers: TestWorker[] = [];
 class TestWorker {
    onmessage: ((event: { data: { action: Action } }) => void) | null = null;
@@ -55,7 +56,7 @@ function board(game: Game, online?: Omit<OnlineGame, "game">) {
          saved: true,
          error: "",
          start: vi.fn(),
-         concedeGame: vi.fn(),
+         concedeGame,
       });
    const content = () => (
       <HelmetProvider>
@@ -405,9 +406,84 @@ describe("Multiplayer opening animations", () => {
 
 beforeEach(() => {
    takeAction.mockReset();
+   concedeGame.mockReset();
    sound.play.mockReset();
    workers.length = 0;
    vi.stubGlobal("Worker", TestWorker);
+});
+
+describe("Leaving from match details", () => {
+   it("pauses solo play and only concedes after confirmation", () => {
+      vi.useFakeTimers();
+      board(fixture({ turn: 1 }));
+      fireEvent.click(screen.getByRole("button", { name: "Match details" }));
+      fireEvent.click(screen.getByRole("button", { name: "Leave Game" }));
+      const dialog = within(
+         screen.getByRole("dialog", { name: "Leave the game?" })
+      );
+      expect(dialog.getByText("This game will count as a loss.")).toBeVisible();
+      expect(screen.getByRole("main")).toHaveAttribute(
+         "data-opening-paused", "true"
+      );
+      act(() => vi.advanceTimersByTime(3000));
+      expect(takeAction).not.toHaveBeenCalled();
+      expect(concedeGame).not.toHaveBeenCalled();
+      fireEvent.click(dialog.getByRole("button", { name: "Keep Playing" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByRole("main")).toHaveAttribute(
+         "data-opening-paused", "false"
+      );
+      expect(screen.getByRole("button", { name: "Match details" })).toHaveFocus();
+      expect(concedeGame).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Match details" }));
+      fireEvent.click(screen.getByRole("button", { name: "Leave Game" }));
+      fireEvent.click(
+         within(screen.getByRole("dialog")).getByRole("button", {
+            name: "Leave Game",
+         })
+      );
+      expect(concedeGame).toHaveBeenCalledOnce();
+   });
+
+   it.each([true, false])(
+      "uses the multiplayer leave flow (host=%s)",
+      (isHost) => {
+         const onLeave = vi.fn();
+         board(fixture(), {
+            act: vi.fn(),
+            saved: true,
+            error: "",
+            isHost,
+            disabled: false,
+            onRematch: vi.fn(),
+            onLobby: vi.fn(),
+            onLeave,
+         });
+         fireEvent.click(screen.getByRole("button", { name: "Match details" }));
+         fireEvent.click(screen.getByRole("button", { name: "Leave Game" }));
+         expect(onLeave).toHaveBeenCalledOnce();
+         expect(concedeGame).not.toHaveBeenCalled();
+      }
+   );
+
+   it("disables leaving while multiplayer is busy or disconnected", () => {
+      const onLeave = vi.fn();
+      board(fixture(), {
+         act: vi.fn(),
+         saved: true,
+         error: "",
+         isHost: false,
+         disabled: true,
+         onRematch: vi.fn(),
+         onLobby: vi.fn(),
+         onLeave,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Match details" }));
+      const button = screen.getByRole("button", { name: "Leave Game" });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(onLeave).not.toHaveBeenCalled();
+   });
 });
 
 function completeTrick(alone = false, count = 1): Game {

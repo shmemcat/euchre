@@ -113,6 +113,14 @@
    margin: 0;
    text-align: right;
 }
+.match-divider {
+   margin: 14px 0 16px;
+   border: 0;
+   border-top: 1px solid var(--infopillborder);
+}
+.match-panel .match-leave-button {
+   width: 100%;
+}
 .game-table {
    display: grid;
    grid-template-columns: var(--table-columns);

@@ -128,25 +128,16 @@ def captains(table):
         )
 
 
-def migrate_host(table, after_seat=None):
+def migrate_host(table):
     humans = [s for s in members(table) if not s.get("bot")]
     seated = [s for s in table["seats"] if s and s.get("token") and not s.get("bot")]
     if table["status"] == "playing" and seated:
         humans = seated
     if not any(s["token"] == table["host"] for s in humans):
-        if after_seat is not None:
-            # Seat numbers run clockwise. Skip bots and empty seats.
-            for step in range(1, 5):
-                successor = table["seats"][(after_seat + step) % 4]
-                if (
-                    successor
-                    and successor.get("token")
-                    and not successor.get("bot")
-                ):
-                    table["host"] = successor["token"]
-                    return
         table["host"] = (
-            min(humans, key=lambda s: s["joined"])["token"] if humans else None
+            min(humans, key=lambda s: s.get("lobbyJoined", s["joined"]))["token"]
+            if humans
+            else None
         )
 
 
@@ -455,7 +446,7 @@ def register_euchre_socket(socketio, app):
                 else:
                     table["unseated"].pop(token, None)
                 captains(table)
-                migrate_host(table, after_seat=index)
+                migrate_host(table)
                 changed(table)
 
         socketio.start_background_task(expire)
@@ -570,6 +561,7 @@ def register_euchre_socket(socketio, app):
                                 token=token,
                                 userId=client["userId"],
                                 joined=0,
+                                lobbyJoined=0,
                                 bot=False,
                             ),
                             None,
@@ -635,6 +627,11 @@ def register_euchre_socket(socketio, app):
                             userId=client["userId"],
                             bot=False,
                             joined=max((m["joined"] for m in members(table)), default=0)
+                            + 1,
+                            lobbyJoined=max(
+                                (m.get("lobbyJoined", m["joined"]) for m in members(table)),
+                                default=0,
+                            )
                             + 1,
                             reserved=False,
                             named=bool(client["name"]),
@@ -702,6 +699,17 @@ def register_euchre_socket(socketio, app):
                             if old and index is not None and index % 2 == target % 2
                             else max(
                                 (s.get("joined", 0) for s in members(table)),
+                                default=0,
+                            )
+                            + 1
+                        ),
+                        # Team naming order may change when switching partnerships;
+                        # host succession keeps the original lobby arrival order.
+                        lobbyJoined=(
+                            old.get("lobbyJoined", old["joined"])
+                            if old
+                            else max(
+                                (s.get("lobbyJoined", s["joined"]) for s in members(table)),
                                 default=0,
                             )
                             + 1
@@ -819,7 +827,7 @@ def register_euchre_socket(socketio, app):
                         if c.get("token") == token:
                             c["token"] = None
                     captains(table)
-                    migrate_host(table, after_seat=index)
+                    migrate_host(table)
                 elif kind == "close":
                     if not is_host or table["status"] == "playing":
                         raise ValueError("Only the host can close a waiting lobby.")

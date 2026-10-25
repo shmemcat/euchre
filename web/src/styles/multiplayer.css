@@ -127,11 +127,6 @@
    max-width: 130px;
    overflow-wrap: anywhere;
 }
-.lobby-start {
-   width: 100px;
-   height: 52px;
-   line-height: 1.2;
-}
 .lobby-waiting {
    font-size: 0.85rem;
    line-height: 1.5;

@@ -74,14 +74,13 @@
 /* Seats grid */
 
 .seatsGrid {
-   container-type: inline-size;
    display: grid;
    grid-template-areas:
       ".     top    ."
       "left  center right"
       ".     bottom .";
-   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
-   grid-template-rows: repeat(3, 1fr);
+   grid-template-columns: repeat(3, minmax(0, 1fr));
+   grid-template-rows: repeat(3, auto);
    gap: 12px;
    width: 100%;
    max-width: 420px;
@@ -119,6 +118,21 @@
    gap: 12px;
 }
 
+.seatCenter > :global(.lobby-guest-name) {
+   width: 100%;
+   min-width: 0;
+}
+
+.seatCenter > .startButton {
+   width: 100%;
+   max-width: 100px;
+   min-width: 0;
+   min-height: 52px;
+   padding: 8px 4px;
+   font-size: var(--button-label-size);
+   white-space: normal;
+}
+
 .seat {
    display: flex;
    flex-direction: column;
@@ -130,7 +144,9 @@
    border-radius: 12px;
    background: var(--contentbox);
    border: 2px solid var(--darkpink);
-   width: min(150px, 38cqw);
+   box-sizing: border-box;
+   width: 100%;
+   max-width: 150px;
    min-width: 0;
    text-align: center;
    transition: border-color 0.2s, box-shadow 0.2s;
@@ -142,13 +158,9 @@
 }
 
 .seat.isEmpty {
-   opacity: 0.6;
    border-style: dashed;
-}
-
-.seat.isEmpty:has(.selectSeatBtn) {
-   opacity: 1;
-   border-style: solid;
+   border-color: color-mix(in srgb, var(--darkpink) 65%, transparent);
+   background: color-mix(in srgb, var(--mediumpink) 45%, transparent);
 }
 
 .seatName {
@@ -226,6 +238,7 @@
 }
 
 .joinInput {
+   box-sizing: border-box;
    max-width: 100%;
    padding: 8px 12px;
    border: 2px solid var(--darkpink);
@@ -235,7 +248,7 @@
    font-family: inherit;
    font-size: 0.9rem;
    font-weight: 600;
-   width: 160px;
+   width: 100%;
 }
 
 .joinInput::placeholder {
@@ -254,7 +267,10 @@
    background-color: var(--lightpink);
    color: var(--buttontext);
    border-radius: 8px;
-   padding: 8px 14px;
+   width: 100%;
+   min-width: 0;
+   min-height: 44px;
+   padding: 8px 6px;
    cursor: pointer;
    font-family: inherit;
    font-size: 0.85rem;
@@ -283,14 +299,24 @@
 /* Mobile adjustments */
 @media (max-width: 640px) {
    .seatsGrid {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
       gap: 8px;
-      min-height: 220px;
+      box-sizing: border-box;
+      padding-inline: 8px;
    }
 
    .seat {
-      padding: 8px 10px;
-      width: min(138px, 38cqw);
+      padding: 10px 6px;
+      gap: 3px;
+   }
+
+   .seatName {
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+   }
+
+   .selectSeatBtn {
+      font-size: 0.8rem;
+      letter-spacing: 0.5px;
    }
 
    .lobbyInfo {

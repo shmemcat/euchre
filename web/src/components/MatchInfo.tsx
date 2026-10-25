@@ -2,15 +2,24 @@ import { useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBars } from "@fortawesome/pro-solid-svg-icons";
 import { SuitIcon } from "@/components/Card";
+import { Button } from "@/components/Buttons";
 import { seatName, SUIT_NAMES, type Game } from "@/game/engine";
 
 type Props = {
    game: Game;
    open: boolean;
    onOpenChange: (open: boolean) => void;
+   onLeave: () => void;
+   leaveDisabled?: boolean;
 };
 
-export function MatchInfo({ game, open, onOpenChange }: Props) {
+export function MatchInfo({
+   game,
+   open,
+   onOpenChange,
+   onLeave,
+   leaveDisabled,
+}: Props) {
    const wrap = useRef<HTMLDivElement>(null);
    const trigger = useRef<HTMLButtonElement>(null);
 
@@ -118,6 +127,17 @@ export function MatchInfo({ game, open, onOpenChange }: Props) {
                      <dd className="capitalize">{game.difficulty}</dd>
                   </div>
                </dl>
+               <hr className="match-divider" />
+               <Button
+                  name="Leave Game"
+                  size="compact"
+                  className="match-leave-button"
+                  disabled={leaveDisabled}
+                  onClick={() => {
+                     trigger.current?.focus();
+                     onLeave();
+                  }}
+               />
             </section>
          )}
       </div>

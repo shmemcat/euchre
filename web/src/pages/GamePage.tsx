@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCrown, faUser, faRobot } from "@fortawesome/pro-solid-svg-icons";
 import { Navbar } from "@/components/Navbar";
@@ -87,19 +88,22 @@ export type OnlineGame = {
 };
 export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    const single = useGame();
+   const navigate = useNavigate();
    const { game: currentGame, act: apply, saved, error } = online ?? single;
    const sound = useSound();
    const [alone, setAlone] = useState(false);
    const [info, setInfo] = useState(false);
+   const [leaving, setLeaving] = useState(false);
+   const paused = info || leaving;
    const singleOpening = useOpeningSequence(
       online ? null : currentGame,
       apply,
-      info
+      paused
    );
    const multiplayerOpening = useMultiplayerOpeningSequence(
       online ? currentGame : null,
       apply,
-      info,
+      paused,
       online?.disabled ?? false
    );
    const game = online ? multiplayerOpening.game : currentGame;
@@ -113,7 +117,6 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
       card: CardCode;
    } | null>(null);
    const lastSound = useRef("");
-   const paused = info;
    useEffect(() => {
       // Keep the mini-hand opacity transitions on the opening's pause clock.
       boardRef.current?.querySelectorAll(".hidden-hand").forEach((hand) => {
@@ -430,7 +433,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          </Helmet>
          <main
             ref={boardRef}
-            data-opening-paused={info}
+            data-opening-paused={paused}
             data-dealing={dealing}
             data-phase={game.phase}
             style={dealTimingStyle}
@@ -447,6 +450,13 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                         game={game}
                         open={info}
                         onOpenChange={setInfo}
+                        leaveDisabled={online?.disabled}
+                        onLeave={() => {
+                           setInfo(false);
+                           if (online) online.onLeave();
+                           else if (over) navigate("/play");
+                           else setLeaving(true);
+                        }}
                      />
                   </div>
                   <div className="game-table">
@@ -645,13 +655,13 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      key={`${game.id}:${game.handNumber}`}
                      dealer={game.dealer}
                      board={boardRef}
-                     paused={info}
+                     paused={paused}
                   />
                )}
                <OpeningMotion
                   step={opening.step}
                   board={boardRef}
-                  paused={info}
+                  paused={paused}
                />
                {(error || botError) && (
                   <p role="alert" className="inline-error">
@@ -666,7 +676,25 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                )}
             </div>
          </main>
-         {summary && !info && (
+         {leaving && !online && (
+            <Modal title="Leave the game?" onClose={() => setLeaving(false)}>
+               <p>This game will count as a loss.</p>
+               <div className="button-stack">
+                  <Button
+                     name="Leave Game"
+                     onClick={() => {
+                        single.concedeGame();
+                        navigate("/play");
+                     }}
+                  />
+                  <Button
+                     name="Keep Playing"
+                     onClick={() => setLeaving(false)}
+                  />
+               </div>
+            </Modal>
+         )}
+         {summary && !paused && (
             <Modal
                className={`game-result-modal${
                   over ? " game-complete-modal" : ""

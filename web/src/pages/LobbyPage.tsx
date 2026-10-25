@@ -399,6 +399,7 @@ export default function LobbyPage() {
                                        lobby.status === "waiting" && (
                                           <Button
                                              name="Start Game"
+                                             size="compact"
                                              aria-label="Start Game"
                                              disabled={
                                                 busy ||
@@ -411,7 +412,7 @@ export default function LobbyPage() {
                                                    ? "unseated-players"
                                                    : undefined
                                              }
-                                             className="lobby-start"
+                                             className={styles.startButton}
                                              onClick={() => {
                                                 if (botCount) {
                                                    setDifficulty("easy");

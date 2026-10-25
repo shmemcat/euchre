@@ -32,9 +32,9 @@ Guest games and legacy unassigned results are never assigned to an account.
 - `GET /euchre/leaderboard?category=easy`: public monthly and all-time top-ten win rankings. Categories are easy, medium, hard, harder, hardest, and multiplayer. Profile icons and names come from the shared user record.
 - `GET /euchre/multiplayer-results`: the signed-in account's server-recorded online results, including partnership wins and achievement counters. Multiplayer results cannot be uploaded by clients.
 
-The signed-in Euchre user page owns personal statistics and achievements. Profile
-and Options are reached through its settings gear; guests have neither settings
-nor a custom name. Guest games are not recorded. The personal dashboard still
+The signed-in Euchre user page owns personal statistics and achievements. The
+username button opens this page, with links to Profile and Options; guests have
+neither settings nor a custom name. Guest games are not recorded. The personal dashboard still
 combines account-scoped solo results in this browser with multiplayer results
 from the API. Signed-in bot results sync on game
 completion, sign-in, focus, reconnection, and leaderboard visits. Acknowledged
