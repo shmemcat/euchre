@@ -166,3 +166,39 @@ it("separates seat credentials when the signed-in account changes", async () => 
    expect(clients[1].emit).not.toHaveBeenCalled();
    expect(screen.queryByText("ABC234")).not.toBeInTheDocument();
 });
+
+it("restores a sleeping phone using the same private membership and stops on unmount", async () => {
+   const { unmount } = render(
+      <MultiplayerProvider>
+         <Probe />
+      </MultiplayerProvider>
+   );
+   act(() => clients[0].ready());
+   fireEvent.click(screen.getByRole("button", { name: "Create" }));
+   await screen.findByText("ABC234");
+   const client = clients[0];
+   const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("hidden");
+   act(() => document.dispatchEvent(new Event("visibilitychange")));
+   expect(client.disconnect).not.toHaveBeenCalled();
+   visibility.mockReturnValue("visible");
+   act(() => document.dispatchEvent(new Event("visibilitychange")));
+   expect(client.disconnect).toHaveBeenCalledOnce();
+   expect(client.connect).toHaveBeenCalledTimes(2);
+   act(() => client.ready());
+   await waitFor(() =>
+      expect(client.emit).toHaveBeenLastCalledWith(
+         "command",
+         expect.objectContaining({
+            type: "watch",
+            code: "ABC234",
+            token: "private-seat",
+         }),
+         expect.any(Function)
+      )
+   );
+   unmount();
+   act(() => window.dispatchEvent(new Event("online")));
+   expect(client.connect).toHaveBeenCalledTimes(2);
+});

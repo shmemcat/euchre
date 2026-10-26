@@ -29,7 +29,6 @@ from euchre_server.euchre_engine import new_game, apply_action, bot_action
 from euchre_server.achievements import multiplayer_evidence
 
 NS = "/euchre"
-GRACE_SECONDS = 120
 IDLE_WARNING_SECONDS = 540
 IDLE_TIMEOUT_SECONDS = 600
 TTL_SECONDS = 20 * 60
@@ -70,7 +69,9 @@ def get_table(code):
         if row:
             table = json.loads(row.snapshot)
             _tables[code] = table
-    if not table or time.time() - table["touched"] > TTL_SECONDS:
+    if not table or (
+        table["status"] == "closed" and time.time() - table["touched"] > TTL_SECONDS
+    ):
         raise ValueError("Lobby not found or expired.")
     table.setdefault("unseated", {})
     table.setdefault(
@@ -303,7 +304,9 @@ def game_view(table, token):
     participant = next((p for p in table["participants"] if p["token"] == token), None)
     if g["phase"] == "game_over" and participant and participant["conceded"]:
         g["conceded"] = True
-        g["message"] = "Your seat was replaced by a bot. Only finished games count toward your statistics."
+        g["message"] = (
+            "Your seat was replaced by a bot. Only finished games count toward your statistics."
+        )
     if g["message"].startswith("Seat "):
         for i, s in enumerate(table["seats"]):
             g["message"] = g["message"].replace(f"Seat {i + 1} ", s["name"] + " ")
@@ -442,12 +445,12 @@ def register_euchre_socket(socketio, app):
         migrate_host(table)
 
     def sync_idle(table):
-        """Only decisions still owed by connected humans count as inactivity."""
+        """Only outstanding decisions count as inactivity, independently of presence."""
         g = table.get("game")
         pending = {}
         if table["status"] == "playing" and g:
             for index, s in enumerate(table["seats"]):
-                if not s or s.get("bot") or not connected(s.get("token")):
+                if not s or s.get("bot"):
                     continue
                 if g["phase"] == "round_complete":
                     actionable = not g.get("nextHandReady", [False] * 4)[index]
@@ -556,53 +559,9 @@ def register_euchre_socket(socketio, app):
         _jobs[code] = socketio.start_background_task(run)
 
     def recover_disconnections(table):
-        # Also starts grace timers for seats restored after a service restart.
-        for s in members(table):
-            if s and s.get("token") and not s.get("bot") and not connected(s["token"]):
-                expire_after(table["code"], s["token"])
-
-    def expire_after(code, token, recovering=False):
-        if connected(token) or token in _disconnections:
-            return
-        stamp = time.monotonic()
-        _disconnections[token] = stamp
-        member = member_for(_tables.get(code, {}), token) if code in _tables else None
-        user_id = member.get("userId") if member else None
-
-        def expire():
-            socketio.sleep(GRACE_SECONDS)
-            with app.app_context():
-                available = accounts_available(user_id)
-                if not available or recovering:
-                    with _lock:
-                        if _disconnections.get(token) == stamp and not connected(token):
-                            _disconnections.pop(token, None)
-                            expire_after(code, token, recovering=not available)
-                    return
-            with app.app_context(), _lock:
-                try:
-                    table = get_table(code)
-                except ValueError:
-                    return
-                index = seat_for(table, token)
-                if (
-                    member_for(table, token) is None
-                    or connected(token)
-                    or _disconnections.get(token) != stamp
-                ):
-                    return
-                _disconnections.pop(token, None)
-                if table["status"] == "playing" and index is not None:
-                    replace_player(table, token, "disconnected")
-                elif index is not None:
-                    table["seats"][index] = None
-                else:
-                    table["unseated"].pop(token, None)
-                captains(table)
-                migrate_host(table)
-                changed(table)
-
-        socketio.start_background_task(expire)
+        # Restored members retain their seats. Only a pending game decision
+        # can time out, even when no client is currently connected.
+        sync_idle(table)
 
     @socketio.on("connect", namespace=NS)
     def connect(auth=None):
@@ -633,10 +592,8 @@ def register_euchre_socket(socketio, app):
             with _lock:
                 try:
                     table = get_table(client["code"])
-                    if not connected(client["token"]):
-                        cancel_idle(client["token"])
+                    sync_idle(table)
                     broadcast(table)
-                    expire_after(client["code"], client["token"])
                 except ValueError:
                     pass
 
@@ -687,14 +644,15 @@ def register_euchre_socket(socketio, app):
                     )
                     if default_difficulty not in ("hard", "harder", "hardest"):
                         raise ValueError("Choose a Hard strength from Options.")
-                    # Expired snapshots contain credentials; remove them after their idle window.
-                    EuchreTable.query.filter(
+                    # Retain occupied groups even when every phone is asleep.
+                    # Only closed snapshots are eligible for age-based cleanup.
+                    for stale in EuchreTable.query.filter(
                         EuchreTable.updated_at
                         < datetime.utcnow() - timedelta(seconds=TTL_SECONDS)
-                    ).delete()
-                    for code in list(_tables):
-                        if now - _tables[code]["touched"] > TTL_SECONDS:
-                            _tables.pop(code, None)
+                    ).all():
+                        if json.loads(stale.snapshot).get("status") == "closed":
+                            db.session.delete(stale)
+                            _tables.pop(stale.code, None)
                     if EuchreTable.query.count() >= 1000:
                         raise ValueError("All tables are busy. Please try again soon.")
                     code = "".join(

@@ -10,11 +10,14 @@ delegates to the sibling Cards split stack. The original combined Euchre code
 remains available only for guarded rollback/compatibility work; never run both
 owners against live Euchre tables. Existing production pins are unchanged.
 
-Empty multiplayer groups close when their last human leaves or their last
-disconnected member's two-minute reconnect window expires. Bots cannot keep
-waiting, playing, or finished tables open. Reconnecting before expiry keeps the
-group, and closure preserves completed results; abandoning a started match
-still records the existing conceded result.
+Waiting and finished multiplayer groups keep their members on the server until
+an explicit leave or host closure. Occupied groups do not expire, including when
+every phone is asleep. Host controls pass to the next member only when the host
+leaves. The last explicit departure closes a waiting group; bots cannot retain it.
+Active games use only the nine-minute warning and ten-minute decision timeout,
+whether online or offline. Disconnecting and reconnecting neither shorten nor
+restart that timer. Returning clients authenticate with their saved seat token
+and receive the current private game state. Completed results remain saved.
 
 Only completed, non-conceded games count toward games played, win rate, score
 statistics, and game-completion achievements. Conceded results remain in history

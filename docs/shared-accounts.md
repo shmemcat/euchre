@@ -95,8 +95,10 @@ account ownership, CSRF, and duplicate game IDs; it does not replay the game or
 verify bot decisions. Multiplayer uses server-generated deals and server-validated
 moves. Only the service records multiplayer outcomes for the accounts that joined
 each seat; both winning teammates receive a win. Private snapshots expose only
-the requesting player's hand and public card counts. Explicit departures count
-as losses; a disconnected player has 2 minutes to reconnect before bot takeover.
+the requesting player's hand and public card counts. Explicit departures record
+a concession without counting as a completed-game loss. Lobby membership survives
+network disconnects until explicitly leaving; only an outstanding game decision
+can time out. Reconnecting restores the saved seat without resetting its clock.
 Inactivity reminders match Hearts: a sound and shake after 15 seconds when input
 is available, a warning at 9 minutes, and removal at 10 minutes. Removed seats
 cannot be reclaimed during the current game.

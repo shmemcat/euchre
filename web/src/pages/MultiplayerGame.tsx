@@ -61,9 +61,24 @@ export default function MultiplayerGame() {
    if (lobby.removedReason)
       return (
          <PageLayout title="REMOVED FROM GAME">
-            <p role="alert">You were removed {lobby.removedReason === "idle" ? "for inactivity" : "after disconnecting for 2 minutes"}. A bot has taken your seat. Only finished games count toward your statistics.</p>
-            {error && <p role="alert" className="inline-error">{error}</p>}
-            <Button name="Back to Play" onClick={leaveLobby} disabled={busy || !multi.connected} />
+            <p role="alert">
+               You were removed{" "}
+               {lobby.removedReason === "idle"
+                  ? "for inactivity"
+                  : "while you were away"}
+               . A bot has taken your seat. Only finished games count toward
+               your statistics.
+            </p>
+            {error && (
+               <p role="alert" className="inline-error">
+                  {error}
+               </p>
+            )}
+            <Button
+               name="Back to Play"
+               onClick={leaveLobby}
+               disabled={busy || !multi.connected}
+            />
          </PageLayout>
       );
    return (
@@ -86,7 +101,7 @@ export default function MultiplayerGame() {
                error:
                   error ||
                   (!multi.connected
-                     ? "Connection lost. Reconnecting… A bot takes over after 2 minutes."
+                     ? "Connection lost. Reconnecting… Your seat is saved."
                      : ""),
                isHost: lobby.isHost,
                disabled: busy || !multi.connected,
@@ -101,7 +116,10 @@ export default function MultiplayerGame() {
          />
          {leaving && !finished && (
             <Modal title="Leave the game?" onClose={() => setLeaving(false)}>
-               <p>A bot will take your seat. Only finished games count toward your statistics.</p>
+               <p>
+                  A bot will take your seat. Only finished games count toward
+                  your statistics.
+               </p>
                {error && (
                   <p role="alert" className="inline-error">
                      {error}

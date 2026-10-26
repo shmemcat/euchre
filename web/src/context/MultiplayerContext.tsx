@@ -11,6 +11,7 @@ import { io, type Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import { accountApiBase, createAccountClient } from "@/lib/account";
 import { readStorage, writeStorage, removeStorage } from "@/lib/storage";
+import { resumeOnWake } from "@/lib/socketResume";
 import type { Action, Difficulty, Game } from "@/game/engine";
 
 export type Lobby = {
@@ -168,6 +169,19 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
             });
       });
       client.on("disconnect", () => setConnected(false));
+      const stopWake = resumeOnWake(
+         () => {
+            client.disconnect();
+            client.connect();
+         },
+         () => {
+            if (!client.connected) client.connect();
+            else if (active.current)
+               void command({ type: "watch", ...active.current }).catch((e) =>
+                  setError(e.message)
+               );
+         }
+      );
       let retry = 0;
       client.on(
          "connect_error",
@@ -175,6 +189,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
             setConnected(false);
             clearTimeout(retry);
             if (error.data?.code === "CLIENT_RELOAD_REQUIRED") {
+               stopWake();
                client.disconnect();
                setError(
                   "This page has been updated. Please reload to reconnect."
@@ -200,6 +215,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
       });
       client.connect();
       return () => {
+         stopWake();
          clearTimeout(retry);
          socket.current = null;
          client.disconnect();
