@@ -182,6 +182,87 @@ it("automatically dismisses the stack after three seconds", async () => {
    }
 });
 
+it("automatically shows every queued achievement before its own timeout", async () => {
+   render(<AchievementNotifications />);
+   await waitFor(() =>
+      expect(localStorage.getItem("euchre.achievements-seen.v1:alice")).toBe(
+         "[]"
+      )
+   );
+   vi.useFakeTimers();
+   try {
+      state.unlocks = [
+         "geezer",
+         "night_owl",
+         "early_bird",
+         "spooky",
+         "new_year",
+      ];
+      await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
+      const firstBatch = screen
+         .getAllByRole("button")
+         .map((button) => button.getAttribute("aria-label"));
+      expect(firstBatch).toHaveLength(3);
+      act(() => vi.advanceTimersByTime(3000));
+      const secondBatch = screen
+         .getAllByRole("button")
+         .map((button) => button.getAttribute("aria-label"));
+      expect(secondBatch).toHaveLength(2);
+      expect(secondBatch.every((label) => !firstBatch.includes(label))).toBe(
+         true
+      );
+      act(() => vi.advanceTimersByTime(2999));
+      expect(screen.getAllByText("Achievement Unlocked!")).toHaveLength(2);
+      act(() => vi.advanceTimersByTime(1));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+   } finally {
+      vi.useRealTimers();
+   }
+});
+
+it("announces new achievements once even when browser storage is blocked", async () => {
+   vi.spyOn(localStorage, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+   });
+   vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+   });
+   render(<AchievementNotifications />);
+   await act(async () => {});
+   state.unlocks = ["geezer"];
+   await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
+   expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+   const user = userEvent.setup();
+   await user.click(
+      screen.getByRole("button", {
+         name: "Dismiss Geezer achievement notification",
+      })
+   );
+   await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
+   expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+it("does not resurrect a dismissed account's stack when switching back", async () => {
+   const view = render(<AchievementNotifications />);
+   await waitFor(() =>
+      expect(localStorage.getItem("euchre.achievements-seen.v1:alice")).toBe(
+         "[]"
+      )
+   );
+   state.unlocks = ["geezer"];
+   await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
+   expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+   state.user = { id: "bob" };
+   state.unlocks = [];
+   view.rerender(<AchievementNotifications />);
+   await act(async () => {});
+   state.user = { id: "alice" };
+   state.unlocks = ["geezer"];
+   view.rerender(<AchievementNotifications />);
+   await act(async () => {});
+   expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
 it("seeds historical unlocks quietly and hides notices after an account switch", async () => {
    state.results = [won];
    const view = render(<AchievementNotifications />);

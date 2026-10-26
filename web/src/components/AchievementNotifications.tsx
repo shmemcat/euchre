@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAuth } from "@/context/AuthContext";
@@ -14,14 +14,18 @@ import {
 import { readStorage, writeStorage } from "@/lib/storage";
 import styles from "@/styles/achievements.module.css";
 
+const MAX_VISIBLE_TOASTS = 3;
+
 export function AchievementNotifications() {
    const { user } = useAuth();
+   return user ? <AccountNotifications key={user.id} userId={user.id} /> : null;
+}
+
+function AccountNotifications({ userId }: { userId: string }) {
    const { game } = useGame();
    const { game: multiplayer } = useMultiplayer();
-   const [notice, setNotice] = useState<{
-      userId: string;
-      achievements: ComputedAchievement[];
-   } | null>(null);
+   const [notice, setNotice] = useState<ComputedAchievement[]>([]);
+   const seenRef = useRef<Set<string> | null>(null);
    const [refresh, setRefresh] = useState(0);
    useEffect(() => {
       const update = () => setRefresh((value) => value + 1);
@@ -38,34 +42,26 @@ export function AchievementNotifications() {
    const multiplayerFinished =
       multiplayer?.phase === "game_over" ? multiplayer.id : null;
    useEffect(() => {
-      if (!user) return;
       const controller = new AbortController();
-      const key = `euchre.achievements-seen.v1:${encodeURIComponent(user.id)}`;
-      void syncMusicAchievement(user.id).catch(() => {});
-      void loadAchievements(user.id, controller.signal)
+      const key = `euchre.achievements-seen.v1:${encodeURIComponent(userId)}`;
+      void syncMusicAchievement(userId).catch(() => {});
+      void loadAchievements(userId, controller.signal)
          .then(({ results, unlocks }) => {
             if (controller.signal.aborted) return;
             const earned = computeAchievements(results, unlocks).filter(
                (badge) => badge.earned
             );
             const raw = readStorage<unknown>(key, null);
-            const seen = new Set(
-               Array.isArray(raw)
-                  ? raw.filter((id): id is string => typeof id === "string")
-                  : []
-            );
+            const initialized = seenRef.current !== null || Array.isArray(raw);
+            const seen = new Set(seenRef.current);
+            if (Array.isArray(raw))
+               raw.forEach((id) => {
+                  if (typeof id === "string") seen.add(id);
+               });
             const fresh = earned.filter((badge) => !seen.has(badge.unlockId));
             // The first visit seeds existing achievements without a burst of old notices.
-            if (Array.isArray(raw) && fresh.length)
-               setNotice((previous) => ({
-                  userId: user.id,
-                  achievements: [
-                     ...(previous?.userId === user.id
-                        ? previous.achievements
-                        : []),
-                     ...fresh,
-                  ],
-               }));
+            if (initialized && fresh.length)
+               setNotice((previous) => [...previous, ...fresh]);
             earned.forEach((badge) => {
                seen.add(badge.unlockId);
                if (badge.tiers && badge.tier) {
@@ -75,19 +71,23 @@ export function AchievementNotifications() {
                   }
                }
             });
+            seenRef.current = seen;
             writeStorage(key, [...seen]);
          })
          .catch(() => {});
       return () => controller.abort();
-   }, [user?.id, refresh, finished, multiplayerFinished]);
+   }, [userId, refresh, finished, multiplayerFinished]);
    useEffect(() => {
-      if (!notice) return;
-      const timer = window.setTimeout(() => setNotice(null), 3000);
+      if (!notice.length) return;
+      const timer = window.setTimeout(
+         () => setNotice((previous) => previous.slice(MAX_VISIBLE_TOASTS)),
+         3000
+      );
       return () => window.clearTimeout(timer);
    }, [notice]);
-   if (!notice || notice.userId !== user?.id) return null;
-   const visible = notice.achievements.slice(0, 3);
-   const extra = notice.achievements.length - visible.length;
+   if (!notice.length) return null;
+   const visible = notice.slice(0, MAX_VISIBLE_TOASTS);
+   const extra = notice.length - visible.length;
    return createPortal(
       <div
          role="status"
@@ -115,13 +115,9 @@ export function AchievementNotifications() {
                   aria-label={`Dismiss ${badge.name} achievement notification`}
                   onClick={() =>
                      setNotice((previous) => {
-                        if (!previous) return null;
-                        const achievements = previous.achievements.filter(
+                        return previous.filter(
                            (item) => item.unlockId !== badge.unlockId
                         );
-                        return achievements.length
-                           ? { ...previous, achievements }
-                           : null;
                      })
                   }
                >
