@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAuth } from "@/context/AuthContext";
 import { useGame } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
@@ -7,6 +9,7 @@ import {
    computeAchievements,
    loadAchievements,
    syncMusicAchievement,
+   type ComputedAchievement,
 } from "@/lib/achievements";
 import { readStorage, writeStorage } from "@/lib/storage";
 import styles from "@/styles/achievements.module.css";
@@ -17,7 +20,7 @@ export function AchievementNotifications() {
    const { game: multiplayer } = useMultiplayer();
    const [notice, setNotice] = useState<{
       userId: string;
-      names: string[];
+      achievements: ComputedAchievement[];
    } | null>(null);
    const [refresh, setRefresh] = useState(0);
    useEffect(() => {
@@ -54,10 +57,15 @@ export function AchievementNotifications() {
             const fresh = earned.filter((badge) => !seen.has(badge.unlockId));
             // The first visit seeds existing achievements without a burst of old notices.
             if (Array.isArray(raw) && fresh.length)
-               setNotice({
+               setNotice((previous) => ({
                   userId: user.id,
-                  names: fresh.map((badge) => badge.name),
-               });
+                  achievements: [
+                     ...(previous?.userId === user.id
+                        ? previous.achievements
+                        : []),
+                     ...fresh,
+                  ],
+               }));
             earned.forEach((badge) => {
                seen.add(badge.unlockId);
                if (badge.tiers && badge.tier) {
@@ -74,30 +82,54 @@ export function AchievementNotifications() {
    }, [user?.id, refresh, finished, multiplayerFinished]);
    useEffect(() => {
       if (!notice) return;
-      const timer = window.setTimeout(() => setNotice(null), 9000);
+      const timer = window.setTimeout(() => setNotice(null), 3000);
       return () => window.clearTimeout(timer);
    }, [notice]);
    if (!notice || notice.userId !== user?.id) return null;
-   return (
-      <div role="status" aria-live="polite" className={styles.toast}>
-         <div>
-            <strong>
-               Achievement{notice.names.length > 1 ? "s" : ""} unlocked
-            </strong>
-            <p>
-               {notice.names.slice(0, 3).join(" · ")}
-               {notice.names.length > 3
-                  ? ` · and ${notice.names.length - 3} more`
-                  : ""}
-            </p>
-         </div>
-         <button
-            type="button"
-            aria-label="Dismiss achievement notification"
-            onClick={() => setNotice(null)}
-         >
-            ×
-         </button>
-      </div>
+   const visible = notice.achievements.slice(0, 3);
+   const extra = notice.achievements.length - visible.length;
+   return createPortal(
+      <div
+         role="status"
+         aria-live="polite"
+         aria-atomic="true"
+         className={styles.toastStack}
+      >
+         {visible.map((badge, index) => (
+            <div key={badge.unlockId} className={styles.toast}>
+               <FontAwesomeIcon
+                  icon={badge.icon}
+                  className={styles.toastIcon}
+                  data-tier={badge.tier}
+               />
+               <div className={styles.toastText}>
+                  <div className={styles.toastLabel}>Achievement Unlocked!</div>
+                  <div className={styles.toastName}>{badge.name}</div>
+                  {index === visible.length - 1 && extra > 0 && (
+                     <div className={styles.toastMore}>+{extra} more</div>
+                  )}
+               </div>
+               <button
+                  type="button"
+                  className={styles.toastDismiss}
+                  aria-label={`Dismiss ${badge.name} achievement notification`}
+                  onClick={() =>
+                     setNotice((previous) => {
+                        if (!previous) return null;
+                        const achievements = previous.achievements.filter(
+                           (item) => item.unlockId !== badge.unlockId
+                        );
+                        return achievements.length
+                           ? { ...previous, achievements }
+                           : null;
+                     })
+                  }
+               >
+                  ×
+               </button>
+            </div>
+         ))}
+      </div>,
+      document.body
    );
 }
