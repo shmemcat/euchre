@@ -1,5 +1,8 @@
 import type { Difficulty } from "@/game/engine";
-import type { LeaderboardEntry } from "@/components/LeaderboardColumn";
+import type {
+   LeaderboardEntry,
+   AchievementLeaderboardEntry,
+} from "@/components/LeaderboardColumn";
 import { accountApiBase, createAccountClient } from "./account";
 import { gameApiBase } from "./gameApi";
 import {
@@ -9,10 +12,10 @@ import {
    type StoredResult,
 } from "./persistence";
 
-export type LeaderboardCategory = Difficulty | "multiplayer";
+export type LeaderboardCategory = Difficulty | "multiplayer" | "achievements";
 export type LeaderboardData = {
    monthly: LeaderboardEntry[];
-   all_time: LeaderboardEntry[];
+   all_time: (LeaderboardEntry | AchievementLeaderboardEntry)[];
 };
 const empty: LeaderboardData = { monthly: [], all_time: [] };
 
@@ -48,7 +51,7 @@ export function createLeaderboardClient(
                }
             )
          );
-         const validEntries = (value: unknown): value is LeaderboardEntry[] =>
+         const validEntries = (value: unknown): boolean =>
             Array.isArray(value) &&
             value.every(
                (entry) =>
@@ -56,8 +59,18 @@ export function createLeaderboardClient(
                   Number.isInteger(entry.rank) &&
                   entry.rank > 0 &&
                   typeof entry.username === "string" &&
-                  Number.isInteger(entry.games_won) &&
-                  entry.games_won > 0 &&
+                  Number.isInteger(
+                     entry[
+                        category === "achievements"
+                           ? "achievement_count"
+                           : "games_won"
+                     ]
+                  ) &&
+                  entry[
+                     category === "achievements"
+                        ? "achievement_count"
+                        : "games_won"
+                  ] > 0 &&
                   (entry.profile_icon === undefined ||
                      entry.profile_icon === null ||
                      typeof entry.profile_icon === "string")

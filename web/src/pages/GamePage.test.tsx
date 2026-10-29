@@ -466,11 +466,15 @@ describe("Leaving from match details", () => {
       vi.useFakeTimers();
       board(fixture({ turn: 1 }));
       fireEvent.click(screen.getByRole("button", { name: "Match details" }));
-      fireEvent.click(screen.getByRole("button", { name: "Leave Game" }));
+      fireEvent.click(screen.getByRole("button", { name: "Concede" }));
       const dialog = within(
-         screen.getByRole("dialog", { name: "Leave the game?" })
+         screen.getByRole("dialog", { name: "Concede the game?" })
       );
-      expect(dialog.getByText("Only finished games count toward your statistics.")).toBeVisible();
+      expect(
+         dialog.getByText(
+            "Are you sure you want to concede? Only finished games count toward your statistics."
+         )
+      ).toBeVisible();
       expect(screen.getByRole("main")).toHaveAttribute(
          "data-opening-paused", "true"
       );
@@ -485,10 +489,10 @@ describe("Leaving from match details", () => {
       expect(screen.getByRole("button", { name: "Match details" })).toHaveFocus();
       expect(concedeGame).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole("button", { name: "Match details" }));
-      fireEvent.click(screen.getByRole("button", { name: "Leave Game" }));
+      fireEvent.click(screen.getByRole("button", { name: "Concede" }));
       fireEvent.click(
          within(screen.getByRole("dialog")).getByRole("button", {
-            name: "Leave Game",
+            name: "Concede",
          })
       );
       expect(concedeGame).toHaveBeenCalledOnce();

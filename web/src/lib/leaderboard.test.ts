@@ -21,6 +21,27 @@ afterEach(() => {
 });
 
 describe("Shared Euchre leaderboards", () => {
+   it("validates achievement counts independently of wins", async () => {
+      const data = {
+         monthly: [],
+         all_time: [{ rank: 1, username: "Collector", achievement_count: 12 }],
+      };
+      const fetcher = vi.fn().mockResolvedValue(response(data));
+      expect(
+         await createLeaderboardClient("/api/account", fetcher).load(
+            "achievements"
+         )
+      ).toEqual(data);
+      fetcher.mockResolvedValue(
+         response({
+            monthly: [],
+            all_time: [{ rank: 1, username: "Bad", games_won: 12 }],
+         })
+      );
+      await expect(
+         createLeaderboardClient("/api/account", fetcher).load("achievements")
+      ).rejects.toThrow("unexpected response");
+   });
    it("reads public account rankings without storing credentials", async () => {
       const data = {
          monthly: [

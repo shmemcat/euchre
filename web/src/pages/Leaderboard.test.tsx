@@ -31,6 +31,44 @@ function page() {
    );
 }
 describe("Populated leaderboards", () => {
+   it("shows all-time achievement totals in their own tab", async () => {
+      const user = userEvent.setup();
+      page();
+      await screen.findAllByRole("table");
+      vi.mocked(fetchLeaderboard).mockResolvedValue({
+         monthly: [],
+         all_time: [
+            {
+               rank: 1,
+               username: "Collector",
+               profile_icon: "cat",
+               achievement_count: 23,
+            },
+            { rank: 2, username: "Newcomer", achievement_count: 1 },
+         ],
+      });
+      await user.click(screen.getByRole("button", { name: "achievements" }));
+      await screen.findByRole("table", {
+         name: "All-Time achievements leaderboard",
+      });
+      expect(screen.getAllByRole("table")).toHaveLength(1);
+      expect(screen.getByText("23 achievements")).toBeInTheDocument();
+      expect(screen.getByText("1 achievement")).toBeInTheDocument();
+      expect(screen.queryByText("Monthly")).not.toBeInTheDocument();
+      expect(fetchLeaderboard).toHaveBeenLastCalledWith(
+         "achievements",
+         expect.any(AbortSignal)
+      );
+      await user.click(
+         screen.getByRole("button", { name: "medium", exact: true })
+      );
+      await waitFor(() =>
+         expect(fetchLeaderboard).toHaveBeenLastCalledWith(
+            "medium",
+            expect.any(AbortSignal)
+         )
+      );
+   });
    it("synchronizes only the signed-in account before displaying shared results", async () => {
       vi.mocked(fetchLeaderboard).mockResolvedValue({
          monthly: [

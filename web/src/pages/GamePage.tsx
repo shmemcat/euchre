@@ -491,6 +491,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                         open={info}
                         onOpenChange={setInfo}
                         leaveDisabled={online?.disabled}
+                        leaveLabel={!online && !over ? "Concede" : "Leave Game"}
                         onLeave={() => {
                            setInfo(false);
                            if (online) online.onLeave();
@@ -717,11 +718,14 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             </div>
          </main>
          {leaving && !online && (
-            <Modal title="Leave the game?" onClose={() => setLeaving(false)}>
-               <p>Only finished games count toward your statistics.</p>
+            <Modal title="Concede the game?" onClose={() => setLeaving(false)}>
+               <p>
+                  Are you sure you want to concede? Only finished games count
+                  toward your statistics.
+               </p>
                <div className="button-stack">
                   <Button
-                     name="Leave Game"
+                     name="Concede"
                      onClick={() => {
                         single.concedeGame();
                         navigate("/play");

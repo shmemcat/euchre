@@ -72,6 +72,7 @@ export default function Leaderboard() {
                value={category}
                onChange={setCategory}
                label="Leaderboard category"
+               includeAchievements
             />
             {category === "hard" && (
                <HardTabs value={hard} onChange={setHard} />
@@ -96,8 +97,17 @@ export default function Leaderboard() {
                   />
                </div>
             ) : (
-               <div className={styles.columns}>
-                  {["Monthly", "All-Time"].map((title) => (
+               <div
+                  className={`${styles.columns} ${
+                     category === "achievements"
+                        ? styles.achievementStandings
+                        : ""
+                  }`}
+               >
+                  {(category === "achievements"
+                     ? ["All-Time"]
+                     : ["Monthly", "All-Time"]
+                  ).map((title) => (
                      <LeaderboardColumn
                         key={`${category}-${hard}-${title}`}
                         title={title}
@@ -108,6 +118,11 @@ export default function Leaderboard() {
                      />
                   ))}
                </div>
+            )}
+            {category === "achievements" && (
+               <p className={styles.note}>
+                  Each earned tier counts separately.
+               </p>
             )}
             <div className="button-stack">
                <MenuLink to="/" name="Home" />

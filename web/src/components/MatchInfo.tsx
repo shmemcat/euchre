@@ -11,6 +11,7 @@ type Props = {
    onOpenChange: (open: boolean) => void;
    onLeave: () => void;
    leaveDisabled?: boolean;
+   leaveLabel?: string;
 };
 
 export function MatchInfo({
@@ -19,6 +20,7 @@ export function MatchInfo({
    onOpenChange,
    onLeave,
    leaveDisabled,
+   leaveLabel = "Leave Game",
 }: Props) {
    const wrap = useRef<HTMLDivElement>(null);
    const trigger = useRef<HTMLButtonElement>(null);
@@ -129,7 +131,7 @@ export function MatchInfo({
                </dl>
                <hr className="match-divider" />
                <Button
-                  name="Leave Game"
+                  name={leaveLabel}
                   size="compact"
                   className="match-leave-button"
                   disabled={leaveDisabled}

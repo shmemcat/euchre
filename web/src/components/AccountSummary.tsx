@@ -19,10 +19,12 @@ export function CategoryTabs({
    value,
    onChange,
    label = "Statistics category",
+   includeAchievements = false,
 }: {
    value: string;
    onChange: (value: string) => void;
    label?: string;
+   includeAchievements?: boolean;
 }) {
    return (
       <div
@@ -30,33 +32,35 @@ export function CategoryTabs({
          role="group"
          aria-label={label}
       >
-         {CATEGORIES.map((category) => (
-            <button
-               key={category}
-               type="button"
-               className={`${containers["stats-tab"]} ${
-                  value === category ? containers["stats-tab-active"] : ""
-               }`}
-               aria-pressed={value === category}
-               aria-label={category}
-               onClick={() => onChange(category)}
-            >
-               {category === "multiplayer" ? (
-                  <>
-                     <span className={containers["desktop-only"]}>
-                        Multiplayer
-                     </span>
-                     <span className={containers["mobile-only"]}>
-                        Multi-
-                        <br />
-                        player
-                     </span>
-                  </>
-               ) : (
-                  category
-               )}
-            </button>
-         ))}
+         {[...CATEGORIES, ...(includeAchievements ? ["achievements"] : [])].map(
+            (category) => (
+               <button
+                  key={category}
+                  type="button"
+                  className={`${containers["stats-tab"]} ${
+                     value === category ? containers["stats-tab-active"] : ""
+                  }`}
+                  aria-pressed={value === category}
+                  aria-label={category}
+                  onClick={() => onChange(category)}
+               >
+                  {category === "multiplayer" ? (
+                     <>
+                        <span className={containers["desktop-only"]}>
+                           Multiplayer
+                        </span>
+                        <span className={containers["mobile-only"]}>
+                           Multi-
+                           <br />
+                           player
+                        </span>
+                     </>
+                  ) : (
+                     category
+                  )}
+               </button>
+            )
+         )}
       </div>
    );
 }

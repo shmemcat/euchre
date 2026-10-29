@@ -221,12 +221,31 @@ def rankings(category, now, monthly=False):
 @limiter.limit("120 per minute")
 def leaderboard():
     category = request.args.get("category", "easy")
+    if category == "achievements":
+        return jsonify(monthly=[], all_time=achievement_rankings())
     if category not in BOT_DIFFICULTIES | {"multiplayer"}:
         return jsonify(error="Choose a valid leaderboard category."), 400
     now = datetime.utcnow()
     return jsonify(
         monthly=rankings(category, now, monthly=True), all_time=rankings(category, now)
     )
+
+
+def achievement_rankings():
+    from collections import defaultdict
+    from .achievement_counts import achievement_count
+
+    results = defaultdict(list)
+    for row in EuchreGameResult.query.filter(EuchreGameResult.completed_at <= datetime.utcnow()).yield_per(200):
+        results[row.user_id].append(row)
+    extras = {row.user_id: row.unlocks for row in EuchreAchievementState.query.all()}
+    counts = {uid: achievement_count(results[uid], extras.get(uid, [])) for uid in results.keys() | extras.keys()}
+    profiles = accounts().public_profiles([uid for uid, count in counts.items() if count > 0])
+    visible = [(profiles[uid], count) for uid, count in counts.items()
+               if count > 0 and uid in profiles and profiles[uid].email_verified]
+    visible.sort(key=lambda item: (-item[1], item[0].username.lower(), item[0].id))
+    return [dict(rank=i + 1, username=user.username, profile_icon=user.profile_icon, achievement_count=count)
+            for i, (user, count) in enumerate(visible[:10])]
 
 
 @euchre_bp.get("/multiplayer-results")
