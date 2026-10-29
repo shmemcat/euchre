@@ -25,10 +25,12 @@ export function AchievementBadge({
    const { earned, tier, progress, icon } = achievement;
    const iconTier = earned && !achievement.secret ? tier : undefined;
    const hidden = achievement.secret && !earned;
-   const name = hidden ? "???" : achievement.name;
+   const name = hidden ? "????" : achievement.name;
    const desc = hidden
-      ? "Discover this secret by playing Euchre."
+      ? "This is a secret achievement"
       : achievement.description;
+   const tierLabel =
+      !hidden && tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : null;
    const status = earned ? `Unlocked${tier ? ` · ${tier}` : ""}` : "Locked";
    return (
       <div className={styles.achievementItem}>
@@ -37,9 +39,11 @@ export function AchievementBadge({
             onOpenChange={setOpen}
             content={
                <div className={styles.tooltipContent}>
+                  {tierLabel && (
+                     <span className={styles.tooltipTier}>{tierLabel}</span>
+                  )}
                   <span className={styles.tooltipName}>{name}</span>
                   <span className={styles.tooltipDesc}>{desc}</span>
-                  <span className={styles.tooltipStatus}>{status}</span>
                   {!hidden && progress && (
                      <span className={styles.tooltipDesc}>{progress}</span>
                   )}

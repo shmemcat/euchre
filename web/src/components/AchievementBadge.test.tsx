@@ -19,7 +19,7 @@ it("hides a locked secret's name, icon and requirement, including its tooltip", 
    );
    expect(screen.queryByText(badge.description)).not.toBeInTheDocument();
    expect(
-      screen.getAllByText("Discover this secret by playing Euchre.").length
+      screen.getAllByText("This is a secret achievement").length
    ).toBeGreaterThan(0);
 });
 

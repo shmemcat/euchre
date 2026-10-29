@@ -38,7 +38,7 @@ html {
    --buttonboxshadowdisabled: #ad747d26;
    --selectionbgcolor: #ce949680;
    --link: #8b5761;
-   --linkbox: #ce94963d;
+   --link-highlight-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20rx%3D%225%22%20fill%3D%22%23ce94963d%22%20fill-opacity%3D%221%22%2F%3E%3C%2Fsvg%3E");
    --transparent: transparent;
    --inputbox: #faf7f3;
    --inputboxborder: #c2b9af;
@@ -105,7 +105,7 @@ html[data-theme="dark"] {
    --buttonboxshadowhover: #7e525a66;
    --selectionbgcolor: #ce949680;
    --link: #e6b9bc;
-   --linkbox: #ce949640;
+   --link-highlight-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20rx%3D%225%22%20fill%3D%22%23ce949640%22%20fill-opacity%3D%221%22%2F%3E%3C%2Fsvg%3E");
    --inputbox: #3c4d68;
    --inputboxborder: #a0b2c8;
    --radiobutton: #e1aeb0;
@@ -236,8 +236,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    line-height: 1;
 }
 .nav-home .euchre-logo,
-.nav-home .navhearts {
-   transition: color 0.3s ease;
+.nav-home .navhearts,
+.nav-user,
+.nav-user > svg,
+.icon-button {
+   transition: color 0.15s ease;
+}
+/* Inherited icon and label colors follow the control's single fade. */
+.nav-user > span,
+.nav-user > svg *,
+.icon-button * {
+   transition: none;
 }
 .nav-home:is(:hover, :focus-visible) .euchre-logo,
 .nav-home:is(:hover, :focus-visible) .navhearts {
@@ -280,6 +289,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
 }
 .icon-button:hover,
 .nav-user:hover {
+   color: var(--hoverpink);
+}
+.icon-button:focus-visible,
+.nav-user:focus-visible,
+.nav-user:is(:hover, :focus-visible) > svg {
    color: var(--hoverpink);
 }
 .menu-link {
@@ -875,7 +889,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    [class*="content-border-container"] {
       width: 100%;
       margin: 0;
-      padding: 22px 20px 40px;
+      padding: 20px 20px 40px;
       min-height: 100dvh;
       border-radius: 0;
    }
@@ -901,33 +915,34 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
    .nav-actions {
       min-width: 0;
-      gap: 20px;
+      gap: 16px;
    }
    .site-nav {
       --nav-logo-size: 24px;
-      width: calc(95vw - 70px);
+      width: calc(100vw - 40px);
       max-width: 100%;
-      min-height: 24px;
-      margin: 23px auto 0;
+      min-height: 44px;
+      margin: 0 auto;
    }
    .site-nav .icon-button {
-      width: 18px;
-      min-width: 18px;
-      height: 24px;
+      width: 28px;
+      min-width: 28px;
+      height: 44px;
+      min-height: 44px;
    }
    .nav-user {
       font-size: 16px;
+      line-height: 24px;
       gap: 10px;
       min-width: 0;
-      max-width: 160px;
+      max-width: min(160px, 39vw);
+      min-height: 44px;
    }
-   .nav-user svg {
+   .site-nav .icon-button svg,
+   .site-nav .nav-user svg {
       flex-shrink: 0;
       width: 18px;
-   }
-   .icon-button {
-      min-width: 27px;
-      height: 32px;
+      height: 18px;
    }
    .navhearts {
       display: none;
@@ -1010,12 +1025,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
    [class*="menu-button-container"] {
       margin-left: 75px;
-   }
-   .nav-actions {
-      gap: 10px;
-   }
-   .nav-user {
-      max-width: 105px;
    }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -29,11 +29,23 @@ export default function About() {
                   are!
                </p>
                <p>
-                  You can also play{" "}
-                  <a className="link" href="https://hearts.shmem.dev">
+                  Euchre is part of my{" "}
+                  <a className="link" href="https://cards.shmem.dev/">
+                     Cards
+                  </a>{" "}
+                  project, alongside{" "}
+                  <a className="link" href="https://cards.shmem.dev/hearts/">
                      Hearts
                   </a>
-                  , or find the code on{" "}
+                  ,{" "}
+                  <a className="link" href="https://cards.shmem.dev/golf/">
+                     Golf
+                  </a>
+                  , and{" "}
+                  <a className="link" href="https://cards.shmem.dev/hand-and-foot/">
+                     Hand and Foot
+                  </a>
+                  . Find the code on{" "}
                   <a
                      className="link"
                      href="https://github.com/shmemcat/euchre"
