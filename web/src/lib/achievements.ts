@@ -64,6 +64,7 @@ export type AchievementDef = {
    id: string;
    name: string;
    description: string;
+   flavorText?: string;
    icon: IconDefinition;
    secret: boolean;
    tiers?: [Step, Step, Step];
@@ -348,7 +349,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
       "Finish a game that began between midnight and 5 a.m.",
       faOwl
    ),
-   secret("geezer", "Geezer", "Turn the music off", faVolumeXmark),
+   {
+      ...secret("geezer", "Locked in", "Turn the music off", faVolumeXmark),
+      flavorText: "Gotta turn the music down to see better",
+   },
    secret(
       "all_year_round",
       "All Year Round",

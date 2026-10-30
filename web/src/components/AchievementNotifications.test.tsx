@@ -108,13 +108,13 @@ it("keeps an active toast when another achievement arrives", async () => {
    );
    state.unlocks = ["geezer"];
    act(() => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
-   expect(await screen.findByRole("status")).toHaveTextContent("Geezer");
+   expect(await screen.findByRole("status")).toHaveTextContent("Locked in");
    state.results = [won];
    act(() => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
    await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent("First Light")
    );
-   expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+   expect(screen.getByRole("status")).toHaveTextContent("Locked in");
    expect(screen.getAllByText("Achievement Unlocked!")).toHaveLength(3);
 });
 
@@ -172,9 +172,9 @@ it("automatically dismisses the stack after three seconds", async () => {
    try {
       state.unlocks = ["geezer"];
       await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
-      expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+      expect(screen.getByRole("status")).toHaveTextContent("Locked in");
       act(() => vi.advanceTimersByTime(2999));
-      expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+      expect(screen.getByRole("status")).toHaveTextContent("Locked in");
       act(() => vi.advanceTimersByTime(1));
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
    } finally {
@@ -231,11 +231,11 @@ it("announces new achievements once even when browser storage is blocked", async
    await act(async () => {});
    state.unlocks = ["geezer"];
    await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
-   expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+   expect(screen.getByRole("status")).toHaveTextContent("Locked in");
    const user = userEvent.setup();
    await user.click(
       screen.getByRole("button", {
-         name: "Dismiss Geezer achievement notification",
+         name: "Dismiss Locked in achievement notification",
       })
    );
    await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
@@ -251,7 +251,7 @@ it("does not resurrect a dismissed account's stack when switching back", async (
    );
    state.unlocks = ["geezer"];
    await act(async () => window.dispatchEvent(new Event(ACHIEVEMENT_EVENT)));
-   expect(screen.getByRole("status")).toHaveTextContent("Geezer");
+   expect(screen.getByRole("status")).toHaveTextContent("Locked in");
    state.user = { id: "bob" };
    state.unlocks = [];
    view.rerender(<AchievementNotifications />);

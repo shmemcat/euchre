@@ -9,6 +9,7 @@ import { faQuestion } from "@fortawesome/pro-solid-svg-icons";
 type Achievement = {
    name: string;
    description: string;
+   flavorText?: string;
    icon: IconDefinition;
    earned: boolean;
    secret?: boolean;
@@ -44,6 +45,11 @@ export function AchievementBadge({
                   )}
                   <span className={styles.tooltipName}>{name}</span>
                   <span className={styles.tooltipDesc}>{desc}</span>
+                  {!hidden && achievement.flavorText && (
+                     <span className={styles.tooltipFlavor}>
+                        {achievement.flavorText}
+                     </span>
+                  )}
                   {!hidden && progress && (
                      <span className={styles.tooltipDesc}>{progress}</span>
                   )}
