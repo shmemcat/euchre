@@ -1,4 +1,6 @@
 .card {
+   -webkit-user-select: none;
+   user-select: none;
    --card-radius: 8px;
    --cardhighlight: var(--cardborder);
    position: relative;
