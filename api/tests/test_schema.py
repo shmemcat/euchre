@@ -145,3 +145,15 @@ def test_runtime_refuses_future_schema_without_migrating_it(app):
             ).scalar()
             == "euchre_future"
         )
+def test_compatibility_worker_accepts_only_the_next_additive_revision(app):
+    from sqlalchemy import text
+    from euchre_server.extensions import db
+    from euchre_server.schema import schema_ready
+    with app.app_context():
+        db.session.execute(text("UPDATE euchre_alembic_version SET version_num='euchre_003'"))
+        db.session.commit()
+        assert schema_ready()
+        db.session.execute(text("UPDATE euchre_alembic_version SET version_num='euchre_004'"))
+        db.session.commit()
+        assert not schema_ready()
+
