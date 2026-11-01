@@ -9,7 +9,7 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from euchre_server.extensions import db
 
-REVISION = "euchre_002"
+REVISION = "euchre_003"
 
 
 def schema_ready():
@@ -17,6 +17,7 @@ def schema_ready():
         EuchreGameResult,
         EuchreTable,
         EuchreAchievementState,
+        EuchreSavedGame,
     )
     from euchre_server.game_accounts import receipts, versions
 
@@ -29,6 +30,7 @@ def schema_ready():
             "euchre_account_schema_version",
             "euchre_alembic_version",
             "euchre_achievement_state",
+            "euchre_saved_games",
         }
         if not required <= set(inspector.get_table_names()):
             return False
@@ -36,6 +38,7 @@ def schema_ready():
             EuchreGameResult.__table__,
             EuchreTable.__table__,
             EuchreAchievementState.__table__,
+            EuchreSavedGame.__table__,
             receipts["euchre"],
             versions["euchre"],
         ):
@@ -47,7 +50,7 @@ def schema_ready():
             db.session.execute(
                 text("SELECT version_num FROM euchre_alembic_version")
             ).scalar()
-            in {REVISION, "euchre_003"}
+            == REVISION
             and db.session.execute(select(versions["euchre"].c.version)).scalar()
             == "game_accounts_001"
         )

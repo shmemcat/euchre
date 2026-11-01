@@ -78,6 +78,29 @@ export function MatchInfo({
                className="match-panel"
                aria-label="Match details"
             >
+               <div className="match-panel-heading">
+                  <h2>Match details</h2>
+                  <button
+                     type="button"
+                     className="match-panel-close"
+                     aria-label="Close match details"
+                     onClick={() => {
+                        onOpenChange(false);
+                        trigger.current?.focus();
+                     }}
+                  >
+                     <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        aria-hidden="true"
+                     >
+                        <path d="m6 6 12 12M6 18 18 6" />
+                     </svg>
+                  </button>
+               </div>
                <dl className="match-facts">
                   <div>
                      <dt>First to {game.target}</dt>

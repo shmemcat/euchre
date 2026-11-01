@@ -119,6 +119,8 @@ def create_app(config=None, *, accounts=None):
     socketio = SocketIO(app, cors_allowed_origins=origins, async_mode="eventlet")
     install_socket_dispatch(socketio)
     register_euchre_socket(socketio, app)
+    from euchre_server.storage_cleanup import register_maintenance
+    register_maintenance(app, socketio)
 
     @app.errorhandler(AccountsUnavailable)
     def unavailable(error):
@@ -165,4 +167,6 @@ def create_app(config=None, *, accounts=None):
             status="ready" if good else "not-ready", component="euchre-game"
         ), (200 if good else 503)
 
+    from .game_limits import register_limits
+    register_limits(app)
     return app

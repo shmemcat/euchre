@@ -66,6 +66,7 @@ function Probe() {
    );
 }
 beforeEach(() => {
+   window.history.replaceState(null, "", "/game/multi-play/ABC234");
    clients = [];
    mocks.auth = { user: null, loading: false };
    mocks.session.mockResolvedValue({ csrf_token: "csrf" });
@@ -74,6 +75,21 @@ beforeEach(() => {
       clients.push(client);
       return client;
    });
+});
+
+it("does not reconnect an old waiting lobby while the player is on Play", () => {
+   window.history.replaceState(null, "", "/play");
+   localStorage.setItem(
+      "euchre.multiplayer.v1:guest",
+      JSON.stringify({ code: "ABC234", token: "old-seat" })
+   );
+   render(
+      <MultiplayerProvider>
+         <Probe />
+      </MultiplayerProvider>
+   );
+   act(() => clients[0].ready());
+   expect(clients[0].emit).not.toHaveBeenCalled();
 });
 
 it("waits for the account session before opening a multiplayer connection", async () => {

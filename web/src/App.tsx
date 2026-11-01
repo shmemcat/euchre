@@ -22,6 +22,7 @@ import JoinGame from "@/pages/JoinGame";
 import LobbyPage from "@/pages/LobbyPage";
 import MultiplayerGame from "@/pages/MultiplayerGame";
 import { MultiplayerProvider } from "@/context/MultiplayerContext";
+import { MultiplayerPresence } from "@/components/MultiplayerPresence";
 import { AchievementNotifications } from "@/components/AchievementNotifications";
 export default function App() {
    const { pathname } = useLocation();
@@ -36,6 +37,7 @@ export default function App() {
                   <SoundProvider>
                      <GameProvider>
                         <MultiplayerProvider>
+                           <MultiplayerPresence />
                            <div style={{ position: "relative" }}>
                               <a className="skip-link" href="#page-content">
                                  Skip to content

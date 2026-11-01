@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "./motionPreference";
 import type { Seat } from "@/game/engine";
 import type { CSSProperties } from "react";
 
@@ -16,8 +17,7 @@ export const dealTimingStyle = {
    "--deal-shuffle-duration": `${DEAL_SHUFFLE_MS}ms`,
 } as CSSProperties;
 
-export const shouldAnimateDeal = () =>
-   !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+export const shouldAnimateDeal = () => !reducedMotionPreference().matches;
 
 /** Two clockwise passes, starting to the dealer's left. */
 export function dealCards(dealer: Seat) {

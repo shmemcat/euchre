@@ -96,6 +96,48 @@
    box-shadow: 0 10px 30px #111a2726;
    text-align: left;
 }
+.match-panel-heading {
+   display: flex;
+   justify-content: space-between;
+   align-items: start;
+   gap: 12px;
+   margin-bottom: 14px;
+}
+.match-panel-heading h2 {
+   margin: 0;
+   font-size: 20px;
+}
+.match-panel-close {
+   display: grid;
+   place-items: center;
+   flex: none;
+   width: 24px;
+   height: 24px;
+   padding: 0;
+   border: 0;
+   border-radius: 6px;
+   background: transparent;
+   color: var(--text);
+   cursor: pointer;
+}
+.match-panel-close:hover {
+   background: var(--infopillbg);
+}
+.match-panel-close:focus-visible {
+   outline: 2px solid var(--header);
+   outline-offset: 2px;
+}
+.match-panel-close svg {
+   width: 18px;
+   height: 18px;
+}
+@media (pointer: coarse) {
+   .match-panel-close {
+      width: 44px;
+      height: 44px;
+      margin: -9px -9px 0 0;
+   }
+}
 .match-facts {
    margin: 0;
    font-size: 12px;
@@ -1393,45 +1435,45 @@
    }
 }
 @media (prefers-reduced-motion: reduce) {
-   .hidden-hand {
+   :where(:root:not([data-motion-override="true"])) .hidden-hand {
       transition: none;
    }
-   .trick-slot .card-placeholder {
+   :where(:root:not([data-motion-override="true"])) .trick-slot .card-placeholder {
       animation: none;
    }
-   .kitty-dealing .upcard-flipper {
+   :where(:root:not([data-motion-override="true"])) .kitty-dealing .upcard-flipper {
       animation: deal-upcard-flip 1ms
          calc(2700ms + var(--deal-shuffle-duration, 0ms)) both;
    }
-   .kitty-dealing .kitty-back {
+   :where(:root:not([data-motion-override="true"])) .kitty-dealing .kitty-back {
       animation: deal-kitty-spread 1ms
          calc(3100ms + var(--deal-shuffle-duration, 0ms)) both;
    }
-   .hand-card-received {
+   :where(:root:not([data-motion-override="true"])) .hand-card-received {
       transform: none;
    }
-   .hand-card-discarding {
+   :where(:root:not([data-motion-override="true"])) .hand-card-discarding {
       animation: discarded-fade 350ms ease-in forwards;
    }
-   .bid-toast {
+   :where(:root:not([data-motion-override="true"])) .bid-toast {
       animation-name: bid-fade;
       transform: translateX(-50%);
    }
-   .kitty-turning .kitty-back,
-   .kitty-picking-up .kitty-back {
+   :where(:root:not([data-motion-override="true"])) .kitty-turning .kitty-back,
+   :where(:root:not([data-motion-override="true"])) .kitty-picking-up .kitty-back {
       animation: none;
       transform: none;
    }
-   .kitty-turning .upcard-flipper {
+   :where(:root:not([data-motion-override="true"])) .kitty-turning .upcard-flipper {
       animation: none;
       transform: rotateY(180deg);
    }
-   .trick-card {
+   :where(:root:not([data-motion-override="true"])) .trick-card {
       animation: none;
    }
-   .hand-card,
-   .hand-card-motion,
-   .team-trick-dot {
+   :where(:root:not([data-motion-override="true"])) .hand-card,
+   :where(:root:not([data-motion-override="true"])) .hand-card-motion,
+   :where(:root:not([data-motion-override="true"])) .team-trick-dot {
       transition: none;
    }
 }

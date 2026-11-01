@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Card } from "@/components/Card";
@@ -71,9 +72,7 @@ export function OpeningMotion({
          width: `${width}px`,
          height: `${height}px`,
       });
-      const reduced = window.matchMedia?.(
-         "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const reduced = reducedMotionPreference().matches;
       const x = target.left + target.width / 2 - source.left - source.width / 2;
       const y =
          target.top +

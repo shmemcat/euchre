@@ -21,6 +21,7 @@ def test_fresh_schema_owns_only_euchre_and_preserves_account_fk(app):
             "euchre_account_schema_version",
             "euchre_alembic_version",
             "euchre_achievement_state",
+            "euchre_saved_games",
         }
         assert "users" not in db.metadata.tables
         assert schema_ready()
@@ -145,15 +146,3 @@ def test_runtime_refuses_future_schema_without_migrating_it(app):
             ).scalar()
             == "euchre_future"
         )
-def test_compatibility_worker_accepts_only_the_next_additive_revision(app):
-    from sqlalchemy import text
-    from euchre_server.extensions import db
-    from euchre_server.schema import schema_ready
-    with app.app_context():
-        db.session.execute(text("UPDATE euchre_alembic_version SET version_num='euchre_003'"))
-        db.session.commit()
-        assert schema_ready()
-        db.session.execute(text("UPDATE euchre_alembic_version SET version_num='euchre_004'"))
-        db.session.commit()
-        assert not schema_ready()
-

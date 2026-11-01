@@ -34,6 +34,21 @@ vi.mock("./GamePage", () => ({
    ),
 }));
 
+it("explains a game closed by concessions and offers a return to Play", () => {
+   const command = vi.fn();
+   vi.mocked(useMultiplayer).mockReturnValue({
+      lobby: {code:"ABC234",status:"closed",closedReason:"one_player",seat:0} as Lobby,
+      game: newGame("easy","You"), connected:true,error:"",resumeCode:null,command,
+   });
+   render(<MemoryRouter initialEntries={["/game/multi-play/ABC234"]}><Routes>
+      <Route path="/game/multi-play/:code" element={<MultiplayerGame />} />
+   </Routes></MemoryRouter>);
+   expect(screen.getByRole("status")).toHaveTextContent("Everyone else conceded");
+   expect(screen.getByRole("link",{name:"Back to Play"})).toHaveAttribute("href","/play");
+   expect(screen.queryByRole("button",{name:"Play Again"})).not.toBeInTheDocument();
+   expect(command).not.toHaveBeenCalled();
+});
+
 it("explains inactivity removal and lets the player leave the old table", async () => {
    const command = vi.fn().mockResolvedValue({ ok: true });
    vi.mocked(useMultiplayer).mockReturnValue({

@@ -1,7 +1,7 @@
 import { useTurnIndicator } from "@/context/TurnSoundContext";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCrown, faUser, faRobot } from "@fortawesome/pro-solid-svg-icons";
 import { Navbar } from "@/components/Navbar";
@@ -83,7 +83,6 @@ export type OnlineGame = {
    error: string;
    isHost: boolean;
    disabled: boolean;
-   idleWarning?: boolean;
    onRematch: () => void;
    onLobby: () => void;
    onLeave: () => void;
@@ -91,14 +90,26 @@ export type OnlineGame = {
 export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    const single = useGame();
    const navigate = useNavigate();
+   const [params] = useSearchParams();
+   const requested = online ? null : params.get("game_id");
+   const attempted = useRef<string | null>(null);
+   const [resumeError, setResumeError] = useState("");
    const { game: currentGame, act: apply, saved, error } = online ?? single;
+   const restoring = !!requested && currentGame?.id !== requested;
+   useEffect(() => {
+      if (!restoring) { attempted.current = null; return; }
+      if (!restoring || single.loading || attempted.current === requested) return;
+      attempted.current = requested;
+      setResumeError("");
+      void single.resumeSaved(requested!).catch(e => setResumeError(e.message));
+   }, [requested, currentGame?.id, single.loading]);
    const sound = useSound();
    const [alone, setAlone] = useState(false);
    const [info, setInfo] = useState(false);
    const [leaving, setLeaving] = useState(false);
    const paused = info || leaving;
    const singleOpening = useOpeningSequence(
-      online ? null : currentGame,
+      online || restoring ? null : currentGame,
       apply,
       paused
    );
@@ -108,7 +119,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
       paused,
       online?.disabled ?? false
    );
-   const game = online ? multiplayerOpening.game : currentGame;
+   const game = online ? multiplayerOpening.game : restoring ? null : currentGame;
    const opening = online ? multiplayerOpening : singleOpening;
    const act = opening.perform;
    const boardRef = useRef<HTMLElement>(null);
@@ -258,7 +269,13 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             <Navbar />
             <div id="page-content" className="empty-game">
                <EuchreLogo size={100} />
-               <h2>No active game</h2>
+               <h2>
+                  {single.loading
+                     ? "Loading your saved game…"
+                     : "No active game"}
+               </h2>
+               {single.error && <p role="alert">{single.error}</p>}
+               {resumeError && <p role="alert">{resumeError}</p>}
                <MenuLink to="/play" name="Create Game" />
             </div>
          </main>
@@ -477,12 +494,6 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                <Navbar />
             </div>
             <div id="page-content" tabIndex={-1} className="game-content">
-               {online?.idleWarning && !online.disabled && (
-                  <p role="alert" className="inactivity-warning">
-                     You’ll be removed for inactivity in 1 minute. Make a move
-                     to stay in the game.
-                  </p>
-               )}
                <div className="play-board">
                   <div className="game-top-row">
                      {seat(2)}
@@ -710,9 +721,8 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                   </p>
                )}
                {!saved && (
-                  <p role="alert" className="inline-error">
-                     Your browser couldn’t save this game. Keep this tab open to
-                     continue.
+                  <p role="status" className="inline-error">
+                     Saving your game… Keep this tab open until it’s saved.
                   </p>
                )}
             </div>

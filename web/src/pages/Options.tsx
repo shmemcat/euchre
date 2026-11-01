@@ -1,3 +1,4 @@
+import { AnimationOption } from "../components/AnimationOption";
 import { Navigate } from "react-router-dom";
 import { TurnSoundOption } from "@/context/TurnSoundContext";
 import { Helmet } from "react-helmet-async";
@@ -86,6 +87,7 @@ export default function Options() {
                   </div>
                </section>
                <TurnSoundOption />
+               <AnimationOption />
                {!saved && (
                   <p role="alert">
                      Your browser couldn’t save your preferences.

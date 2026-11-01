@@ -32,6 +32,7 @@ def test_only_euchre_routes_sockets_and_models_are_registered(app):
         "euchre_tables",
         "euchre_game_results",
         "euchre_achievement_state",
+        "euchre_saved_games",
     }
     client = app.test_client()
     for path in [

@@ -10,14 +10,15 @@ delegates to the sibling Cards split stack. The original combined Euchre code
 remains available only for guarded rollback/compatibility work; never run both
 owners against live Euchre tables. Existing production pins are unchanged.
 
-Waiting and finished multiplayer groups keep their members on the server until
-an explicit leave or host closure. Occupied groups do not expire, including when
-every phone is asleep. Host controls pass to the next member only when the host
-leaves. The last explicit departure closes a waiting group; bots cannot retain it.
-Active games use only the nine-minute warning and ten-minute decision timeout,
-whether online or offline. Disconnecting and reconnecting neither shorten nor
-restart that timer. Returning clients authenticate with their saved seat token
-and receive the current private game state. Completed results remain saved.
+Waiting-lobby members have two minutes to reconnect before losing their spot.
+Host controls pass to the next remaining member if the host leaves or expires.
+The lobby closes once its last viewer has been disconnected for two minutes.
+Started games have no inactivity deadline, including bidding, discarding,
+playing, and Next Hand. A returning client authenticates with its saved seat
+token and receives the same private state. Conceding replaces the seat with a
+bot while at least two humans remain. Once only one human remains, the game and
+lobby close without recording a completed result. Earlier completed results
+remain saved.
 
 Only completed, non-conceded games count toward games played, win rate, score
 statistics, and game-completion achievements. Conceded results remain in history
@@ -92,7 +93,8 @@ never migrates or runs the old shared `flask db upgrade` chain. Verify with
 `python -m euchre_server.schema check` and `/ready`.
 
 The migration owns `euchre_game_results`, `euchre_tables`,
-`euchre_achievement_state`, and `euchre_alembic_version=euchre_002`.
+`euchre_achievement_state`, `euchre_saved_games`, and
+`euchre_alembic_version=euchre_003`.
 Revision 002 adds per-game achievement evidence and account settings unlocks;
 run the upgrade before starting the updated game service. Existing result
 history continues to count toward progression. Card and bidding achievements
@@ -142,3 +144,62 @@ owner, and grant CRUD on `euchre_achievement_state` only to `euchre_runtime`.
 Existing table grants cover the added result column. Resume the compatible image
 and verify health before promoting the final `euchre_002` release. Runtime
 credentials never migrate, and rollback retains the additive schema and data.
+
+## Saved bot games
+
+Signed-in bot games are stored in `euchre_saved_games`. `GET` and `PUT`
+`/account/euchre/saved-game` load the latest unfinished game and save a snapshot
+with an expected revision. Passing `?game_id=...` restores a particular owned
+game. `GET /account/euchre/saved-games` lists all of the account's unfinished
+bot games and seated multiplayer games. Account identity and CSRF checks apply to writes;
+stale devices receive the newer snapshot instead of overwriting it. The
+`X-Euchre-User` header binds each browser request to its expected account, so an
+account change during a request cannot transfer a save to someone else. Finished
+snapshots remain as revision fences and are excluded from resume lookup.
+Account deletion removes these saves alongside results and achievement state.
+
+The browser keeps an account-specific retry copy for interrupted connections.
+Existing browser saves are imported only for their recorded account owner, and
+the old copy is removed after database acknowledgement. Guest games remain local.
+Starting another game preserves earlier saves; conceding a card affects only
+that game. Waiting lobbies do not appear in the list. Disconnected members have
+two minutes to return before losing their spot, and a lobby closes after its
+last viewer has been away for two minutes. Started games have no inactivity
+deadline: their human seats remain resumable until a player concedes. Conceding
+replaces that seat with a bot while at least two people remain. Once only one
+person remains, the game and lobby close without recording completed results.
+
+Before releasing revision `euchre_003`, run the explicit migration as the schema
+owner and grant `SELECT, INSERT, UPDATE, DELETE ON euchre_saved_games TO euchre_runtime`.
+The new table needs no sequence grant. Keep writers stopped during migration;
+verify schema readiness and cross-browser resume before reopening admission.
+
+## Storage retention
+
+The single game worker checks at startup and hourly, compacting closed multiplayer
+tables and finished/conceded bot saves after 24 hours in batches of 200 of each.
+Unfinished games remain resumable indefinitely. Final scores, account result
+records, leaderboard history, achievement evidence, and unlock state remain.
+Cards, trick details, and table membership credentials are discarded. Small
+closed-ID/revision receipts prevent old tabs from reviving retired games, and an
+exact final-save retry is still acknowledged. Receipts do not count toward the
+open-table limit or appear in resume cards.
+
+A finished bot save without its corresponding result is retained until the
+result is recorded. Closed multiplayer tables recover any missing final results
+before compaction. Connected result views are left intact. Existing eligible
+records are included automatically; no new migration or grants are required.
+Tests disable the maintenance worker by default. `START_STORAGE_CLEANUP=False`
+disables it explicitly; the `cleanup_storage` app extension runs the same sweep.
+
+## Game creation limits
+
+Each account can have 20 unfinished games per app, counting bot and multiplayer
+games together. Finished, conceded, and closed games stop counting immediately.
+New game/lobby creation allows five per minute per player. Joining and starting
+check available space again; rematches also respect the allowance. Resume, moves,
+result saves, and concessions remain available at the limit. Waiting lobbies do
+not count as unfinished games. `MAX_IN_PROGRESS_GAMES` and
+`GAME_CREATIONS_PER_MINUTE` configure these defaults for this single worker.
+Guest browser identities apply where games are server-owned; Euchre guest bot
+saves stay in the browser and have their own browser allowance.

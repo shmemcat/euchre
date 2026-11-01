@@ -775,7 +775,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
 }
 @media (prefers-reduced-motion: reduce) {
-   .waiting-ellipsis > span {
+   :where(:root:not([data-motion-override="true"])) .waiting-ellipsis > span {
       animation: none;
       opacity: 1;
    }
@@ -1028,9 +1028,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
    }
 }
 @media (prefers-reduced-motion: reduce) {
-   *,
-   *::before,
-   *::after {
+   :where(:root:not([data-motion-override="true"])) *,
+   :where(:root:not([data-motion-override="true"])) *::before,
+   :where(:root:not([data-motion-override="true"])) *::after {
       animation: none !important;
       transition: none !important;
       scroll-behavior: auto !important;

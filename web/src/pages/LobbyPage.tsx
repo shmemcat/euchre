@@ -203,7 +203,6 @@ export default function LobbyPage() {
    const [copied, setCopied] = useState("");
    const [difficulty, setDifficulty] = useState("easy");
    const [starting, setStarting] = useState(false);
-   const [switching, setSwitching] = useState(false);
    const [leaving, setLeaving] = useState(false);
    const lobby = multi.lobby?.code === code ? multi.lobby : null;
    const inGroup = !!lobby && (lobby.isMember ?? lobby.seat !== null);
@@ -217,7 +216,6 @@ export default function LobbyPage() {
    const hardDifficulty =
       lobby?.defaultDifficulty ?? (user ? preferences.hardLevel : "hard");
    const rearranging = choosingSeats.some((member) => member.reserved ?? true);
-   const needsSwitch = !!multi.resumeCode && multi.resumeCode !== code;
    useEffect(() => {
       const previous = previousPlayers.current;
       previousPlayers.current =
@@ -237,7 +235,7 @@ export default function LobbyPage() {
    }, [lobby?.memberName, lobby?.needsName]);
 
    useEffect(() => {
-      if (!multi.connected || needsSwitch || leaving) return;
+      if (!multi.connected || leaving) return;
       if (
          multi.lobby?.code === code &&
          (multi.lobby.isMember || multi.lobby.status === "closed")
@@ -249,7 +247,6 @@ export default function LobbyPage() {
    }, [
       code,
       multi.connected,
-      needsSwitch,
       leaving,
       multi.lobby?.code,
       multi.lobby?.isMember,
@@ -322,20 +319,6 @@ export default function LobbyPage() {
          </Helmet>
          <PageLayout title="GAME LOBBY">
             <div className={styles.lobbyContent}>
-               {needsSwitch ? (
-                  <div className="button-stack">
-                     <p>You’re already in another lobby.</p>
-                     <Button
-                        name="Leave That Group & Join"
-                        disabled={busy}
-                        onClick={() => setSwitching(true)}
-                     />
-                     <MenuLink
-                        to={`/game/lobby/${multi.resumeCode}`}
-                        name="Return to Group"
-                     />
-                  </div>
-               ) : (
                   <>
                      {!multi.connected && (
                         <p role="status">
@@ -676,21 +659,20 @@ export default function LobbyPage() {
                         )
                      )}
                   </>
-               )}
                {error && (
                   <p className="inline-error" role="alert">
                      {error}
                   </p>
                )}
                <div className={`button-stack ${styles.lobbyActions}`}>
-                  {error && !lobby && !needsSwitch && (
+                  {error && !lobby && (
                      <Button
                         name="Try Again"
                         disabled={!multi.connected}
                         onClick={() => fire({ type: "watch" })}
                      />
                   )}
-                  {!needsSwitch && lobby && lobby.status !== "closed" && (
+                  {lobby && lobby.status !== "closed" && (
                      <>
                         {lobby.status === "finished" && lobby.isHost && (
                            <Button
@@ -748,28 +730,7 @@ export default function LobbyPage() {
                </div>
             </Modal>
          )}
-         {switching && (
-            <Modal
-               title="Leave your current group?"
-               onClose={() => setSwitching(false)}
-            >
-               <p>A bot will take your seat if the game is still running.</p>
-               <Button
-                  name="Leave & Join"
-                  disabled={busy}
-                  onClick={() => {
-                     setBusy(true);
-                     void multi
-                        .command({ type: "leave" })
-                        .then(() => {
-                           setSwitching(false);
-                        })
-                        .catch((e) => setError(e.message))
-                        .finally(() => setBusy(false));
-                  }}
-               />
-            </Modal>
-         )}
+
       </>
    );
 }

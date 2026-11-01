@@ -19,6 +19,7 @@ export default function MultiplayerGame() {
       if (
          !leaving &&
          multi.connected &&
+         lobby?.status !== "closed" &&
          (!lobby || lobby.status === "waiting" || lobby.seat === null)
       )
          navigate(`/game/lobby/${code}`, { replace: true });
@@ -51,6 +52,15 @@ export default function MultiplayerGame() {
          })
          .finally(() => setBusy(false));
    };
+   if (lobby?.status === "closed")
+      return (
+         <PageLayout title="GAME CLOSED">
+            <p role="status">{lobby.closedReason === "one_player"
+               ? "Everyone else conceded. This game has closed without counting as a completed game."
+               : "This lobby has closed."}</p>
+            <MenuLink to="/play" name="Back to Play" />
+         </PageLayout>
+      );
    if (!lobby || !multi.game)
       return (
          <PageLayout title="MULTIPLAYER">
@@ -105,7 +115,6 @@ export default function MultiplayerGame() {
                      : ""),
                isHost: lobby.isHost,
                disabled: busy || !multi.connected,
-               idleWarning: lobby.idleWarning,
                onRematch: () => send({ type: "play_again" }),
                onLobby: () => send({ type: "rematch" }),
                onLeave: () => {

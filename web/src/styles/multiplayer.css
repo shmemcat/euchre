@@ -192,5 +192,5 @@
    50% { translate: 4px; }
 }
 @media (prefers-reduced-motion: reduce) {
-   .inactivity-shake .phase-hint { animation: none; }
+   :where(:root:not([data-motion-override="true"])) .inactivity-shake .phase-hint { animation: none; }
 }

@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -99,10 +100,7 @@ function NavActions() {
                aria-expanded={open}
                aria-controls="sound-settings"
                onClick={() => {
-                  setSoundBouncing(
-                     !window.matchMedia("(prefers-reduced-motion: reduce)")
-                        .matches
-                  );
+                  setSoundBouncing(!reducedMotionPreference().matches);
                   setOpen(!open);
                }}
             >
@@ -188,9 +186,7 @@ function NavActions() {
                resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"
             }
             onClick={() => {
-               setThemeBouncing(
-                  !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-               );
+               setThemeBouncing(!reducedMotionPreference().matches);
                toggle();
             }}
          >

@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useRef, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { Seat } from "@/game/engine";
@@ -39,9 +40,7 @@ export function DealMotion({
       );
       const kitty = root.querySelector(".upcard-stack");
       if (!dealerSeat || !kitty) return;
-      const reduced = window.matchMedia?.(
-         "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const reduced = reducedMotionPreference().matches;
       const animate = (element: Element, frames: Keyframe[]) => {
          const animation = element.animate?.(frames, {
             duration: DEAL_DURATION_MS,

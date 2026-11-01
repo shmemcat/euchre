@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Card, CardPlaceholder, SuitIcon } from "@/components/Card";
 import { useSound } from "@/context/SoundContext";
@@ -64,9 +65,7 @@ export function Trick({
       if (!collecting) return;
       const target = cards.current[winner]?.getBoundingClientRect();
       if (!target) return;
-      const reducedMotion = window.matchMedia?.(
-         "(prefers-reduced-motion: reduce)"
-      ).matches;
+      const reducedMotion = reducedMotionPreference().matches;
 
       for (const card of cards.current) {
          if (!card?.animate) continue;

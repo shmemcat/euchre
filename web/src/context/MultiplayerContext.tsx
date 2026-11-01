@@ -17,6 +17,7 @@ import type { Action, Difficulty, Game } from "@/game/engine";
 export type Lobby = {
    code: string;
    status: "waiting" | "playing" | "finished" | "closed";
+   closedReason?: "one_player" | "empty" | null;
    seats: {
       index: number;
       status: "empty" | "ai" | "human";
@@ -88,7 +89,13 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
          throw new Error(
             "Connecting to the table. Please try again in a moment."
          );
-      const membership = active.current;
+      const known = readStorage<
+         Record<string, { code: string; token: string }>
+      >(storageKey.current + ":games", {});
+      const membership = data.code
+         ? known[data.code] ??
+           (active.current?.code === data.code ? active.current : null)
+         : active.current;
       const request =
          data.type === "watch" && membership && membership.code === data.code
             ? { ...data, token: membership.token }
@@ -117,14 +124,26 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
       if (reply.code && reply.token) {
          active.current = { code: reply.code, token: reply.token };
          writeStorage(storageKey.current, active.current);
+         writeStorage(storageKey.current + ":games", {
+            ...known,
+            [reply.code]: active.current,
+         });
          setResumeCode(reply.code);
       }
       if (data.type === "leave" || data.type === "close") {
+         const departed = data.code ?? active.current?.code;
+         if (departed) delete known[departed];
+         writeStorage(storageKey.current + ":games", known);
          removeStorage(storageKey.current);
          active.current = null;
          setResumeCode(null);
       }
+      if (data.type === "unwatch" && active.current?.code === data.code) {
+         setLobby(null);
+         setGame(null);
+      }
       setError("");
+      window.dispatchEvent(new Event("euchre:saved-games"));
       return reply;
    }, []);
 
@@ -136,6 +155,15 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
          null
       );
       setResumeCode(active.current?.code ?? null);
+      if (active.current) {
+         const known = readStorage<
+            Record<string, { code: string; token: string }>
+         >(key + ":games", {});
+         writeStorage(key + ":games", {
+            ...known,
+            [active.current.code]: active.current,
+         });
+      }
       setLobby(null);
       setGame(null);
       const client = io("/euchre", {
@@ -157,7 +185,10 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
       client.on("connect", () => {
          setConnected(true);
          setError("");
-         if (active.current)
+         if (
+            active.current &&
+            /\/game\/(lobby|multi-play)\//.test(window.location.pathname)
+         )
             void command({ type: "watch", ...active.current }).catch((e) => {
                setError(e.message);
                // Expired invitations must not trap the player in an old table.
@@ -176,7 +207,10 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
          },
          () => {
             if (!client.connected) client.connect();
-            else if (active.current)
+            else if (
+               active.current &&
+               /\/game\/(lobby|multi-play)\//.test(window.location.pathname)
+            )
                void command({ type: "watch", ...active.current }).catch((e) =>
                   setError(e.message)
                );

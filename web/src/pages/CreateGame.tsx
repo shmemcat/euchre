@@ -9,24 +9,20 @@ import { useAuth } from "@/context/AuthContext";
 import { usePreferences } from "@/context/PreferencesContext";
 import containers from "@/styles/containers.module.css";
 import { useMultiplayer } from "@/context/MultiplayerContext";
-import { useActiveGameSession } from "@/hooks/useActiveGameSession";
 export default function CreateGame() {
    const navigate = useNavigate();
    const { preferences } = usePreferences();
-   const { user } = useAuth();
-   const { start } = useGame();
+   const { user, loading: authLoading } = useAuth();
+   const { start, loading: gameLoading } = useGame();
    const [difficulty, setDifficulty] = useState("easy");
    const [gameType, setGameType] = useState("bots");
    const [name, setName] = useState("");
    const [busy, setBusy] = useState(false);
    const [error, setError] = useState("");
    const multi = useMultiplayer();
-   const { session, checking } = useActiveGameSession();
-   useEffect(() => {
-      if (session && !busy && !checking) navigate("/play", { replace: true });
-   }, [session?.key, busy, checking, navigate]);
-   const create = () => {
-      start(
+   const checking = !!authLoading || !!gameLoading;
+   const create = async () => {
+      await start(
          difficulty === "hard"
             ? preferences.hardLevel
             : (difficulty as "easy" | "medium"),
@@ -38,7 +34,6 @@ export default function CreateGame() {
       setBusy(true);
       setError("");
       try {
-         if (multi.resumeCode) await multi.command({ type: "leave" });
          const reply = await multi.command({
             type: "create",
             name: user?.name || name.trim() || "Host",
@@ -54,8 +49,7 @@ export default function CreateGame() {
       setBusy(true);
       setError("");
       try {
-         if (multi.resumeCode) await multi.command({ type: "leave" });
-         create();
+         await create();
       } catch (e) {
          setError((e as Error).message);
          setBusy(false);
@@ -141,7 +135,6 @@ export default function CreateGame() {
                      name={busy ? "Starting…" : "Create Game"}
                      disabled={
                         busy ||
-                        !!session ||
                         checking ||
                         (gameType === "online" && !multi.connected)
                      }
@@ -155,12 +148,12 @@ export default function CreateGame() {
                   <LoginWarning />
                   <MenuLink to="/" name="Home" />
                </div>
-               {checking && !session && (
+               {checking && (
                   <p role="status">
                      {multi.error || "Checking for an active game…"}
                   </p>
                )}
-               {error && !session && (
+               {error && (
                   <p role="alert" className="inline-error">
                      {error}
                   </p>

@@ -12,9 +12,9 @@ import json
 import secrets
 import time
 from greenlet import getcurrent
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from euchre_server.game_accounts import euchre_lock, is_deleted, accounts_available
+from euchre_server.game_accounts import euchre_lock, is_deleted
 from flask import request
 from euchre_server.account_access import (
     accounts,
@@ -29,14 +29,16 @@ from euchre_server.euchre_engine import new_game, apply_action, bot_action
 from euchre_server.achievements import multiplayer_evidence
 
 NS = "/euchre"
-IDLE_WARNING_SECONDS = 540
-IDLE_TIMEOUT_SECONDS = 600
 TTL_SECONDS = 20 * 60
+LOBBY_RECONNECT_SECONDS = 120
 _tables = runtime_state("euchre.tables")
 _clients = runtime_state("euchre.clients")
 _jobs = runtime_state("euchre.jobs")
 _disconnections = runtime_state("euchre.disconnections")
+# Legacy handles are cancelled on table access; no new expiry jobs are created.
 _idle = runtime_state("euchre.idle")
+_empty_lobbies = runtime_state("euchre.empty_lobbies")
+_lobby_departures = runtime_state("euchre.lobby_departures")
 _lock = runtime_state("euchre.lock", euchre_lock)
 
 
@@ -50,6 +52,8 @@ def cancel_idle(token):
 
 def save(table):
     table["touched"] = time.time()
+    if table["status"] == "closed":
+        table.setdefault("_closed_at", table["touched"])
     row = db.session.get(EuchreTable, table["code"])
     if row is None:
         row = EuchreTable(code=table["code"])
@@ -69,7 +73,7 @@ def get_table(code):
         if row:
             table = json.loads(row.snapshot)
             _tables[code] = table
-    if not table or (
+    if not table or table.get("_storage_pruned") or (
         table["status"] == "closed" and time.time() - table["touched"] > TTL_SECONDS
     ):
         raise ValueError("Lobby not found or expired.")
@@ -240,7 +244,8 @@ def public(table, token):
         gameId=table["game"]["id"] if table["game"] else None,
         difficulty=table["difficulty"],
         defaultDifficulty=table["defaultDifficulty"],
-        idleWarning=bool(_idle.get(token, {}).get("warned")),
+        idleWarning=False,
+        closedReason=table.get("closedReason"),
         removedReason=next(
             (
                 p.get("removedReason")
@@ -315,6 +320,8 @@ def game_view(table, token):
 
 def record_results(table):
     g = table["game"]
+    if g.get("cancelled"):
+        return
     if g["phase"] != "game_over":
         return
     for p in table["participants"]:
@@ -358,6 +365,15 @@ def record_results(table):
 
 
 def start_match(table, difficulty):
+    from .game_limits import check_creation, ensure_capacity, open_games
+    for member in table["seats"]:
+        if member and member.get("token") and not member.get("bot"):
+            key = f"account:{member['userId']}" if member.get("userId") else member.get("guestKey")
+            if key:
+                ensure_capacity(open_games(key), player=member["name"])
+    if table.get("_has_started"):
+        host = member_for(table, table["host"])
+        check_creation(f"account:{host['userId']}" if host.get("userId") else host.get("guestKey", table["host"]))
     if any(s.get("reserved", True) for s in table.get("unseated", {}).values()):
         raise ValueError("Everyone in the group must choose a seat before starting.")
     if seat_for(table, table["host"]) is None:
@@ -381,10 +397,58 @@ def start_match(table, difficulty):
         for i, s in enumerate(table["seats"])
         if s.get("token")
     ]
-    table.update(game=new_game(difficulty), status="playing")
+    table.update(game=new_game(difficulty), status="playing", _has_started=True)
 
 
 def register_euchre_socket(socketio, app):
+
+    def schedule_lobby_disconnect(code, token=None):
+        if not code or any(c.get("code") == code and c.get("token") == token for c in _clients.values()):
+            return
+        try:
+            table = get_table(code)
+        except ValueError:
+            return
+        if table["status"] == "closed" or (table.get("game") and table["game"]["phase"] != "game_over"):
+            return
+        marker = object()
+        membership = (code, token)
+        _lobby_departures[membership] = marker
+        if not any(c.get("code") == code for c in _clients.values()):
+            _empty_lobbies[code] = marker
+
+        def close_empty():
+            socketio.sleep(LOBBY_RECONNECT_SECONDS)
+            with app.app_context(), _lock:
+                if _lobby_departures.get(membership) is not marker:
+                    return
+                _lobby_departures.pop(membership, None)
+                last_departure = _empty_lobbies.get(code) is marker
+                if last_departure:
+                    _empty_lobbies.pop(code, None)
+                try:
+                    current = get_table(code)
+                except ValueError:
+                    return
+                if current["status"] == "closed" or (current.get("game") and current["game"]["phase"] != "game_over"):
+                    return
+                if any(c.get("code") == code and c.get("token") == token for c in _clients.values()):
+                    return
+                if last_departure and not any(c.get("code") == code for c in _clients.values()):
+                    current["status"] = "closed"
+                    changed(current)
+                    return
+                index = seat_for(current, token)
+                if index is not None:
+                    current["seats"][index] = None
+                else:
+                    current["unseated"].pop(token, None)
+                captains(current)
+                migrate_host(current)
+                if not any(m.get("token") and not m.get("bot") for m in members(current)):
+                    current["status"] = "closed"
+                changed(current)
+        socketio.start_background_task(close_empty)
 
     def broadcast(table):
         for sid, client in list(_clients.items()):
@@ -400,15 +464,23 @@ def register_euchre_socket(socketio, app):
                 )
 
     def changed(table):
-        if table["status"] == "playing" and not any(
-            s and s.get("token") and not s.get("bot") for s in table["seats"]
+        humans = [
+            s for s in table["seats"] if s and s.get("token") and not s.get("bot")
+        ]
+        if (
+            table["status"] == "playing"
+            and table["game"]["phase"] != "game_over"
+            and len(humans) <= 1
+            and any(p.get("conceded") for p in table["participants"])
         ):
             table["game"].update(
                 phase="game_over",
                 conceded=True,
+                cancelled=True,
                 finishedAt=datetime.now(timezone.utc).isoformat(),
-                message="All players have left the game.",
+                message="The game closed because everyone else conceded.",
             )
+            table.update(status="closed", closedReason="one_player" if humans else "empty")
         g = table["game"]
         if g and g["phase"] == "round_complete":
             ready = g.setdefault("nextHandReady", [False] * 4)
@@ -428,92 +500,15 @@ def register_euchre_socket(socketio, app):
         if not any(not s.get("bot") for s in members(table)):
             table["status"] = "closed"
         save(table)
-        sync_idle(table)
+        clear_legacy_idle_timers(table)
         broadcast(table)
         schedule(table)
 
-    def replace_player(table, token, reason):
-        index = seat_for(table, token)
-        if index is None or table["seats"][index].get("bot"):
-            return
-        cancel_idle(token)
-        table["seats"][index]["bot"] = True
-        for p in table["participants"]:
-            if p["token"] == token:
-                p.update(conceded=True, removedReason=reason)
-        captains(table)
-        migrate_host(table)
-
-    def sync_idle(table):
-        """Only outstanding decisions count as inactivity, independently of presence."""
-        g = table.get("game")
-        pending = {}
-        if table["status"] == "playing" and g:
-            for index, s in enumerate(table["seats"]):
-                if not s or s.get("bot"):
-                    continue
-                if g["phase"] == "round_complete":
-                    actionable = not g.get("nextHandReady", [False] * 4)[index]
-                else:
-                    actionable = (
-                        g["phase"] in ("bidding1", "bidding2", "discard", "playing")
-                        and g["turn"] == index
-                    )
-                if actionable:
-                    pending[s["token"]] = (
-                        g["id"],
-                        g["handNumber"],
-                        g["phase"],
-                        g.get("passes"),
-                        len(g["trick"]),
-                    )
+    def clear_legacy_idle_timers(table):
+        # Restored or re-registered tables must not retain old kick jobs.
         for token, timer in list(_idle.items()):
-            if timer["code"] == table["code"] and timer["decision"] != pending.get(
-                token
-            ):
+            if timer["code"] == table["code"]:
                 cancel_idle(token)
-        for token, decision in pending.items():
-            if token in _idle:
-                continue
-            timer = dict(code=table["code"], decision=decision, warned=False)
-            _idle[token] = timer
-            start_idle(table, token, timer)
-
-    def start_idle(table, token, timer):
-        code = table["code"]
-        user_id = member_for(table, token).get("userId")
-
-        def warn():
-            socketio.sleep(IDLE_WARNING_SECONDS)
-            with app.app_context(), _lock:
-                if _idle.get(token) is timer:
-                    timer["warned"] = True
-                    broadcast(get_table(code))
-
-        def expire(recovering=None):
-            socketio.sleep(IDLE_TIMEOUT_SECONDS if recovering is None else 30)
-            with app.app_context():
-                available = accounts_available(user_id)
-                with _lock:
-                    if _idle.get(token) is not timer:
-                        return
-                    if not available or recovering:
-                        timer["jobs"][1] = socketio.start_background_task(
-                            lambda: expire(not available)
-                        )
-                        return
-                    try:
-                        current = get_table(code)
-                    except ValueError:
-                        cancel_idle(token)
-                        return
-                    replace_player(current, token, "idle")
-                    changed(current)
-
-        timer["jobs"] = [
-            socketio.start_background_task(warn),
-            socketio.start_background_task(expire),
-        ]
 
     def schedule(table):
         code = table["code"]
@@ -559,9 +554,8 @@ def register_euchre_socket(socketio, app):
         _jobs[code] = socketio.start_background_task(run)
 
     def recover_disconnections(table):
-        # Restored members retain their seats. Only a pending game decision
-        # can time out, even when no client is currently connected.
-        sync_idle(table)
+        # Started seats remain owned indefinitely, including after a restart.
+        clear_legacy_idle_timers(table)
 
     @socketio.on("connect", namespace=NS)
     def connect(auth=None):
@@ -578,7 +572,9 @@ def register_euchre_socket(socketio, app):
             ):
                 return False
         user = session_user()
+        from .game_limits import principal
         _clients[request.sid] = dict(
+            principal=principal(user.id if user else None),
             userId=user.id if user else None,
             name=user.username if user else None,
             icon=user.profile_icon if user else "user",
@@ -592,7 +588,8 @@ def register_euchre_socket(socketio, app):
             with _lock:
                 try:
                     table = get_table(client["code"])
-                    sync_idle(table)
+                    schedule_lobby_disconnect(table["code"], client.get("token"))
+                    clear_legacy_idle_timers(table)
                     broadcast(table)
                 except ValueError:
                     pass
@@ -619,23 +616,25 @@ def register_euchre_socket(socketio, app):
                     raise ValueError("Please slow down and try again.")
                 client["events"].append(now)
                 kind = data.get("type")
+                if kind == "unwatch":
+                    code = data.get("code", client.get("code"))
+                    if client.get("code") == code:
+                        token = client.get("token")
+                        client.update(code=None, token=None)
+                        schedule_lobby_disconnect(code, token)
+                    return dict(ok=True)
                 offset = data.get("utcOffsetMinutes")
                 if offset is not None and (
                     type(offset) is not int or abs(offset) > 840
                 ):
                     raise ValueError("Invalid local time offset.")
                 if kind == "create":
-                    if client.get("token"):
-                        try:
-                            previous = get_table(client.get("code"))
-                        except ValueError:
-                            client["token"] = None
-                        else:
-                            if member_for(previous, client["token"]) is not None:
-                                raise ValueError(
-                                    "Leave your current lobby before creating another."
-                                )
-                            client["token"] = None
+                    from .game_limits import check_creation, open_games
+                    check_creation(client["principal"], open_games(client["principal"]))
+                    previous_code = client.get("code")
+                    previous_token = client.get("token")
+                    client.update(code=None, token=None)
+                    schedule_lobby_disconnect(previous_code, previous_token)
                     name = client["name"] or text(
                         data.get("name", "Host"), "your name", 20
                     )
@@ -644,16 +643,8 @@ def register_euchre_socket(socketio, app):
                     )
                     if default_difficulty not in ("hard", "harder", "hardest"):
                         raise ValueError("Choose a Hard strength from Options.")
-                    # Retain occupied groups even when every phone is asleep.
-                    # Only closed snapshots are eligible for age-based cleanup.
-                    for stale in EuchreTable.query.filter(
-                        EuchreTable.updated_at
-                        < datetime.utcnow() - timedelta(seconds=TTL_SECONDS)
-                    ).all():
-                        if json.loads(stale.snapshot).get("status") == "closed":
-                            db.session.delete(stale)
-                            _tables.pop(stale.code, None)
-                    if EuchreTable.query.count() >= 1000:
+                    from .storage_cleanup import open_table_count
+                    if open_table_count() >= 1000:
                         raise ValueError("All tables are busy. Please try again soon.")
                     code = "".join(
                         secrets.choice("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
@@ -678,6 +669,7 @@ def register_euchre_socket(socketio, app):
                                 icon=client["icon"],
                                 token=token,
                                 userId=client["userId"],
+                                guestKey=client["principal"] if not client["userId"] else None,
                                 utcOffsetMinutes=offset,
                                 joined=0,
                                 lobbyJoined=0,
@@ -713,6 +705,9 @@ def register_euchre_socket(socketio, app):
                 )
                 if kind == "watch":
                     candidate = data.get("token")
+                    if not candidate and client["userId"]:
+                        own = next((m for m in members(table) if m.get("userId") == client["userId"] and not m.get("bot")), None)
+                        candidate = own["token"] if own else None
                     s = member_for(table, candidate)
                     if s is not None:
                         if s.get("userId") and s["userId"] != client["userId"]:
@@ -735,8 +730,6 @@ def register_euchre_socket(socketio, app):
                                 and not p.get("removedReason")
                             ):
                                 p["conceded"] = False
-                    if client.get("token") and client.get("code") != table["code"]:
-                        raise ValueError("Leave your current lobby first.")
                     if (
                         s is None
                         and not member_for(table, token)
@@ -765,7 +758,13 @@ def register_euchre_socket(socketio, app):
                             named=bool(client["name"]),
                         )
                         table["unseated"][token] = s
+                    previous_code = client.get("code")
+                    previous_token = client.get("token")
                     client.update(code=table["code"], token=token)
+                    _empty_lobbies.pop(table["code"], None)
+                    _lobby_departures.pop((table["code"], token), None)
+                    if previous_code != table["code"]:
+                        schedule_lobby_disconnect(previous_code, previous_token)
                     captains(table)
                     migrate_host(table)
                     if s is not None:
@@ -806,6 +805,9 @@ def register_euchre_socket(socketio, app):
                     ):
                         raise ValueError("You already have a seat at this table.")
                     old = member
+                    if index is None:
+                        from .game_limits import ensure_capacity, open_games
+                        ensure_capacity(open_games(client["principal"]))
                     name = client["name"] or (
                         text(data.get("name"), "your name", 20)
                         if data.get("name")
@@ -823,6 +825,7 @@ def register_euchre_socket(socketio, app):
                         icon=client["icon"],
                         token=token,
                         userId=client["userId"],
+                        guestKey=client["principal"] if not client["userId"] else None,
                         joined=(
                             old["joined"]
                             if old and index is not None and index % 2 == target % 2
@@ -988,3 +991,16 @@ def register_euchre_socket(socketio, app):
                     ok=False,
                     error="The table could not save that change. Please reconnect and try again.",
                 )
+
+    # A waiting room has no lifetime beyond its connected viewers or worker.
+    with app.app_context():
+        from euchre_server.schema import schema_ready
+        if schema_ready():
+            for row in EuchreTable.query.all():
+                snapshot = json.loads(row.snapshot)
+                if snapshot.get("status") != "closed" and (not snapshot.get("game") or snapshot["game"]["phase"] == "game_over"):
+                    snapshot["status"] = "closed"
+                    snapshot.setdefault("_closed_at", time.time())
+                    row.updated_at = datetime.utcnow()
+                    row.snapshot = json.dumps(snapshot)
+            db.session.commit()

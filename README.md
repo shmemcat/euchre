@@ -129,20 +129,19 @@ and difficulty tuning. Run `npm run benchmark:ai` to compare difficulties or
 
 ### Rejoining and timeouts
 
-Opening Play with an unfinished solo game offers Continue/Concede; online groups
-offer Rejoin/Leave. Conceding or leaving requires confirmation. Leaving a seat
-during an active game warns about the loss and bot takeover; waiting lobbies
-and groups between games have no forfeit warning.
+Play shows game cards for every unfinished bot or multiplayer game, with Resume
+and Concede actions. Starting or joining another game preserves those saves.
+Conceding requires confirmation and affects only the selected game.
 
-When a decision is available, a sound and shake remind the player after
-15 seconds. A warning appears at 9 minutes, followed by removal and bot takeover
-at 10 minutes. Bidding, discarding, playing, and Next Hand all count; waiting for
-other players does not. Making a move clears the warning.
+A sound and shake remind the player after 15 seconds when input is available.
+Started games have no inactivity or disconnect deadline. Bidding, discarding,
+playing, and Next Hand wait for the player to return. Conceding hands the seat
+to a bot while at least two humans remain; when only one human remains, the
+game and lobby close without counting the unfinished match as completed.
 
-Disconnects have a two-minute grace period. Rejoining in time keeps the seat;
-removed seats cannot be reclaimed during that game. Leaving explicitly forfeits
-the game and hands the seat to a bot. Lobby and game snapshots survive service
-restarts and expire after 20 minutes without activity.
+Waiting-lobby members have two minutes to reconnect before removal. The lobby
+closes after its last viewer has been away for two minutes. Host controls pass
+to the next remaining member if the host leaves or their grace expires.
 
 ## Getting Started
 
@@ -179,8 +178,8 @@ expire. Results are recorded once when a game finishes or is conceded. Only
 finished, non-conceded games count toward games played, win rates, score
 statistics, win streaks, and game-completion achievements.
 
-Solo saves and achievements remain browser-local; account-owned solo results
-sync to the service. Signed-in players receive server-recorded multiplayer
+Signed-in solo saves and results sync to the service for cross-device resume.
+Guests keep bot saves in their browser. Signed-in players receive server-recorded multiplayer
 results, deduplicated by account and game. Monthly and all-time multiplayer win
 leaderboards and User → Separate → Multiplayer keep Euchre results separate
 from Hearts statistics.

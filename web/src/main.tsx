@@ -1,3 +1,5 @@
+import { MotionProvider } from "./components/MotionProvider";
+import { syncMotionPreference } from "./lib/motionPreference";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -32,11 +34,16 @@ async function start() {
       }
    }
 
+   syncMotionPreference();
+   window.addEventListener("storage", syncMotionPreference);
+
    ReactDOM.createRoot(document.getElementById("root")!).render(
       <React.StrictMode>
          <HelmetProvider>
             <BrowserRouter basename={import.meta.env.BASE_URL}>
-               <App />
+               <MotionProvider>
+                  <App />
+               </MotionProvider>
             </BrowserRouter>
          </HelmetProvider>
       </React.StrictMode>

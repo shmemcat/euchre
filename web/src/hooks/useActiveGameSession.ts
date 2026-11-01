@@ -4,13 +4,14 @@ import { useMultiplayer } from "@/context/MultiplayerContext";
 
 export function useActiveGameSession() {
    const { loading } = useAuth();
-   const { game } = useGame();
+   const { game, loading: gameLoading } = useGame();
    const multi = useMultiplayer();
    const lobby =
       multi.resumeCode && multi.lobby?.code === multi.resumeCode
          ? multi.lobby
          : null;
-   const checking = !!loading || (!!multi.resumeCode && !lobby);
+   const checking =
+      !!loading || !!gameLoading || (!!multi.resumeCode && !lobby);
    const session =
       game && game.phase !== "game_over"
          ? {

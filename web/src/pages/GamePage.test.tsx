@@ -360,11 +360,11 @@ describe("Multiplayer opening animations", () => {
       onLeave: vi.fn(),
    });
 
-   it("shows and clears the server inactivity warning", () => {
+   it("ignores obsolete server inactivity warnings", () => {
       const connection = { ...online(), idleWarning: true };
       const game = fixture();
       const view = board(game, connection);
-      expect(screen.getByRole("alert")).toHaveTextContent("removed for inactivity in 1 minute");
+      expect(screen.queryByText(/removed for inactivity/)).not.toBeInTheDocument();
       connection.idleWarning = false;
       view.update({ ...game });
       expect(screen.queryByText(/removed for inactivity/)).not.toBeInTheDocument();

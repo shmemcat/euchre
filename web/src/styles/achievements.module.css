@@ -285,8 +285,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-   .badgeSparkle,
-   .toast {
+   :where(:global(:root:not([data-motion-override="true"]))) .badgeSparkle,
+   :where(:global(:root:not([data-motion-override="true"]))) .toast {
       animation: none;
    }
 }

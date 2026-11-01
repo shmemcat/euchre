@@ -5,9 +5,9 @@ from flask import abort, current_app, jsonify, request
 from euchre_server.account_access import accounts
 
 
-def body():
-    raw = request.stream.read(16385)
-    if len(raw) > 16384:
+def body(limit=16384):
+    raw = request.stream.read(limit + 1)
+    if len(raw) > limit:
         abort(413)
     try:
         value = json.loads(raw)
@@ -28,7 +28,8 @@ def csrf_error():
 def protect_account():
     if not current_app.config.get("CARDS_ACCOUNT_ENABLED"):
         return jsonify(error="Shared accounts are not configured."), 503
-    if request.content_length and request.content_length > 16384:
+    limit = 131072 if request.endpoint == "euchre_stats.save_game" else 16384
+    if request.content_length and request.content_length > limit:
         return jsonify(error="Account request is too large."), 413
     if request.method not in {"GET", "HEAD", "OPTIONS"} and not accounts().valid_csrf():
         return csrf_error()

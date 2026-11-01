@@ -64,11 +64,8 @@ def cmd(client, kind, **data):
     )
 
 
-def test_offline_decision_timeout_pauses_for_accounts_and_grants_recovery_time(
-    tables, accounts, existing_user
-):
+def test_account_outage_never_concedes_a_disconnected_started_seat(tables, accounts, existing_user):
     from euchre_server import app
-
     connect, tasks, mp = tables
     sign_in(accounts)
     host = connect(accounts)
@@ -77,20 +74,11 @@ def test_offline_decision_timeout_pauses_for_accounts_and_grants_recovery_time(
     table = mp.get_table(created["code"])
     table["game"].update(phase="bidding1", turn=0, passes=0)
     assert cmd(host, "watch", code=created["code"], token=created["token"])["ok"]
-    _, expire = idle_tasks(tasks, mp, created["token"])
+    tasks.clear()
+    app.extensions["accounts"].unavailable = True
     host.disconnect(namespace=mp.NS)
-    peer = app.extensions["accounts"]
-    peer.unavailable = True
-    expire()
-    assert not table["seats"][0].get("bot")
-    assert not table["participants"][0]["conceded"]
-    peer.unavailable = False
-    tasks[-1]()
-    assert not table["seats"][0].get(
-        "bot"
-    ), "Restored accounts must grant a fresh reconnect window"
-    tasks[-1]()
-    assert table["seats"][0]["bot"] and table["participants"][0]["conceded"]
+    assert not tasks and not mp._idle
+    assert not table["seats"][0].get("bot") and not table["participants"][0]["conceded"]
 
 
 def state(client):
@@ -101,83 +89,31 @@ def state(client):
     return events[-1]
 
 
-def idle_tasks(tasks, mp, token):
-    import inspect
-
-    timer = mp._idle[token]
-    callbacks = {}
-    for task in tasks:
-        captures = inspect.getclosurevars(task).nonlocals
-        if captures.get("timer") is timer:
-            callbacks[task.__name__] = task
-    return callbacks["warn"], callbacks["expire"]
 
 
-def test_idle_warning_move_cancellation_stale_callbacks_and_bot_takeover(
-    tables, monkeypatch
-):
-    from euchre_server import socketio
 
+@pytest.mark.parametrize("phase", ["bidding1", "bidding2", "discard", "playing", "round_complete"])
+def test_pending_human_decisions_wait_indefinitely_without_scheduling_expiry(tables, phase, monkeypatch):
     connect, tasks, mp = tables
     host, guest = connect(), connect()
     created = cmd(host, "create", name="Host")
-    code, token = created["code"], created["token"]
-    join(guest, code, 1)
-    assert cmd(host, "start")["ok"]
-    table = mp.get_table(code)
-    table["game"].update(phase="bidding1", turn=0, passes=0)
-    assert cmd(host, "watch", code=code, token=token)["ok"]
-    warn, expire = idle_tasks(tasks, mp, token)
-    delays = []
-    monkeypatch.setattr(socketio, "sleep", delays.append)
-    warn()
-    assert delays == [540]
-    assert state(host)["lobby"]["idleWarning"]
-    assert not state(guest)["lobby"]["idleWarning"]
-    timer = mp._idle[token]
-    assert not cmd(host, "action", revision=-1, action=dict(type="pass"))["ok"]
-    assert mp._idle[token] is timer
-    assert cmd(host, "action", revision=table["revision"], action=dict(type="pass"))[
-        "ok"
-    ]
-    assert not state(host)["lobby"]["idleWarning"]
-    expire()
-    assert delays[-1] == 600
-    assert not table["seats"][0]["bot"]
-    guest_token = table["seats"][1]["token"]
-    _, expire_guest = idle_tasks(tasks, mp, guest_token)
-    expire_guest()
-    assert table["seats"][1]["bot"]
-    assert state(guest)["lobby"]["removedReason"] == "idle"
-    assert not cmd(
-        guest, "action", revision=table["revision"], action=dict(type="pass")
-    )["ok"]
-    assert cmd(guest, "watch", code=code, token=guest_token)["ok"]
-    assert table["seats"][1]["bot"]
-
-
-def test_idle_expiry_pauses_during_account_outage(tables, accounts, existing_user):
-    from euchre_server import app
-
-    connect, tasks, mp = tables
-    sign_in(accounts)
-    host, guest = connect(accounts), connect()
-    created = cmd(host, "create")
     join(guest, created["code"], 1)
     assert cmd(host, "start")["ok"]
     table = mp.get_table(created["code"])
-    table["game"].update(phase="bidding1", turn=0, passes=0)
+    table["game"].update(phase=phase, turn=0)
+    if phase == "round_complete":
+        table["game"]["nextHandReady"] = [False] * 4
+    before = copy.deepcopy(table["game"])
+    tasks.clear()
+    future = mp.time.time() + 365 * 86400
+    monkeypatch.setattr(mp.time, "time", lambda: future)
     assert cmd(host, "watch", code=created["code"], token=created["token"])["ok"]
-    _, expire = idle_tasks(tasks, mp, created["token"])
-    peer = app.extensions["accounts"]
-    peer.unavailable = True
-    expire()
-    assert not table["seats"][0]["bot"]
-    peer.unavailable = False
-    tasks[-1]()
-    assert not table["seats"][0]["bot"]
-    tasks[-1]()
-    assert table["seats"][0]["bot"]
+    assert table["game"] == before and table["status"] == "playing"
+    assert not state(host)["lobby"]["idleWarning"]
+    assert not mp._idle and not tasks
+
+
+
 
 
 def join(client, code, seat, name="Guest"):
@@ -232,23 +168,28 @@ def test_ready_clicks_are_idempotent_bound_to_the_hand_and_skip_bots(tables):
 
 
 @pytest.mark.parametrize("departure", ["leave", "disconnect"])
-def test_waiting_player_replaced_by_a_bot_does_not_hold_up_the_next_hand(
-    tables, departure
-):
+def test_ready_waits_for_disconnected_players_and_skips_players_who_concede(tables, departure):
     connect, tasks, mp = tables
-    host, guest = connect(), connect()
+    host, guest, other = connect(), connect(), connect()
     code = cmd(host, "create", name="Host")["code"]
-    join(guest, code, 1)
+    token = join(guest, code, 1)
+    join(other, code, 2)
     assert cmd(host, "start")["ok"]
     table = mp.get_table(code)
     summary = passed_out(table)
     assert ready(host, summary)["ok"]
+    assert ready(other, summary)["ok"]
+    tasks.clear()
     if departure == "leave":
         assert cmd(guest, "leave")["ok"]
+        assert table["seats"][1]["bot"]
     else:
         guest.disconnect(namespace=mp.NS)
-        assert table["game"]["phase"] == "round_complete"
-        tasks[-1]()
+        assert table["game"]["phase"] == "round_complete" and not tasks
+        assert not table["seats"][1].get("bot")
+        restored = connect()
+        assert cmd(restored, "watch", code=code, token=token)["ok"]
+        assert ready(restored, summary)["ok"]
     assert table["game"]["phase"] == "bidding1"
     assert table["game"]["handNumber"] == summary["handNumber"] + 1
 
@@ -731,7 +672,7 @@ def test_pass_out_summaries_redeal_then_rotate_after_snapshot_reload(tables, dea
         assert [len(h) for h in game["hands"]] == [5, 5, 5, 5]
 
 
-def test_disconnect_and_reconnect_keep_original_idle_timer_and_restore_seat(tables):
+def test_disconnect_restart_and_reconnect_restore_the_same_seat_without_a_deadline(tables, monkeypatch):
     connect, tasks, mp = tables
     host, guest = connect(), connect()
     created = cmd(host, "create", name="Host")
@@ -741,20 +682,19 @@ def test_disconnect_and_reconnect_keep_original_idle_timer_and_restore_seat(tabl
     table = mp.get_table(code)
     table["game"].update(phase="bidding1", turn=0, passes=0)
     assert cmd(host, "watch", code=code, token=token)["ok"]
-    timer = mp._idle[token]
-    warn, expire = idle_tasks(tasks, mp, token)
+    before = copy.deepcopy(table["game"])
+    tasks.clear()
     host.disconnect(namespace=mp.NS)
-    assert mp._idle[token] is timer and not mp._disconnections
-    warn()
+    guest.disconnect(namespace=mp.NS)
+    future = mp.time.time() + 365 * 86400
+    monkeypatch.setattr(mp.time, "time", lambda: future)
+    mp._tables.clear()
     restored = connect()
     assert cmd(restored, "watch", code=code, token=token)["ok"]
-    assert state(restored)["lobby"]["idleWarning"]
-    assert mp._idle[token] is timer
-    restored.disconnect(namespace=mp.NS)
-    expire()
-    assert table["seats"][0]["bot"]
-    assert table["participants"][0]["removedReason"] == "idle"
-    assert table["host"] != token
+    recovered = mp.get_table(code)
+    assert recovered["game"] == before and recovered["status"] == "playing"
+    assert recovered["seats"][0]["token"] == token and not recovered["seats"][0].get("bot")
+    assert not state(restored)["lobby"]["idleWarning"] and not mp._idle and not tasks
 
 
 def test_explicit_departure_cannot_reclaim_or_name_team(tables):
@@ -834,7 +774,9 @@ def test_account_identity_comes_from_cookie_and_cannot_occupy_two_seats(
     assert table["seats"][0]["userId"] == 42
     assert table["seats"][0]["name"] == "existing_hearts"
     assert cmd(same_user, "watch", code=created["code"])["ok"]
-    assert not cmd(same_user, "join", seat=2, name="Spoofed")["ok"]
+    assert cmd(same_user, "join", seat=2, name="Spoofed")["ok"]
+    assert sum(bool(s and s.get("userId") == 42) for s in table["seats"]) == 1
+    assert table["seats"][2]["userId"] == 42
     assert not cmd(stranger, "watch", code=created["code"], token=created["token"])[
         "ok"
     ]
@@ -877,7 +819,7 @@ def test_cookie_connection_requires_csrf(accounts):
     assert not rejected.is_connected("/euchre")
 
 
-def test_last_player_leaving_finishes_as_loss(tables, accounts, existing_user):
+def test_last_player_leaving_cancels_without_counting_as_a_completed_game(tables, accounts, existing_user):
     from euchre_server.models import EuchreGameResult
 
     connect, tasks, mp = tables
@@ -887,8 +829,7 @@ def test_last_player_leaving_finishes_as_loss(tables, accounts, existing_user):
     assert cmd(host, "start")["ok"]
     assert cmd(host, "leave")["ok"]
     assert mp.get_table(created["code"])["status"] == "closed"
-    result = EuchreGameResult.query.one()
-    assert result.conceded and not result.won
+    assert EuchreGameResult.query.count() == 0
 
 
 @pytest.mark.parametrize("unseated", [False, True])
@@ -928,31 +869,7 @@ def test_waiting_members_survive_sleep_reload_and_only_last_explicit_leave_close
     assert mp.get_table(code)["status"] == "closed"
 
 
-def test_last_offline_player_is_only_removed_by_the_game_decision_timeout(
-    tables, accounts, existing_user
-):
-    from euchre_server.models import EuchreGameResult
 
-    connect, tasks, mp = tables
-    sign_in(accounts)
-    host = connect(accounts)
-    created = cmd(host, "create")
-    code, token = created["code"], created["token"]
-    assert cmd(host, "start")["ok"]
-    table = mp.get_table(code)
-    table["game"].update(phase="bidding1", turn=0, passes=0)
-    assert cmd(host, "watch", code=code, token=token)["ok"]
-    timer = mp._idle[token]
-    warn, expire = idle_tasks(tasks, mp, token)
-    host.disconnect(namespace=mp.NS)
-    assert table["status"] == "playing" and mp._idle[token] is timer
-    assert not mp._disconnections
-    warn()
-    assert not table["seats"][0].get("bot")
-    expire()
-    assert table["status"] == "closed"
-    assert EuchreGameResult.query.one().conceded
-    assert not EuchreGameResult.query.one().won
 
 
 def test_bot_runner_advances_automatically_after_human_action(tables):
@@ -1201,7 +1118,7 @@ def test_unseated_player_can_leave_and_disconnected_host_is_replaced(tables):
     code = created["code"]
     join(guest, code, 1)
     assert cmd(host, "unseat")["ok"]
-    assert not cmd(host, "create", name="Another table")["ok"]
+    assert cmd(host, "create", name="Another table")["ok"]
     host.disconnect(namespace=mp.NS)
     assert mp.get_table(code)["host"] == created["token"]
     host = connect()

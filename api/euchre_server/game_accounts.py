@@ -156,6 +156,7 @@ def _cleanup_euchre(user_id):
         EuchreGameResult,
         EuchreTable,
         EuchreAchievementState,
+        EuchreSavedGame,
     )
     from euchre_server import euchre_multiplayer as mp
 
@@ -189,6 +190,7 @@ def _cleanup_euchre(user_id):
             if socketio:
                 socketio.server.disconnect(sid, namespace="/euchre")
     EuchreGameResult.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    EuchreSavedGame.query.filter_by(user_id=user_id).delete(synchronize_session=False)
     EuchreAchievementState.query.filter_by(user_id=user_id).delete(
         synchronize_session=False
     )
@@ -286,6 +288,10 @@ def install_runtime(app):
         if request.endpoint in {
             "euchre_stats.save_results",
             "euchre_stats.achievement_state",
+            "euchre_stats.save_game",
+            "euchre_stats.saved_game",
+            "euchre_stats.saved_game_list",
+            "euchre_stats.saved_guest_lobbies",
         }:
             gate = app.extensions["game_account_gate"]
             gate.__enter__()

@@ -11,10 +11,12 @@ from euchre_server.account_access import session_user, accounts
 from euchre_server.extensions import db, limiter
 from euchre_server.models import EuchreGameResult, EuchreAchievementState
 from euchre_server.achievements import HAND_UNLOCKS
+from euchre_server.saved_games import register_saved_games
 
 euchre_bp = Blueprint("euchre_stats", __name__, url_prefix="/account/euchre")
 euchre_bp.before_request(protect_account)
 euchre_bp.after_request(no_store)
+register_saved_games(euchre_bp)
 BOT_DIFFICULTIES = {"easy", "medium", "hard", "harder", "hardest"}
 
 

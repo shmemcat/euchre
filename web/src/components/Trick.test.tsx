@@ -3,6 +3,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import { newGame, type Seat } from "@/game/engine";
 import { Trick } from "./Trick";
+import { MOTION_OVERRIDE_KEY } from "@/lib/motionPreference";
 
 vi.mock("@/context/SoundContext", () => ({
    useSound: () => ({ play: vi.fn() }),
@@ -97,6 +98,15 @@ function collection(winner: Seat, mobile = false, reducedMotion = false) {
 }
 
 describe("Trick sweep motion", () => {
+   it("restores trick movement when the site override is enabled", () => {
+      localStorage.setItem(MOTION_OVERRIDE_KEY, "true");
+      const view = collection(1, false, true);
+      expect(animate.mock.calls[0][0].at(-1)).toEqual({
+         opacity: 0,
+         transform: "translate(-106px, -100px)",
+      });
+      view.unmount();
+   });
    it.each(
       ([0, 1, 2, 3] as Seat[]).flatMap((winner) =>
          [false, true].map((mobile) => ({ winner, mobile }))

@@ -48,3 +48,15 @@ class EuchreAchievementState(db.Model):
 
     user_id = db.Column(db.Integer, primary_key=True)
     unlocks = db.Column(db.JSON, nullable=False, default=list)
+
+
+class EuchreSavedGame(db.Model):
+    __tablename__ = "euchre_saved_games"
+
+    game_id = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False, index=True)
+    game = db.Column(db.JSON, nullable=False)
+    revision = db.Column(db.Integer, nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}
