@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreferencesProvider } from "@/context/PreferencesContext";
 import { useGame } from "@/context/GameContext";
+import { useAuth } from "@/context/AuthContext";
 import {
    applyAction,
    cardName,
@@ -20,6 +21,7 @@ import cardStyles from "@/styles/card.module.css";
 import { GOING_ALONE_NOTICE_MS, OPENING_DEAL_MS } from "@/hooks/useOpeningSequence";
 
 vi.mock("@/context/GameContext", () => ({ useGame: vi.fn() }));
+vi.mock("@/context/AuthContext", () => ({ useAuth: vi.fn() }));
 vi.mock("@/components/Navbar", () => ({
    Navbar: () => <nav aria-label="Main navigation" />,
 }));
@@ -28,6 +30,7 @@ vi.mock("@/context/SoundContext", () => ({ useSound: () => sound }));
 
 const takeAction = vi.fn();
 const concedeGame = vi.fn();
+let accountUser: ReturnType<typeof useAuth>["user"] = null;
 const workers: TestWorker[] = [];
 class TestWorker {
    onmessage: ((event: { data: { action: Action } }) => void) | null = null;
@@ -503,6 +506,10 @@ describe("Multiplayer opening animations", () => {
 });
 
 beforeEach(() => {
+   accountUser = null;
+   vi.mocked(useAuth).mockImplementation(
+      () => ({ user: accountUser } as ReturnType<typeof useAuth>)
+   );
    takeAction.mockReset();
    concedeGame.mockReset();
    sound.play.mockReset();
@@ -931,6 +938,51 @@ describe.each(["single", "multiplayer"])(
 );
 
 describe("Quiet Table game controls", () => {
+   it("uses the current profile icon in solo games, including after a profile change", () => {
+      accountUser = { id: "alice", name: "Alice", profile_icon: "sparkles" };
+      const game = fixture({ playerName: "Alice" });
+      const view = board(game);
+      const playerIcon = () => view.container.querySelector(".seat-0 .seat-icon");
+      expect(playerIcon()).toHaveAttribute("data-icon", "sparkles");
+      for (const seat of [1, 2, 3])
+         expect(view.container.querySelector(`.seat-${seat} .seat-icon`))
+            .toHaveAttribute("data-icon", "robot");
+
+      accountUser = { ...accountUser, profile_icon: "cat" };
+      view.update(game);
+      expect(playerIcon()).toHaveAttribute("data-icon", "cat");
+   });
+
+   it("uses the default person icon for a solo guest", () => {
+      const view = board(fixture());
+      expect(view.container.querySelector(".seat-0 .seat-icon"))
+         .toHaveAttribute("data-icon", "user");
+   });
+
+   it.each([false, true])(
+      "uses the table's player icons in multiplayer (spectating=%s)",
+      (spectating) => {
+         accountUser = { id: "alice", name: "Alice", profile_icon: "sparkles" };
+         const view = board(fixture({
+            humanSeats: [true, false, true, false],
+            seatIcons: ["cat", "cat", "dog", "dog"],
+         }), {
+            spectating,
+            act: vi.fn(),
+            saved: true,
+            error: "",
+            disabled: false,
+            isHost: false,
+            onRematch: vi.fn(),
+            onLobby: vi.fn(),
+            onLeave: vi.fn(),
+         });
+         for (const [seat, icon] of ["cat", "robot", "dog", "robot"].entries())
+            expect(view.container.querySelector(`.seat-${seat} .seat-icon`))
+               .toHaveAttribute("data-icon", icon);
+      }
+   );
+
    it("shows single-player bot initials in compact seat badges", () => {
       const game = fixture({ seatNames: ["You", "Mary", "Duffy", "Tim"] });
       board(game);

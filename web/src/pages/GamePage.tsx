@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCrown, faUser, faRobot } from "@fortawesome/pro-solid-svg-icons";
+import { faCrown, faRobot } from "@fortawesome/pro-solid-svg-icons";
 import { Navbar } from "@/components/Navbar";
 import { Button, MenuLink } from "@/components/Buttons";
 import { Card, SuitIcon } from "@/components/Card";
@@ -24,6 +24,7 @@ import {
 import { useMultiplayerOpeningSequence } from "@/hooks/useMultiplayerOpeningSequence";
 import { useInactivityNudge } from "@/hooks/useInactivityNudge";
 import { useGame } from "@/context/GameContext";
+import { useAuth } from "@/context/AuthContext";
 import { useSound } from "@/context/SoundContext";
 import { mediumAction } from "@/game/ai";
 import {
@@ -92,6 +93,7 @@ export type OnlineGame = {
 export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    const spectating = !!online?.spectating;
    const single = useGame();
+   const { user } = useAuth();
    const navigate = useNavigate();
    const [params] = useSearchParams();
    const requested = online ? null : params.get("game_id");
@@ -376,10 +378,12 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                <span className="seat-name">
                   <FontAwesomeIcon
                      icon={
-                        game.seatIcons && game.humanSeats?.[s]
-                           ? getProfileIcon(game.seatIcons[s])
-                           : (game.humanSeats ? game.humanSeats[s] : s === 0)
-                           ? faUser
+                        (game.humanSeats ? game.humanSeats[s] : s === 0)
+                           ? getProfileIcon(
+                                !online && s === 0
+                                   ? user?.profile_icon
+                                   : game.seatIcons?.[s]
+                             )
                            : faRobot
                      }
                      className="seat-icon"
