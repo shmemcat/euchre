@@ -88,6 +88,12 @@ beforeEach(() => {
    }));
 });
 
+it("opens a started invite at the live table for an unseated visitor", async () => {
+   lobby = { ...lobby, status: "playing", seat: null, isMember: false, isHost: false, gameId: "live" };
+   render(page());
+   expect(await screen.findByText("Playing with your group")).toBeInTheDocument();
+});
+
 it("lets the first teammate save a name and shows saved names to everyone", async () => {
    const user = userEvent.setup();
    const view = render(page());

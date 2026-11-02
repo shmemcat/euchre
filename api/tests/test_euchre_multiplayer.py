@@ -64,6 +64,31 @@ def cmd(client, kind, **data):
     )
 
 
+def test_started_invite_spectates_live_without_membership_or_private_cards(tables):
+    connect, _, mp = tables
+    host, friend, spectator = connect(), connect(), connect()
+    code = cmd(host, "create", name="Host")["code"]
+    join(friend, code, 2)
+    assert cmd(host, "start")["ok"]
+    table = mp.get_table(code)
+    before = copy.deepcopy(table)
+    assert cmd(spectator, "watch", code=code)["ok"]
+    view = state(spectator)
+    assert view["lobby"]["seat"] is None
+    assert not view["lobby"]["isMember"] and not view["lobby"]["isHost"]
+    assert view["game"]["spectating"]
+    assert all(card is None for hand in view["game"]["hands"] for card in hand)
+    assert not view["game"]["kitty"]
+    assert table == before
+    assert not cmd(spectator, "action", action={"type": "pass"}, revision=table["revision"])["ok"]
+    assert not cmd(spectator, "start")["ok"]
+    assert table == before
+    table["game"].update(turn=0, phase="bidding1", passes=0)
+    assert cmd(host, "action", action={"type": "pass"}, revision=table["revision"])["ok"]
+    assert state(spectator)["game"]["passes"] == table["game"]["passes"]
+    assert cmd(spectator, "unwatch", code=code)["ok"]
+
+
 def test_account_outage_never_concedes_a_disconnected_started_seat(tables, accounts, existing_user):
     from euchre_server import app
     connect, tasks, mp = tables
@@ -1204,7 +1229,7 @@ def test_waiting_room_allows_extra_players_without_blocking_a_seated_game(tables
         assert cmd(player, "watch", code=code)["ok"]
     assert len(state(players[0])["lobby"]["unseated"]) == 2
     assert cmd(players[0], "start")["ok"]
-    assert state(players[4])["game"] is None
+    assert state(players[4])["game"]["spectating"]
     assert cmd(players[4], "leave")["ok"]
     assert len(state(players[0])["lobby"]["unseated"]) == 1
     players[5].disconnect(namespace=mp.NS)

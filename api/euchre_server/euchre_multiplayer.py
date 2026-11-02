@@ -259,8 +259,10 @@ def public(table, token):
 
 def game_view(table, token):
     seat = seat_for(table, token)
-    if seat is None or not table["game"]:
+    if not table["game"]:
         return None
+    spectating = seat is None
+    seat = 0 if spectating else seat
     g = copy.deepcopy(table["game"])
     rotate = lambda s: (s - seat) % 4 if s is not None else None
     side = seat % 2
@@ -268,7 +270,7 @@ def game_view(table, token):
     g["hands"] = [
         (
             list(g["hands"][(i + seat) % 4])
-            if i == 0
+            if i == 0 and not spectating
             else [None] * len(g["hands"][(i + seat) % 4])
         )
         for i in range(4)
@@ -306,6 +308,7 @@ def game_view(table, token):
         ]
     g["teamNames"] = [table["teams"][i]["name"] for i in (side, 1 - side)]
     g["playerName"] = seats[0]["name"]
+    g["spectating"] = spectating
     participant = next((p for p in table["participants"] if p["token"] == token), None)
     if g["phase"] == "game_over" and participant and participant["conceded"]:
         g["conceded"] = True
@@ -733,7 +736,7 @@ def register_euchre_socket(socketio, app):
                     if (
                         s is None
                         and not member_for(table, token)
-                        and table["status"] != "closed"
+                        and table["status"] == "waiting"
                     ):
                         if len(table["unseated"]) >= 32:
                             raise ValueError("The lobby waiting room is full.")

@@ -80,6 +80,18 @@ function board(game: Game, online?: Omit<OnlineGame, "game">) {
    };
 }
 
+it.each(["bidding1", "playing", "round_complete", "game_over"] as const)("renders concealed spectator hands without player controls during %s", phase => {
+   const game = fixture({ phase, spectating: true, hands: Array.from({ length: 4 }, () => [null, null]) as unknown as Game["hands"],
+      seatNames: ["Alice", "Bob", "Carol", "Dan"], teamNames: ["Team 1", "Team 2"], trump: phase === "bidding1" ? null : "s", maker: 0 });
+   const send = vi.fn();
+   board(game, { spectating: true, act: send, saved: true, error: "", disabled: false, isHost: false,
+      onRematch: send, onLobby: send, onLeave: send });
+   expect(screen.queryByRole("region", { name: "Your hand" })).not.toBeInTheDocument();
+   expect(screen.queryByRole("button", { name: "Next Hand" })).not.toBeInTheDocument();
+   expect(screen.queryByRole("button", { name: "Pass", exact: true })).not.toBeInTheDocument();
+   expect(send).not.toHaveBeenCalled();
+});
+
 describe("Unlimited single-player thinking time", () => {
    it.each([
       "bidding1", "bidding2", "discard", "playing", "round_complete",

@@ -77,6 +77,7 @@ function hint(game: Game): string {
 }
 
 export type OnlineGame = {
+   spectating?: boolean;
    game: Game;
    act: (action: Action) => void;
    saved: boolean;
@@ -88,6 +89,7 @@ export type OnlineGame = {
    onLeave: () => void;
 };
 export default function GamePage({ online }: { online?: OnlineGame } = {}) {
+   const spectating = !!online?.spectating;
    const single = useGame();
    const navigate = useNavigate();
    const [params] = useSearchParams();
@@ -117,7 +119,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
       online ? currentGame : null,
       apply,
       paused,
-      online?.disabled ?? false
+      spectating || (online?.disabled ?? false)
    );
    const game = online ? multiplayerOpening.game : restoring ? null : currentGame;
    const opening = online ? multiplayerOpening : singleOpening;
@@ -280,9 +282,9 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
             </div>
          </main>
       );
-   const humanTurn = game.turn === 0;
+   const humanTurn = !spectating && game.turn === 0;
    const bidding = game.phase === "bidding1" || game.phase === "bidding2";
-   const legal =
+   const legal = spectating ? [] :
       game.phase === "discard"
          ? game.hands[0]
          : game.phase === "playing"
@@ -317,7 +319,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
          ? "You are dealing…"
          : `${seatName(game, game.dealer)} is dealing…`;
    const deliveries = dealCards(game.dealer);
-   const phaseHint = hint(game);
+   const phaseHint = spectating ? `Watching · ${seatName(game, game.turn)}${bidding ? " is choosing trump…" : "’s turn"}` : hint(game);
    const pickup =
       opening.step?.kind === "pickup" && opening.step.seat === 0
          ? opening.step
@@ -326,7 +328,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
       opening.step?.kind === "discard" && opening.step.seat === 0
          ? opening.step.card
          : null;
-   const hand = sortHand(
+   const hand = spectating ? [] : sortHand(
       pickup ? [...game.hands[0], pickup.card] : game.hands[0],
       pickup?.suit ?? game.trump
    );
@@ -431,7 +433,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                </span>
             )}
          </div>
-         {(s !== 0 || dealing) && (
+         {(s !== 0 || dealing || spectating) && (
             <div
                className={`hidden-hand${dealing ? " deal-mini-hand" : ""}`}
                aria-label={
@@ -501,8 +503,8 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                         game={game}
                         open={info}
                         onOpenChange={setInfo}
-                        leaveDisabled={online?.disabled}
-                        leaveLabel={!online && !over ? "Concede" : "Leave Game"}
+                        leaveDisabled={!spectating && online?.disabled}
+                        leaveLabel={spectating ? "Stop Watching" : !online && !over ? "Concede" : "Leave Game"}
                         onLeave={() => {
                            setInfo(false);
                            if (online) online.onLeave();
@@ -652,7 +654,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      </div>
                   </div>
                </div>
-               <section
+               {!spectating && <section
                   className="hand-region"
                   aria-label="Your hand"
                   aria-hidden={dealing}
@@ -701,7 +703,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                         </div>
                      ))}
                   </div>
-               </section>
+               </section>}
                {dealing && (
                   <DealMotion
                      key={`${game.id}:${game.handNumber}`}
@@ -765,7 +767,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                <EuchreLogo size={65} />
                {!totalsOnly && (
                   <p>
-                     {last?.maker === 0
+                     {last?.maker === 0 && !spectating
                         ? "You"
                         : seatName(game, last?.maker ?? 0)}{" "}
                      called {last ? SUIT_NAMES[last.trump] : "trump"}
@@ -858,7 +860,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                   </div>
                )}
                <div className={over ? "game-complete-actions" : "button-stack"}>
-                  {over ? (
+                  {spectating ? <Button name="Stop Watching" onClick={online!.onLeave} /> : over ? (
                      online ? (
                         online.isHost ? (
                            <>

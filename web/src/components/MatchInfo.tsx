@@ -45,7 +45,7 @@ export function MatchInfo({
    }, [open, onOpenChange]);
 
    const maker =
-      game.maker === 0
+      game.maker === 0 && !game.spectating
          ? "You"
          : game.maker === null
          ? null

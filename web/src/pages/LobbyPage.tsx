@@ -255,12 +255,11 @@ export default function LobbyPage() {
    ]);
    useEffect(() => {
       if (
-         lobby?.seat !== null &&
-         lobby?.seat !== undefined &&
+         lobby &&
          (lobby.status === "playing" || lobby.status === "finished")
       )
          navigate(`/game/multi-play/${code}`, { replace: true });
-   }, [lobby?.status, lobby?.seat, code, navigate]);
+   }, [lobby?.status, code, navigate]);
 
    const run = async (data: Parameters<typeof multi.command>[0]) => {
       setBusy(true);

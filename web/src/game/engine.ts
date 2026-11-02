@@ -49,6 +49,7 @@ export type Action =
    | { type: "play"; card: Card }
    | { type: "advance" };
 export type Game = {
+   spectating?: boolean;
    version: 1;
    id: string;
    difficulty: Difficulty;

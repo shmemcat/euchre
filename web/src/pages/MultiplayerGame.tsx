@@ -15,17 +15,22 @@ export default function MultiplayerGame() {
    const [busy, setBusy] = useState(false);
    const lobby = multi.lobby?.code === code ? multi.lobby : null;
    const finished = multi.game?.phase === "game_over";
+   const spectating = lobby?.seat === null;
+   useEffect(() => {
+      if (multi.connected && spectating && !leaving && lobby?.status !== "closed")
+         void multi.command({ type: "watch", code }).catch(e => setError(e.message));
+   }, [multi.connected, spectating, leaving, lobby?.status, code, multi.command]);
    useEffect(() => {
       if (
          !leaving &&
          multi.connected &&
          lobby?.status !== "closed" &&
-         (!lobby || lobby.status === "waiting" || lobby.seat === null)
+         (!lobby || lobby.status === "waiting")
       )
          navigate(`/game/lobby/${code}`, { replace: true });
    }, [multi.connected, lobby?.status, lobby?.seat, code, navigate, leaving]);
    const send = (data: Parameters<typeof multi.command>[0]) => {
-      if (busy || !multi.connected) return;
+      if (spectating || busy || !multi.connected) return;
       setBusy(true);
       setError("");
       void multi
@@ -39,6 +44,13 @@ export default function MultiplayerGame() {
          .finally(() => setBusy(false));
    };
    const leaveLobby = () => {
+      if (spectating) {
+         setLeaving(true);
+         if (multi.connected)
+            void multi.command({ type: "unwatch", code }).catch(() => {}).finally(() => navigate("/play"));
+         else navigate("/play");
+         return;
+      }
       if (busy || !multi.connected) return;
       setLeaving(true);
       setBusy(true);
@@ -111,14 +123,15 @@ export default function MultiplayerGame() {
                error:
                   error ||
                   (!multi.connected
-                     ? "Connection lost. Reconnecting… Your seat is saved."
+                     ? spectating ? "Connection lost. Reconnecting…" : "Connection lost. Reconnecting… Your seat is saved."
                      : ""),
                isHost: lobby.isHost,
+               spectating,
                disabled: busy || !multi.connected,
                onRematch: () => send({ type: "play_again" }),
                onLobby: () => send({ type: "rematch" }),
                onLeave: () => {
-                  if (finished) leaveLobby();
+                  if (finished || spectating) leaveLobby();
                   else setLeaving(true);
                },
             }}

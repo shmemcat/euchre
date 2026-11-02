@@ -34,6 +34,20 @@ vi.mock("./GamePage", () => ({
    ),
 }));
 
+it("keeps spectators at the table and stops watching without conceding", async () => {
+   const command = vi.fn().mockResolvedValue({ ok: true });
+   vi.mocked(useMultiplayer).mockReturnValue({ lobby: {code:"ABC234",status:"playing",seat:null,isHost:false} as Lobby,
+      game: newGame("easy", "Alice"), connected: true, error:"",resumeCode:null,command });
+   render(<MemoryRouter initialEntries={["/game/multi-play/ABC234"]}><Routes>
+      <Route path="/game/multi-play/:code" element={<MultiplayerGame />} />
+      <Route path="/play" element={<p>Play menu</p>} />
+   </Routes></MemoryRouter>);
+   fireEvent.click(screen.getByRole("button",{name:"Leave Game"}));
+   expect(await screen.findByText("Play menu")).toBeInTheDocument();
+   expect(command).toHaveBeenCalledWith({type:"unwatch",code:"ABC234"});
+   expect(command.mock.calls.some(([data]) => data.type === "leave")).toBe(false);
+});
+
 it("explains a game closed by concessions and offers a return to Play", () => {
    const command = vi.fn();
    vi.mocked(useMultiplayer).mockReturnValue({
