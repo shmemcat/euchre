@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -43,6 +44,7 @@ export default function Profile() {
          setBusy(false);
       }
    };
+   if (!user && !loading) return <Navigate to="/user" replace />;
    return (
       <>
          <Helmet>

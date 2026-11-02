@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HelmetProvider } from "react-helmet-async";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuth } from "@/context/AuthContext";
 import Profile from "./Profile";
@@ -33,7 +33,12 @@ beforeEach(() => {
 function page(content = <Profile />) {
    return (
       <HelmetProvider>
-         <MemoryRouter initialEntries={["/profile"]}>{content}</MemoryRouter>
+         <MemoryRouter initialEntries={["/profile"]}>
+            <Routes>
+               <Route path="/profile" element={content} />
+               <Route path="/user" element={<h1>Sign in</h1>} />
+            </Routes>
+         </MemoryRouter>
       </HelmetProvider>
    );
 }
@@ -95,10 +100,9 @@ describe("Account profile", () => {
       expect(
          screen.queryByRole("button", { name: "Settings menu" })
       ).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Sign In" })).toHaveAttribute(
-         "href",
-         "/user"
-      );
+      expect(
+         screen.getByRole("heading", { name: "Sign in" })
+      ).toBeInTheDocument();
    });
 });
 describe("Leaderboard placeholder", () => {
