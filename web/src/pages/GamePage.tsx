@@ -16,6 +16,7 @@ import { Trick } from "@/components/Trick";
 import { Kitty } from "@/components/Kitty";
 import { OpeningMotion } from "@/components/OpeningMotion";
 import { DealMotion } from "@/components/DealMotion";
+import { GoingAloneNotice } from "@/components/GoingAloneNotice";
 import {
    OPENING_BOT_DELAY_MS,
    useOpeningSequence,
@@ -96,7 +97,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
    const requested = online ? null : params.get("game_id");
    const attempted = useRef<string | null>(null);
    const [resumeError, setResumeError] = useState("");
-   const { game: currentGame, act: apply, saved, error } = online ?? single;
+   const { game: currentGame, act: apply, error } = online ?? single;
    const restoring = !!requested && currentGame?.id !== requested;
    useEffect(() => {
       if (!restoring) { attempted.current = null; return; }
@@ -414,7 +415,7 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                {game.sittingOut === s ? (
                   <span className="seat-detail">Sitting out</span>
                ) : s === game.maker ? (
-                  <span className="seat-detail">
+                  <span className={`seat-detail${game.alone ? " seat-alone-label" : ""}`}>
                      <FontAwesomeIcon icon={faCrown} />{" "}
                      {game.alone ? "Going alone" : "Maker"}
                   </span>
@@ -514,6 +515,13 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                      />
                   </div>
                   <div className="game-table">
+                     {opening.step?.kind === "alone" && (
+                        <GoingAloneNotice
+                           game={game}
+                           step={opening.step}
+                           spectating={spectating}
+                        />
+                     )}
                      {seat(1)}
                      {seat(3)}
                      <div className="table-center">
@@ -720,11 +728,6 @@ export default function GamePage({ online }: { online?: OnlineGame } = {}) {
                {(error || botError) && (
                   <p role="alert" className="inline-error">
                      {error || botError}
-                  </p>
-               )}
-               {!saved && (
-                  <p role="status" className="inline-error">
-                     Saving your game… Keep this tab open until it’s saved.
                   </p>
                )}
             </div>

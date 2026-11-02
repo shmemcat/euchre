@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyAction, newGame, suitOf, type Game } from "@/game/engine";
 import { useMultiplayerOpeningSequence } from "./useMultiplayerOpeningSequence";
-import { OPENING_DEAL_MS } from "./useOpeningSequence";
+import { GOING_ALONE_NOTICE_MS, OPENING_DEAL_MS } from "./useOpeningSequence";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("@/context/SoundContext", () => ({ useSound: () => sound }));
@@ -226,17 +226,31 @@ describe("Multiplayer opening playback", () => {
       expect(view.result.current.step?.kind).toBe("deal");
    });
 
-   it("announces second-round trump without picking up the kitty", () => {
+   it("announces a lone call once before the first lead, including duplicate snapshots", () => {
       const game = { ...fresh(), phase: "bidding2" as const };
       const view = opening(game);
       const suit = suitOf(game.upCard) === "h" ? "s" : "h";
       const target = view.server(
          applyAction(game, { type: "call", suit, alone: true })
       );
-      expect(view.result.current.step).toMatchObject({ kind: "bid", suit });
-      advance(1250);
+      expect(view.result.current.step).toMatchObject({ kind: "alone", suit });
+      advance(800);
+      view.server({ ...target });
+      view.configure({ paused: true });
+      advance(5000);
+      expect(view.result.current.step?.kind).toBe("alone");
+      view.configure({ paused: false });
+      advance(GOING_ALONE_NOTICE_MS - 801);
+      expect(view.result.current.step?.kind).toBe("alone");
+      advance(1);
       expect(view.result.current.step).toBeNull();
-      expect(view.result.current.game).toBe(target);
+      expect(view.result.current.game).toMatchObject({ alone: true, phase: "playing" });
+      expect(sound.play).toHaveBeenCalledExactlyOnceWith("trump");
+      expect(view.actions).not.toHaveBeenCalled();
+      view.unmount();
+      const restored = opening(target);
+      expect(restored.result.current.step).toBeNull();
+      expect(sound.play).toHaveBeenCalledOnce();
    });
 
    it("sounds your confirmed second-round call even though it needs no flight or toast", () => {

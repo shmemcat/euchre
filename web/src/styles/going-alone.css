@@ -1,0 +1,69 @@
+/* Golf's centered announcement, using the table ribbon in both themes. */
+.game-table {
+   position: relative;
+}
+.going-alone-announcer {
+   position: absolute;
+   inset: 0;
+   z-index: 45;
+   display: grid;
+   place-items: center;
+   pointer-events: none;
+}
+.going-alone-ribbon {
+   width: calc(100% - 24px);
+   padding: 15px 20px;
+   border-radius: 8px;
+   background: var(--lightpink);
+   color: var(--buttontext);
+   text-align: center;
+   animation: going-alone-fade ease-in-out both;
+}
+.going-alone-ribbon strong {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   font-size: 22px;
+   font-weight: 600;
+   line-height: 1.3;
+   overflow-wrap: anywhere;
+}
+.going-alone-ribbon strong > svg {
+   flex-shrink: 0;
+   font-size: 17px;
+}
+.going-alone-detail {
+   display: block;
+   margin-top: 4px;
+   font-size: 13px;
+   line-height: 1.5;
+   overflow-wrap: anywhere;
+}
+.going-alone-detail > span:first-child {
+   display: inline-block;
+}
+.going-alone-ribbon :is(.red-suit, .black-suit) {
+   color: inherit;
+}
+[data-opening-paused="true"] .going-alone-ribbon {
+   animation-play-state: paused;
+}
+@keyframes going-alone-fade {
+   0%, 100% { opacity: 0; }
+   12%, 88% { opacity: 1; }
+}
+@media (max-width: 768px) {
+   .going-alone-ribbon {
+      width: 100%;
+      padding: 15px 12px;
+   }
+   .going-alone-ribbon strong {
+      font-size: 21px;
+   }
+}
+@media (prefers-reduced-motion: reduce) {
+   :where(:root:not([data-motion-override="true"])) .going-alone-ribbon {
+      animation: none;
+   }
+}

@@ -19,6 +19,7 @@ import {
 export type OpeningStep =
    | { kind: "deal"; duration: number }
    | { kind: "bid"; duration: number; seat: Seat; text: string; suit?: Suit }
+   | { kind: "alone"; duration: number; seat: Seat; suit: Suit }
    | { kind: "turn-down"; duration: number }
    | {
         kind: "pickup" | "receive";
@@ -40,6 +41,7 @@ type Sequence = {
 const OPENING_PAUSE_MS = 150;
 export const OPENING_BOT_DELAY_MS = 850 + OPENING_PAUSE_MS;
 export const OPENING_DEAL_MS = DEAL_DURATION_MS;
+export const GOING_ALONE_NOTICE_MS = 2500;
 
 export function openingSteps(
    game: Game,
@@ -47,7 +49,14 @@ export function openingSteps(
 ): OpeningStep[] {
    const steps: OpeningStep[] = [];
    if (action.type === "pass" || action.type === "call") {
-      if (game.turn !== 0)
+      if (action.type === "call" && action.alone)
+         steps.push({
+            kind: "alone",
+            duration: GOING_ALONE_NOTICE_MS,
+            seat: game.turn,
+            suit: action.suit,
+         });
+      else if (game.turn !== 0)
          steps.push({
             kind: "bid",
             duration: 1100 + OPENING_PAUSE_MS,

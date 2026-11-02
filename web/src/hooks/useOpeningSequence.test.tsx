@@ -8,7 +8,7 @@ import {
    type Action,
    type Game,
 } from "@/game/engine";
-import { OPENING_DEAL_MS, useOpeningSequence } from "./useOpeningSequence";
+import { GOING_ALONE_NOTICE_MS, OPENING_DEAL_MS, useOpeningSequence } from "./useOpeningSequence";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("@/context/SoundContext", () => ({ useSound: () => sound }));
@@ -47,6 +47,29 @@ afterEach(() => {
 });
 
 describe("Opening sequence", () => {
+   it.each([0, 1] as const)("holds seat %i's lone call before dealer pickup or the first lead", seat => {
+      for (const phase of ["bidding1", "bidding2"] as const) {
+         const game = { ...fresh(), turn: seat, passes: 1, phase };
+         const suit = phase === "bidding1" ? suitOf(game.upCard)
+            : suitOf(game.upCard) === "h" ? "s" : "h";
+         const view = opening(game);
+         view.perform({ type: "call", suit, alone: true });
+         expect(view.result.current.step).toMatchObject({ kind: "alone", seat, suit });
+         advance(GOING_ALONE_NOTICE_MS - 1);
+         expect(view.actions).not.toHaveBeenCalled();
+         advance(1);
+         if (phase === "bidding1") {
+            expect(view.result.current.step?.kind).toBe("pickup");
+            expect(view.actions).not.toHaveBeenCalled();
+            advance(550);
+         }
+         expect(view.actions).toHaveBeenCalledExactlyOnceWith({ type: "call", suit, alone: true });
+         expect(view.result.current.game.alone).toBe(true);
+         expect(view.result.current.busy).toBe(false);
+         view.unmount();
+      }
+   });
+
    it("shows a fresh hand immediately when reduced motion is requested", () => {
       vi.stubGlobal("matchMedia", () => ({ matches: true }));
       const view = opening(fresh());

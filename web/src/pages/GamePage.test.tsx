@@ -17,7 +17,7 @@ import {
 } from "@/game/engine";
 import GamePage, { type OnlineGame } from "./GamePage";
 import cardStyles from "@/styles/card.module.css";
-import { OPENING_DEAL_MS } from "@/hooks/useOpeningSequence";
+import { GOING_ALONE_NOTICE_MS, OPENING_DEAL_MS } from "@/hooks/useOpeningSequence";
 
 vi.mock("@/context/GameContext", () => ({ useGame: vi.fn() }));
 vi.mock("@/components/Navbar", () => ({
@@ -79,6 +79,43 @@ function board(game: Game, online?: Omit<OnlineGame, "game">) {
       },
    };
 }
+
+it.each(["single", "online", "spectator"])("announces a lone call for %s without replaying it on updates or rejoining", mode => {
+   vi.useFakeTimers();
+   const game = fixture({ phase: "bidding2", turn: 1, seatNames: ["You", "West", "North", "East"] });
+   const connection: Omit<OnlineGame, "game"> | undefined = mode === "single" ? undefined : {
+      spectating: mode === "spectator", act: takeAction, saved: true, error: "", disabled: false, isHost: false,
+      onRematch: vi.fn(), onLobby: vi.fn(), onLeave: vi.fn(),
+   };
+   const view = board(game, connection);
+   const action = { type: "call", suit: "h", alone: true } as const;
+   const called = applyAction(game, action);
+   if (mode === "single") {
+      act(() => workers.at(-1)!.onmessage?.({ data: { action } }));
+      act(() => vi.advanceTimersByTime(1000));
+   } else view.update(called);
+   const ribbon = screen.getByRole("status", { name: "Going alone" });
+   expect(ribbon).toHaveTextContent("West is going alone");
+   expect(ribbon).toHaveTextContent("Hearts are trump · East sits out");
+   expect(view.container.querySelector(".bid-toast")).not.toBeInTheDocument();
+   act(() => vi.advanceTimersByTime(GOING_ALONE_NOTICE_MS - 1));
+   expect(ribbon).toBeInTheDocument();
+   act(() => vi.advanceTimersByTime(1));
+   if (mode === "single") {
+      expect(takeAction).toHaveBeenCalledExactlyOnceWith(action);
+      view.update(called);
+   }
+   expect(screen.queryByRole("status", { name: "Going alone" })).not.toBeInTheDocument();
+   expect(view.container.querySelector(".seat-1 .seat-alone-label")).toHaveTextContent("Going alone");
+   expect(view.container.querySelector(".seat-3 .seat-detail")).toHaveTextContent("Sitting out");
+   view.update({ ...called });
+   expect(screen.queryByRole("status", { name: "Going alone" })).not.toBeInTheDocument();
+   expect(sound.play).toHaveBeenCalledExactlyOnceWith("trump");
+   view.unmount();
+   const restored = board(called, connection);
+   expect(screen.queryByRole("status", { name: "Going alone" })).not.toBeInTheDocument();
+   expect(restored.container.querySelector(".seat-1 .seat-alone-label")).toHaveTextContent("Going alone");
+});
 
 it.each(["bidding1", "playing", "round_complete", "game_over"] as const)("renders concealed spectator hands without player controls during %s", phase => {
    const game = fixture({ phase, spectating: true, hands: Array.from({ length: 4 }, () => [null, null]) as unknown as Game["hands"],
@@ -1260,6 +1297,9 @@ describe("Quiet Table game controls", () => {
       expect(within(hand).getAllByRole("img")).toHaveLength(5);
       fireEvent.click(screen.getByRole("checkbox", { name: "Go alone" }));
       fireEvent.click(screen.getByRole("button", { name: /Order up/i }));
+      expect(takeAction).not.toHaveBeenCalled();
+      expect(screen.getByRole("status", { name: "Going alone" })).toHaveTextContent("You are going alone");
+      act(() => vi.advanceTimersByTime(GOING_ALONE_NOTICE_MS));
       expect(takeAction).not.toHaveBeenCalled();
       act(() => vi.advanceTimersByTime(550));
       expect(takeAction).toHaveBeenCalledWith({

@@ -358,6 +358,13 @@
 .seat-detail svg {
    font-size: 10px;
 }
+.seat-alone-label {
+   padding: 3px 6px;
+   border-radius: 5px;
+   background: var(--lightpink);
+   color: var(--buttontext);
+   opacity: 1;
+}
 .seat-sitting-out .player-seat-card {
    opacity: 0.55;
 }
@@ -914,6 +921,13 @@
    font-size: 21px;
 }
 @media (min-width: 769px) {
+   .seat-icon {
+      color: var(--text);
+      opacity: 1;
+   }
+   .seat-teammate .seat-icon {
+      color: var(--lightpink);
+   }
    .phase-area:has(.bid-controls) {
       justify-self: center;
       width: max-content;
@@ -1142,12 +1156,16 @@
       padding: 0 6px;
       box-sizing: border-box;
       border-radius: 8px;
-      background: var(--seatcolorbadgebg);
-      color: var(--seatcolorbadgetext);
+      background: var(--text);
+      color: var(--contentbox);
       font-size: 20px;
       font-weight: 700;
       letter-spacing: 0.5px;
       line-height: 1;
+   }
+   .seat-teammate .seat-badge {
+      background: var(--lightpink);
+      color: var(--buttontext);
    }
    .seat-detail {
       font-size: 11px;
@@ -1186,6 +1204,22 @@
    }
    .seat-sitting-out .seat-detail {
       display: block;
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+   }
+   .seat-detail.seat-alone-label {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      width: max-content;
+      font-size: 12px;
    }
    /* Keep dealer pickup/discard targets visible until the opening is complete. */
    .game-container .hidden-hand {
