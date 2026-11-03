@@ -30,7 +30,6 @@ export default function Play() {
             </div>
             <InProgressGames
                games={saved.games}
-               loading={saved.checking}
                error={saved.error}
                onRetry={saved.retry}
                onResume={async (id) => {
